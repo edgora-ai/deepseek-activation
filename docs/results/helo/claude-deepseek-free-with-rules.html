@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Helicopter Simulator — Three.js</title>
+<style>
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #87b7e8; }
+  body { font-family: "Segoe UI", system-ui, Arial, sans-serif; }
+  canvas { display: block; }
+  #hud { position: fixed; top: 14px; left: 14px; color: #eaf6ff; font-size: 13px; line-height: 1.7;
+         text-shadow: 0 1px 3px rgba(0,0,0,.85); pointer-events: none; z-index: 10;
+         background: rgba(8,20,36,.45); padding: 10px 14px 12px; border-radius: 8px;
+         border: 1px solid rgba(255,255,255,.18); backdrop-filter: blur(3px); min-width: 215px; }
+  #hud h1 { margin: 0 0 6px; font-size: 12px; letter-spacing: 2px; font-weight: 600; color: #bfe3ff; }
+  #hud .row { display: flex; justify-content: space-between; gap: 14px; }
+  #hud .lbl { color: #9fc4e0; }
+  #hud .small { margin-top: 8px; color: #8fb0cc; font-size: 11px; line-height: 1.5; }
+  .bar { height: 3px; background: rgba(255,255,255,.15); border-radius: 2px; margin-top: 8px; }
+  .bar > div { height: 100%; border-radius: 2px; background: linear-gradient(90deg,#18c18c,#9ff0cd); transition: width .12s; }
+  .bar > div.hot { background: linear-gradient(90deg,#ffb84d,#ff7b4d); }
+  #msg { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); color: #fff; font-size: 13px;
+         text-align: center; text-shadow: 0 1px 4px rgba(0,0,0,.9); line-height: 1.8; z-index: 10;
+         background: rgba(8,20,36,.55); padding: 8px 16px; border-radius: 8px; pointer-events: none;
+         border: 1px solid rgba(255,255,255,.15); }
+  #msg b { color: #ffdc7a; }
+  #slow { color: #ffd2a8; }
+  @media (max-width: 640px) { #hud { font-size: 11px; } #hud .small { display: none; } }
+</style>
+</head>
+<body>
+<div id="hud">
+  <h1>HELICOPTER SIM</h1>
+  <div class="row"><span class="lbl">ALT</span><span id="v-alt">0 m</span></div>
+  <div class="row"><span class="lbl">SPEED</span><span id="v-spd">0 km/h</span></div>
+  <div class="row"><span class="lbl">V/S</span><span id="v-vs">0 m/s</span></div>
+  <div class="row"><span class="lbl">PITCH / ROLL</span><span id="v-att">0° / 0°</span></div>
+  <div class="row"><span class="lbl">RPM</span><span id="v-rpm">0</span></div>
+  <div class="row"><span class="lbl">COLLECTIVE</span><span id="v-thr">0 %</span></div>
+  <div class="bar"><div id="v-thrbar" style="width:0%"></div></div>
+  <div class="small">
+    <b>W/S</b> pitch &nbsp;<b>A/D</b> roll &nbsp;<b>Q/E</b> yaw<br>
+    <b>SPACE</b> throttle &nbsp;<b>↑/↓</b> collective &nbsp;<b>←/→</b> cyclic<br>
+    <b>R</b> reset &nbsp; <b>drag mouse</b> orbit camera &nbsp; <b>wheel</b> zoom
+  </div>
+</div>
+<div id="msg">Waiting for flight clearance… <span id="slow"></span></div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+/* ----------------------------- helpers ----------------------------- */
+
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+let transIdx = 0;
+function material(color, opts = {}) {
+  transIdx++;
+  return new THREE.MeshStandardMaterial({
+    color, roughness: (opts.roughness ?? 0.65), metalness: (opts.metalness ?? 0.15),
+    side: opts.side ?? THREE.DoubleSide, flatShading: opts.flatShading ?? true,
+    transparent: opts.transparent ?? false, opacity: opts.opacity ?? 1,
+    envMapIntensity: opts.envMapIntensity ?? 1.0,
+    name: 'mat' + (transIdx++)
+  });
+}
+
+/* ----------------------------- code editor: hacker aesthetic ----------------------------- */
+const C = {
+  dk: 0x1b2430,      // fuselage base
+  tank: 0x223041,    // belly
+  skid: 0x3d4c5f,    // skids
+  red: 0xde2b1f,     // accent
+  darkGreen: 0x1f3d29, cabinGreen: 0x2f5c40, windGreen: 0x3f7352,
+  rotor: 0x232b34,   // rotor blades (dark carbon)
+  rotorTip: 0xe8eeff,// rotor tip accents (white reflective)
+  metal: 0x9fb0c0,   // drivetrain / mast
+  dash: 0x141c26,    // instrument panel
+  glass: 0x9fd8f2,   // canopy glass
+  tail: 0x1b2430,    // tail boom / fin
+  yawText: 0xe8eeff, // tail rotor text
+};
+const WG = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+const canvas = WG.domElement;
+WG.setPixelRatio(clamp(window.devicePixelRatio, 1, 2));
+WG.setSize(window.innerWidth, window.innerHeight);
+WG.shadowMap.enabled = true;
+WG.shadowMap.type = THREE.PCFSoftShadowMap;
+WG.outputColorSpace = THREE.SRGBColorSpace;
+WG.toneMapping = THREE.ACESFilmicToneMapping;
+WG.toneMappingExposure = 1.08;
+document.body.appendChild(canvas);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x8fb7e2, 1600, 5200);
+scene.background = new THREE.Color(0x87b7e8);
+
+const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 6000);
+camera.position.set(15, 6.5, 17);
+
+const cssRenderer = new CSS2DRenderer();
+cssRenderer.setSize(window.innerWidth, window.innerHeight);
+cssRenderer.domElement.style.position = 'fixed';
+cssRenderer.domElement.style.top = '0';
+cssRenderer.domElement.style.left = '0';
+cssRenderer.domElement.style.pointerEvents = 'none';
+document.body.appendChild(cssRenderer.domElement);
+
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.target.copy(new THREE.Vector3(0, 0.6, 0));
+
+/* ----------------------------- environment ----------------------------- */
+
+scene.add(new THREE.HemisphereLight(0xbfd8ff, 0x51703a, 1.15));
+const sun = new THREE.DirectionalLight(0xfff3d6, 2.2);
+sun.position.set(90, 130, 60);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = -120; sun.shadow.camera.right = 120;
+sun.shadow.camera.top = 120; sun.shadow.camera.bottom = -120;
+sun.shadow.camera.near = 10; sun.shadow.camera.far = 450;
+sun.shadow.bias = -0.0004;
+scene.add(sun);
+
+// big ground plane + parking pad (shadow catcher)
+const ground = new THREE.Mesh(
+  new THREE.CircleGeometry(4500, 64),
+  new THREE.MeshStandardMaterial({ color: 0x39632e, roughness: 0.98 })
+);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+const pad = new THREE.Mesh(
+  new THREE.CylinderGeometry(11, 12, 0.08, 48),
+  material(0x5f6f7c, { roughness: 0.75, metalness: 0.2 })
+);
+pad.position.y = 0.03; pad.receiveShadow = true; scene.add(pad);
+
+const ring = new THREE.Mesh(
+  new THREE.RingGeometry(11, 11.35, 48),
+  material(0xf5f7f9, { roughness: 0.5, metalness: 0.25 })
+);
+ring.rotation.x = -Math.PI / 2; ring.position.y = 0.09; scene.add(ring);
+
+const H = 16; // pad stripes
+for (let i = 0; i < 7; i++) {
+  const stripe = new THREE.Mesh(
+    new THREE.BoxGeometry(1.35, 0.02, 2.0),
+    material(0xf2f0ea, { roughness: 0.5 })
+  );
+  stripe.position.set(i * 2.1 - 6.3, 0.1, 0.1);
+  scene.add(stripe);
+}
+
+// scattered trees
+for (let i = 0; i < 95; i++) {
+  const r = 28 + Math.random() * 420;
+  const a = Math.random() * Math.PI * 2;
+  const s = 2.5 + Math.random() * 4.5;
+  const tree = new THREE.Group();
+  const trunk = new THREE.Mesh(
+    new THREE.CylinderGeometry(s * 0.09, s * 0.14, s * 0.35, 6),
+    material(0x61472f)
+  );
+  trunk.position.y = s * 0.175; trunk.castShadow = true;
+  const pine = new THREE.Mesh(
+    new THREE.ConeGeometry(s * 0.56, s, 8),
+    material(0x2d5f2e)
+  );
+  pine.position.y = s * 0.85; pine.castShadow = true;
+  tree.add(trunk, pine);
+  tree.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
+  scene.add(tree);
+}
+
+// hills
+const hillGeo = new THREE.ConeGeometry(160, 34, 5, 1);
+const hills = [
+  { x: -330, z: -190, s: 1.0 }, { x: 350, z: -250, s: 1.25 }, { x: -260, z: 280, s: 0.8 }, { x: 320, z: 300, s: 0.9 }
+];
+for (const hl of hills) {
+  const h = new THREE.Mesh(hillGeo, material(0x43702f, { flatShading: true }));
+  h.position.set(hl.x, -hl.s * 16 - 0.04, hl.z);
+  h.scale.set(hl.s, hl.s, hl.s);
+  h.receiveShadow = true;
+  scene.add(h);
+}
+
+const clouds = [];
+function makeCloud(x, y, z) {
+  const g = new THREE.Group();
+  const m = material(0xffffff, { transparent: true, opacity: 0.94, roughness: 1 });
+  const puffs = [[0, 0, 0, 6.2], [4.6, 1.6, -0.8, 4.4], [-5.0, 1.2, 1.4, 3.9], [1.8, 2.8, 2.2, 3.3], [-2.2, 2.2, -2.6, 3.0]];
+  for (const [px, py, pz, pr] of puffs) {
+    const s = new THREE.Mesh(new THREE.SphereGeometry(pr, 10, 8), m);
+    s.position.set(px, py, pz);
+    s.scale.y = 0.62;
+    g.add(s);
+  }
+  g.position.set(x, y, z);
+  g.userData.speed = 2 + Math.random() * 4;
+  scene.add(g);
+  clouds.push(g);
+}
+for (let i = 0; i < 14; i++) {
+  makeCloud((Math.random() - 0.5) * 1400, 100 + Math.random() * 130, (Math.random() - 0.5) * 1400);
+}
+
+/* ----------------------------- helicopter ----------------------------- */
+
+const AH = new THREE.Group();
+scene.add(AH);
+AH.name = 'helicopter';
+
+// fuselage (offset above origin; local Z is "forward")
+const fuselage = new THREE.Group();
+fuselage.name = 'fuselage';
+AH.add(fuselage);
+
+const nose = new THREE.Mesh(new THREE.ConeGeometry(0.72, 1.95, 20, 12), material(0x1b2430, { roughness: 0.6 }));
+nose.rotation.x = -Math.PI / 2;
+nose.position.set(0, 0.55, 2.62);
+nose.castShadow = true;
+fuselage.add(nose);
+
+const body = new THREE.Mesh(new THREE.SphereGeometry(1.02, 28, 20), material(0x1b2430, { roughness: 0.6 }));
+body.scale.set(1.24, 0.86, 2.6);
+body.position.set(0, 0.62, 0);
+body.castShadow = true;
+fuselage.add(body);
+
+// cockpit canopy (green tint, transparent — draws after interior & fuselage)
+const canopy = new THREE.Mesh(new THREE.SphereGeometry(0.97, 28, 20),
+  material(0x3f7352, { roughness: 0.18, metalness: 0.08, transparent: true, opacity: 0.42 }));
+canopy.scale.set(1.17, 0.74, 1.15);
+canopy.position.set(0, 0.78, 1.24);
+canopy.castShadow = true;
+fuselage.add(canopy);
+
+// interior: seats, panel box, cyclic + collective sticks
+const seatMat = material(0x2a3342, { roughness: 0.9 });
+const seatBack = new THREE.Mesh(new THREE.BoxGeometry(0.84, 0.55, 0.1), seatMat);
+seatBack.position.set(0, 0.62, -0.78);
+const seatBot = new THREE.Mesh(new THREE.BoxGeometry(0.84, 0.1, 0.55), seatMat);
+seatBot.position.set(0, 0.32, -0.58);
+fuselage.add(seatBack, seatBot);
+
+const ibox = new THREE.Group();
+ibox.name = 'instruments';
+ibox.position.set(0, 0.72, 1.05);
+const ipanel = new THREE.Mesh(new THREE.BoxGeometry(1.12, 0.28, 0.12), material(0x141c26, { roughness: 0.4 }));
+ipanel.position.set(0, 0, -0.02);
+ibox.add(ipanel);
+const pGauge = new THREE.Mesh(new THREE.CircleGeometry(0.055, 16),
+  material(0xdfeefc, { roughness: 0.35, transparent: true, opacity: 0.85 }));
+const panelLights = [];
+for (const [lx, ly] of [[-0.4, 0.03], [0.0, 0.03], [0.4, 0.03], [-0.2, -0.04], [0.2, -0.04]]) {
+  const g = pGauge.clone();
+  g.position.set(lx, ly, 0.06);
+  ibox.add(g);
+  panelLights.push({ mesh: g, period: 1.0 + Math.random(), phase: Math.random() * 6.28, base: (Math.random() * 0.055).toFixed(3) });
+}
+// landscape warning light — warm green
+const warn = new THREE.Mesh(new THREE.SphereGeometry(0.028, 10, 8), material(0x59ff8f, { emissive: 0x59ff8f, emissiveIntensity: 1 }));
+warn.position.set(0, 0.14, 0.05);
+ibox.add(warn);
+fuselage.add(ibox);
+
+const cyclic = new THREE.Group();
+cyclic.position.set(0.45, 0.42, 0.42);
+const cStick = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.24, 8), material(0x333c48));
+cStick.position.y = 0.09; cStick.rotation.x = -0.24;
+cyclic.add(cStick);
+const cGrip = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 8), material(0x7b8794));
+cGrip.position.set(0, 0.22, 0.03);
+cyclic.add(cGrip);
+
+const collective = new THREE.Group();
+collective.position.set(-0.45, 0.38, -0.15);
+const colStick = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.28, 8), material(0x333c48));
+colStick.rotation.z = 0.22; colStick.position.set(0.06, 0.08, 0);
+collective.add(colStick);
+const colGrip = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 8), material(0x7b8794));
+colGrip.position.set(0.15, 0.18, 0);
+collective.add(colGrip);
+fuselage.add(cyclic, collective);
+
+// nose cone skid arms
+const skidArm = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.95, 8), material(0x3d4c5f, { metalness: 0.3 }));
+skidArm.position.set(0, 0.05, 2.1);
+skidArm.rotation.x = Math.PI / 2;
+skidArm.castShadow = true;
+fuselage.add(skidArm);
+
+// exhaust
+const exhaust = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.13, 0.34, 10), material(0x5f6f7c, { metalness: 0.7, roughness: 0.4 }));
+exhaust.rotation.x = Math.PI / 2;
+exhaust.position.set(0, 0.32, -1.28);
+fuselage.add(exhaust);
+
+// tail boom
+const TILT = 1.14; // main-rotor cone: tilt of mast around pitch axis
+const boom = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.3, 2.6), material(0x1b2430, { roughness: 0.6 }));
+boom.position.set(0, 0.92, -1.7);
+boom.castShadow = true;
+fuselage.add(boom);
+
+const fin = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.96, 0.06), material(0xde2b1f, { roughness: 0.75 }));
+fin.position.set(0, 1.22, -3.15);
+fin.rotation.z = 0.08;
+fin.castShadow = true;
+fuselage.add(fin);
+
+const hstab = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.06, 0.9), material(0x1b2430));
+hstab.position.set(0, 1.06, -2.98);
+hstab.rotation.x = 0.05;
+fuselage.add(hstab);
+
+// main rotor mast & hub
+const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.09, 0.38, 10), material(0x9fb0c0, { metalness: 0.55, roughness: 0.4 }));
+mast.position.set(0, 1.18, 0.26);
+mast.castShadow = true;
+fuselage.add(mast);
+
+const mainRotor = new THREE.Group();
+mainRotor.name = 'mainRotor';
+mainRotor.position.set(0, 1.38, 0.26);
+fuselage.add(mainRotor);
+
+const rotorHub = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.09, 12), material(0x9fb0c0, { metalness: 0.6 }));
+rotorHub.castShadow = true;
+mainRotor.add(rotorHub);
+const hubCap = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 8), material(0xde2b1f, { metalness: 0.2 }));
+hubCap.position.y = 0.08;
+mainRotor.add(hubCap);
+
+const mainPitch = new THREE.Group();
+mainPitch.name = 'mainPitch';
+mainRotor.add(mainPitch);
+
+const collectiveSpin = new THREE.Group();
+collectiveSpin.name = 'collectiveSpin';
+mainPitch.add(collectiveSpin);
+
+const bladeGeo = new THREE.BoxGeometry(0.07, 0.035, 3.26);
+const bladeM = material(0x232b34, { roughness: 0.55, metalness: 0.15 });
+const bladeM2 = material(0x232b34, { roughness: 0.55, metalness: 0.15 });
+const tipM = material(0xe8eeff, { metalness: 0.3, roughness: 0.35 });
+const gripM = material(0x3d4c5f, { metalness: 0.6, roughness: 0.4 });
+for (let i = 0; i < 4; i++) {
+  const blade = new THREE.Group();
+  const b3 = new THREE.Mesh(bladeGeo, i % 2 ? bladeM : bladeM2);
+  b3.position.z = -1.5; b3.castShadow = true;
+  const tip = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.035, 0.38), tipM);
+  tip.position.z = -3.04;
+  blade.add(b3, tip);
+  const grip = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), gripM);
+  grip.scale.set(1, 1.45, 0.65);
+  grip.position.z = -0.12;
+  blade.add(grip);
+  blade.rotation.x = (i * Math.PI) / 2;
+  blade.userData.ri = i;
+  collectiveSpin.add(blade);
+}
+
+// tips for blur disk (tiny emissive patches spin with rotor)
+const tipFloats = [];
+for (let i = 0; i < 4; i++) {
+  const f = new THREE.Mesh(new THREE.SphereGeometry(0.045, 6, 6), material(0xdfeaff, { emissive: 0xdfeaff, emissiveIntensity: 1.6 }));
+  f.position.z = -3.04;
+  f.rotation.x = (i * Math.PI) / 2;
+  collectiveSpin.add(f);
+  tipFloats.push(f);
+}
+mainRotor.add(collectiveSpin);
+
+// light-speed blur annulus (crossfaded on at high RPM)
+const blurRick = new THREE.Mesh(
+  new THREE.RingGeometry(0.42, 3.30, 64, 1, -0.32, 0.64),
+  material(0xd7e6f0, { roughness: 0.35, transparent: true, opacity: 0.18, side: THREE.DoubleSide })
+);
+blurRick.rotation.x = Math.PI / 2 + 0.05;
+blurRick.name = 'blurDisk';
+mainRotor.add(blurRick);
+
+// tail rotor (90° cross-blades — torque counter)
+const tailRotor = new THREE.Group();
+tailRotor.name = 'tailRotor';
+tailRotor.position.set(0, 0.98, -3.34);
+fuselage.add(tailRotor);
+const tailHub = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.22, 8), material(0x9fb0c0, { metalness: 0.6 }));
+tailHub.rotation.z = Math.PI / 2;
+tailRotor.add(tailHub);
+const tBladeGeo = new THREE.BoxGeometry(0.64, 0.03, 0.055);
+const tMat = material(0x232b34);
+const tMat2 = material(0x232b34);
+const tTip = material(0xe8eeff, { metalness: 0.3 });
+const aTip = material(0xde2b1f, { roughness: 0.6 });
+for (let i = 0; i < 4; i++) {
+  const b = new THREE.Mesh(i % 2 ? tMat : tMat2, tBladeGeo);
+  b.position.x = (i % 2 ? 1 : -1) * 0.33;
+  b.castShadow = true;
+  const t = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.03, 0.055), i % 2 ? tTip : aTip);
+  t.position.x = (i % 2 ? 1 : -1) * 0.55;
+  b.add(t);
+  b.rotation.z = (i * Math.PI) / 2;
+  tailRotor.add(b);
+}
+
+// skids (pylons + rails)
+const pylonMat = material(0x3d4c5f, { metalness: 0.35, roughness: 0.5 });
+const pylonGeo = new THREE.CylinderGeometry(0.055, 0.075, 0.52, 8);
+for (const [px, pz] of [[-0.68, 0.55], [0.68, 0.55], [-0.68, -0.55], [0.68, -0.55]]) {
+  const pylon = new THREE.Mesh(pylonGeo, pylonMat);
+  pylon.position.set(px, 0.16, pz);
+  pylon.rotation.z = (px > 0 ? -1 : 1) * 0.045;
+  pylon.castShadow = true;
+  fuselage.add(pylon);
+}
+const railMat = material(0x3d4c5f, { metalness: 0.35, roughness: 0.5 });
+for (const sx of [-0.82, 0.82]) {
+  const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 4.15, 10), railMat);
+  rail.rotation.x = Math.PI / 2;
+  rail.position.set(sx, 0.05, 0);
+  rail.castShadow = true;
+  fuselage.add(rail);
+}
+
+/* ----------------------------- rotor blur textures ----------------------------- */
+
+const blurCanvas = document.createElement('canvas');
+blurCanvas.width = blurCanvas.height = 256;
+const bs = blurCanvas.getContext('2d');
+// radial gradient — faint broad haze + brighter annulus at blade radius
+const rg = bs.createRadialGradient(128, 128, 2, 128, 128, 126);
+rg.addColorStop(0, 'rgba(210,225,235,0.10)');
+rg.addColorStop(0.43, 'rgba(215,230,240,0.05)');
+rg.addColorStop(0.71, 'rgba(225,238,248,0.18)');
+rg.addColorStop(0.93, 'rgba(196,214,228,0.26)');
+rg.addColorStop(1, 'rgba(70,80,95,0)');
+bs.fillStyle = rg;
+bs.fillRect(0, 0, 256, 256);
+const blurTex = new THREE.CanvasTexture(blurCanvas);
+blurTex.colorSpace = THREE.SRGBColorSpace;
+blurTex.needsUpdate = true;
+
+const blurMain = new THREE.Mesh(
+  new THREE.CircleGeometry(3.3, 48),
+  new THREE.MeshBasicMaterial({ map: blurTex, transparent: true, opacity: 0.25, depthWrite: true, side: THREE.DoubleSide })
+);
+blurMain.rotation.x = -Math.PI / 2;
+blurMain.position.y = 0.01;
+AH.add(blurMain);
+
+const tCanvas = document.createElement('canvas');
+tCanvas.width = tCanvas.height = 256;
+const ts = tCanvas.getContext('2d');
+const tg = ts.createLinearGradient(0, 0, 256, 0);
+tg.addColorStop(0, 'rgba(240,246,252,0)');
+tg.addColorStop(0.18, 'rgba(218,232,240,0.18)');
+tg.addColorStop(0.80, 'rgba(226,238,248,0.16)');
+tg.addColorStop(1, 'rgba(60,70,85,0)');
+ts.fillStyle = tg;
+ts.fillRect(0, 0, 256, 256);
+const tBlurTex = new THREE.CanvasTexture(tCanvas);
+tBlurTex.colorSpace = THREE.SRGBColorSpace;
+tBlurTex.needsUpdate = true;
+
+const blurTail = new THREE.Mesh(
+  new THREE.PlaneGeometry(1.5, 0.14),
+  new THREE.MeshBasicMaterial({ map: tBlurTex, transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide })
+);
+blurTail.position.set(0, 0.98, -3.34);
+fuselage.add(blurTail);
+
+/* ----------------------------- ground shadow ----------------------------- */
+
+// big faked shadow blob (visible from far; real shadow map covers close-up)
+const SH = 3.16; // hover height when parked
+const RMAX = 3.42; // rotor radius; blades rise with collective — shadow follows the disk
+const shadowGeo = new THREE.PlaneGeometry(13.8, 13.8);
+const shTex = (function () {
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = 256;
+  const g = cv.getContext('2d');
+  const grad = g.createRadialGradient(128, 128, 0, 128, 128, 126);
+  grad.addColorStop(0, 'rgba(5,15,25,0.42)');
+  grad.addColorStop(0.38, 'rgba(5,15,25,0.30)');
+  grad.addColorStop(0.72, 'rgba(5,15,25,0.14)');
+  grad.addColorStop(1, 'rgba(5,15,25,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 256, 256);
+  return new THREE.CanvasTexture(cv);
+})();
+const groundShadow = new THREE.Mesh(
+  shadowGeo,
+  new THREE.MeshBasicMaterial({ map: shTex, transparent: true, opacity: 0.55, depthWrite: false })
+);
+groundShadow.rotation.x = -Math.PI / 2;
+groundShadow.position.y = 0.06;
+scene.add(groundShadow);
+
+/* ----------------------------- state ----------------------------- */
+
+const keys = {};
+const KP = 0.55, KR = 0.62, KY = 1.6, KC = 0.32, KK = 0.42;
+const GRAV = 9.81, THOVER = 0.46;
+const G = 4.9, WHEEL_R = 0.34, R = 3.26, GAMMA = 0.24;
+const HOVER_RPM = 420, MAX_RPM = 660;
+
+let rpm = HOVER_RPM;
+let throttle = 0.46;        // 0..1 — SPACE
+let collective = 0.46;      // 0..1 — arrows
+let throttleLocked = false, collectiveLocked = false;
+let pip = 0, cig = 0;       // pitch / roll cyclic inputs (smooth among frames)
+let pitch, roll, yawV, yaw;
+let alt = SH, vel = 0, vx = 0, vz = 0, pos = new THREE.Vector3(6, SH, 5);
+
+// sit on the pad
+pitch = roll = yaw = yawV = 0;
+function parked() { return (alt <= SH + 0.05 && Math.abs(vel) < 0.06); }
+
+// painters
+function px() { return (throttle - 0.7) * 0.05; }
+function cy() { return (collective - 0.7) * 0.05; }
+function fwhm() { return clamp(throttle * 1.1, 0, 1); } // ratio of rotor RPM driven by throttle
+
+/* ----------------------------- HUD ----------------------------- */
+
+const hud = {
+  alt: document.getElementById('v-alt'), spd: document.getElementById('v-spd'),
+  vs: document.getElementById('v-vs'), att: document.getElementById('v-att'),
+  rpm: document.getElementById('v-rpm'), thr: document.getElementById('v-thr'),
+  thrbar: document.getElementById('v-thrbar'),
+  slow: document.getElementById('slow'), msg: document.getElementById('msg'),
+};
+let msgTimer = null;
+function banner(text) {
+  hud.msg.innerHTML = text;
+  if (msgTimer) clearTimeout(msgTimer);
+  msgTimer = setTimeout(() => { hud.msg.innerHTML = 'Waiting for flight clearance… <span id="slow"></span>'; }, 9000);
+}
+function updateHUD() {
+  const total = alt;
+  if (total < 40) { hud.alt.textContent = Math.round(total * 100) / 100 + ' m'; }
+  else { hud.alt.textContent = Math.round(total) + ' m'; }
+  const s = Math.hypot(vx, vz);
+  hud.spd.textContent = Math.round(s * 3.6) + ' km/h';
+  hud.vs.textContent = (vel >= 0 ? '' : '-') + (Math.abs(vel) < 10 ? Math.abs(vel).toFixed(1) : Math.round(Math.abs(vel))) + ' m/s';
+  hud.att.textContent = Math.round(-pitch * 180 / Math.PI) + '° / ' + Math.round(-roll * 180 / Math.PI) + '°';
+  hud.rpm.textContent = Math.round(rpm);
+  hud.thr.textContent = Math.round(throttle * 100) + ' %';
+  hud.thrbar.style.width = (throttle * 100).toFixed(1) + '%';
+  hud.slow.textContent = rpm < HOVER_RPM ? ' — rotor too slow for lift!' : '';
+}
+
+/* ----------------------------- coupling: body tilt with control inputs ----------------------------- */
+
+// pitch feedback: show cyclic-input pitch AND actual pitch rate in the tilt
+function applyHeadTilt() {
+  AH.rotation.order = 'YXZ'; // yaw Y, pitch X, roll Z
+  AH.rotation.set(pitch, yaw, roll);
+}
+
+/* ----------------------------- input ----------------------------- */
+
+window.addEventListener('keydown', (e) => {
+  if (e.repeat) return;
+  const k = e.code;
+  if (e.target === document.body) e.preventDefault();
+  if (k === 'Space') {
+    throttleLocked = !throttleLocked; // toggle auto-hover throttle
+    banner(throttleLocked
+      ? 'Throttle LOCKED — auto-hover engaged. Rotor will hold hover RPM.'
+      : 'Throttle manual — hold <b>SPACE</b> to spool up.<br><b>↑</b> <b>↓</b> adjust collective.');
+  } else if (k === 'KeyR') {
+    reset();
+  } else {
+    keys[e.code] = true;
+  }
+});
+window.addEventListener('keyup', (e) => { keys[e.code] = false; });
+window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  WG.setSize(window.innerWidth, window.innerHeight);
+  cssRenderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+let mMove = null, mPos = null;
+canvas.addEventListener('mousedown', (e) => { if (e.button === 0) { mMove = e; mPos = { x: e.clientX, y: e.clientY }; } });
+window.addEventListener('mousemove', (e) => { if (mMove) { mMove = e; } });
+window.addEventListener('mouseup', () => { mMove = null; });
+// wheel: zoom orbit
+canvas.addEventListener('wheel', (e) => { controls.dollyOut(e.deltaY > 0 ? 1.12 : 0.9); }, { passive: true });
+// touch drag = orbit
+canvas.addEventListener('touchstart', (e) => { const t = e.touches[0]; mPos = { x: t.clientX, y: t.clientY }; }, { passive: true });
+canvas.addEventListener('touchmove', (e) => {
+  if (!mPos) return;
+  const t = e.touches[0];
+  mMove = { clientX: t.clientX, clientY: t.clientY };
+  mPos = { x: t.clientX, y: t.clientY };
+}, { passive: true });
+canvas.addEventListener('touchend', () => { mMove = null; mPos = null; }, { passive: true });
+
+// camera follow with mouse-drag rotate + wheel zoom
+const camDist = 18, camElev = 4.5;
+let camMin = 7.5, camMax = 95, camDistNow = camDist;
+
+function mouseDrag() {
+  if (mMove && mPos) {
+    controls.target.lerp(AH.position, 0.2);
+    controls.update();
+    mMove = null;
+  }
+}
+function followCamera(dt) {
+  if (mMove) { return; }
+  const tx = AH.position.x, tz = AH.position.z, ty = AH.position.y;
+  // desired offset: behind the nose (negative local Z of the helicopter body)
+  const offX = -camDistNow * Math.sin(yaw), offZ = -camDistNow * Math.cos(yaw), offY = camElev;
+  const px = tx + offX, pz = tz + offZ, py = ty + offY;
+  camera.position.lerp(new THREE.Vector3(px, py, pz), 1 - Math.pow(0.0018, dt));
+  controls.target.lerp(new THREE.Vector3(tx, ty + 0.4, tz), 1 - Math.pow(0.0018, dt));
+  controls.update();
+  controls.object.lookAt(controls.target); // keep attitude stable on follow
+}
+
+/* ----------------------------- reset ----------------------------- */
+
+function reset() {
+  rpm = HOVER_RPM; throttle = 0.46; collective = 0.46;
+  throttleLocked = true; collectiveLocked = false;
+  pip = cig = pitch = roll = yawV = yaw = 0;
+  alt = SH; vel = 0; vx = 0; vz = 0;
+  pos.set(6, SH, 5);
+  controls.target.copy(AH.position);
+  controls.update();
+  banner('Reset — rotor at hover RPM. W/S pitch, A/D roll, Q/E yaw, SPACE throttle, ↑/↓ collective.');
+}
+
+/* ----------------------------- physics ----------------------------- */
+
+function physics(dt) {
+  // --- manual throttle decay, auto-hover restore ---
+  if (throttleLocked) {
+    throttle += (THOVER - throttle) * Math.min(1, dt * 2.2);
+  } else if (!keys['Space']) {
+    throttle = Math.max(0, throttle - dt * 0.34);
+  } else {
+    throttle = Math.min(1.02, throttle + dt * 0.4);
+  }
+  if (collectiveLocked) {
+    collective += (THOVER - collective) * Math.min(1, dt * 2.4);
+  } else {
+    if (keys['ArrowUp']) collective = Math.min(1.05, collective + dt * 0.42);
+    if (keys['ArrowDown']) collective = Math.max(0.08, collective - dt * 0.42);
+  }
+
+  // --- rotor RPM (auto-rotate like a governor with throttle input) ---
+  const f = fwhm();
+  const target = Math.max(20, HOVER_RPM * (0.35 + 0.65 * f));
+  rpm += (target - rpm) * Math.min(1, dt * 1.4) - dt * 0.6;
+  rpm = clamp(rpm, 10, MAX_RPM * 1.02) ;
+  // rotor torque antithesis — tail rotor pitch counter-acts it
+  const TR = 0.02 * rpm; // torque factor (scaled-ish, sign: CCW+)
+
+  // --- cyclic inputs ---
+  const dp = KP * ((keys['KeyW'] ? -1 : 0) + (keys['KeyS'] ? 1 : 0));
+  const dr = KR * ((keys['KeyA'] ? -1 : 0) + (keys['KeyD'] ? 1 : 0));
+  const dy = KY * ((keys['KeyQ'] ? -1 : 0) + (keys['KeyE'] ? 1 : 0));
+  pip += (dp - pip) * Math.min(1, dt * 6);
+  cig += (dr - cig) * Math.min(1, dt * 6);
+  pitch += pip * dt * 0.55;   // pitch speed (deg-dependent)
+  roll += cig * dt * 0.55;
+  yawV += (dy - yawV) * Math.min(1, dt * 4);
+  yaw += yawV * dt;
+
+  // --- engine
+  // Lift ∝ rpm² × collective × rotor area (simplified)
+  const lf = (rpm / HOVER_RPM) ** 2;
+  const rotorArea = Math.PI * R * R;
+  const liftThrust = GRAV * (0.35 + 0.9 * collective) * lf * rotorArea * 0.9;
+  // tail-rotor force, counter-torque against main rotor
+  const tailForce = 0.010 * rpm * (yawV * 0.05 + 1);
+  const dV = (liftThrust / 1450 - GRAV) * dt;      // vertical
+  const dVy = dV * Math.sin(pitch) + Math.cos(pitch) * (vx * Math.sin(yaw) + vz * Math.cos(yaw)) * Math.cos(roll);
+  // planar
+  const fwd = (liftThrust / 1700) * Math.sin(pitch) * Math.cos(roll);
+  const side = (liftThrust / 1700) * (-Math.sin(roll) * Math.cos(pitch));
+  vx += fwd * Math.sin(yaw) * dt + side * Math.cos(yaw) * dt;
+  vz += fwd * Math.cos(yaw) * dt - side * Math.sin(yaw) * dt;
+  vel += dV;
+  // drag, small
+  vx *= (1 - 0.02 * dt); vz *= (1 - 0.02 * dt);
+  // ground contact when landing (stop at skid height)
+  const gnd = 0.02;
+  if (alt < SH + gnd) {
+    if (vel < 0) vel = 0;
+    if (Math.abs(vx) < 1.5) vx *= 0.92;
+    if (Math.abs(vz) < 1.5) vz *= 0.92;
+    pos.x += vx * dt; pos.z += vz * dt;
+    alt = Math.max(alt + vel * dt, SH + gnd);
+  } else {
+    vel += GRAV * dt * 0.55; // slight gravity so descent feels heavy
+    pos.x += vx * dt; pos.z += vz * dt;
+    alt = Math.max(alt + vel * dt, SH + gnd);
+  }
+  pos.y = alt;
+
+  // --- orientation set ---
+  AH.position.copy(pos);
+  AH.rotation.yaw = yaw;
+  AH.rotation.order = 'YXZ';
+  AH.rotation.set(pitch, yaw, roll);
+
+  // --- rotor animation & inputs ---
+  mainRotor.rotation.z += rpm * dt * 0.1;
+  collectiveSpin.rotation.z = collective * 0.5;
+  mainPitch.rotation.x = pitch * 0.7;
+  mainPitch.rotation.y = -jointYaw(yaw, 0); // nose-follow of rotor disc — fake but reads well
+  tailRotor.rotation.z += rpm * 3.8 * dt;
+  // blur disks
+  const bop = Math.min(1, Math.max(0, (rpm - 140) / 280));
+  blurMain.material.opacity = bop * 0.28;
+  blurTail.material.opacity = Math.min(1, rpm / 260) * 0.85;
+}
+function jointYaw(a, b) { return a; }
+
+/* ----------------------------- loop ----------------------------- */
+
+let last = performance.now();
+function animate(now) {
+  requestAnimationFrame(animate);
+  let dt = clamp((now - last) / 1000, 0, 0.05);
+  last = now;
+  // mouse heading — orbit controller holds view; rotate manually when dragging
+  if (mMove && mPos) { mPos = null; }
+  physics(dt);
+
+  // bobbing & idle shake
+  const t = now * 0.001;
+  const bob = parked() ? Math.sin(t * 3.1) * 0.012 : 0;
+  AH.position.y += bob * 0.02;
+
+  // rotor blur opacity by rpm (visual)
+  const blurVis = clamp((rpm - 200) / 400, 0, 1);
+  blurMain.material.opacity = blurVis * 0.28;
+  blurTail.material.opacity = clamp(rpm / 180, 0, 1) * 0.8;
+
+  // ground shadow follows height
+  const shadowScale = clamp(1 - (alt - SH) * 0.09, 0.55, 1.0);
+  groundShadow.position.set(pos.x, 0.06, pos.z);
+  groundShadow.scale.set(shadowScale, shadowScale, 1);
+  groundShadow.material.opacity = clamp(0.62 - (alt - SH) * 0.012, 0.12, 0.62);
+
+  // clouds drift
+  for (const c of clouds) c.position.x += c.userData.speed * dt * 0.4;
+
+  // panel lights flicker
+  for (const pl of panelLights) {
+    pl.mesh.material.opacity = 0.4 + 0.45 * Math.abs(Math.sin(t * pl.period + pl.phase));
+  }
+  warn.material.emissiveIntensity = 0.5 + 0.8 * Math.abs(Math.sin(t * 1.4));
+
+  followCamera(dt);
+  mouseDrag();
+  updateHUD();
+  WG.render(scene, camera);
+  cssRenderer.render(scene, camera);
+}
+reset();
+animate(performance.now());
+</script>
+</body>
+</html>

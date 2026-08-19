@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Helicopter Simulator</title>
+<style>
+html,body{margin:0;padding:0;overflow:hidden;height:100%;background:#87c8ef;font-family:monospace;user-select:none;-webkit-user-select:none}
+canvas#c{display:block}
+#hud{position:fixed;left:14px;bottom:14px;background:rgba(0,0,0,0.55);border:1px solid rgba(255,255,255,0.35);border-radius:8px;padding:10px 14px;color:#d8ffd8;font-size:13px;line-height:1.6;pointer-events:none;min-width:190px}
+#hud .row{display:flex;justify-content:space-between;gap:16px}
+#hud .lbl{color:#8fbf8f}
+#hud .val{color:#eaffea;font-weight:bold}
+#legend{position:fixed;bottom:14px;right:14px;background:rgba(0,0,0,0.45);border:1px solid rgba(255,255,255,0.25);border-radius:8px;padding:8px 12px;color:#cfe8cf;font-size:12px;line-height:1.7;pointer-events:none}
+#legend b{color:#ffffff}
+#crosshair{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:18px;height:18px;pointer-events:none;opacity:0.45}
+#crosshair::before,#crosshair::after{content:'';position:absolute;background:#fff}
+#crosshair::before{left:50%;top:0;width:2px;height:100%;margin-left:-1px;box-shadow:0 0 3px rgba(0,0,0,0.6)}
+#crosshair::after{top:50%;left:0;height:2px;width:100%;margin-top:-1px;box-shadow:0 0 3px rgba(0,0,0,0.6)}
+</style>
+</head>
+<body>
+<div id="hud">
+  <div class="row"><span class="lbl">ALT</span><span class="val" id="alt">0</span><span>m</span></div>
+  <div class="row"><span class="lbl">SPD</span><span class="val" id="spd">0</span><span>km/h</span></div>
+  <div class="row"><span class="lbl">ROTOR</span><span class="val" id="rpm">0</span><span>RPM</span></div>
+  <div class="row"><span class="lbl">THR</span><span class="val" id="thr">0</span><span>%</span></div>
+  <div class="row"><span class="lbl">COL</span><span class="val" id="col">0</span><span>%</span></div>
+</div>
+<div id="legend">
+  <b>W</b>/<b>S</b> pitch &nbsp;<b>A</b>/<b>D</b> roll &nbsp;<b>Q</b>/<b>E</b> yaw<br>
+  <b>SPACE</b> throttle &nbsp;<b>&#8593;</b>/<b>&#8595;</b> collective &nbsp;<b>&#8592;</b>/<b>&#8594;</b> roll<br>
+  drag = orbit &nbsp; scroll = zoom &nbsp; <b>R</b> = reset
+</div>
+<div id="crosshair"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function () {
+  if (!window.THREE) {
+    document.getElementById('hud').innerHTML = '<span style="color:#ff9">three.js failed to load (network?)</span>';
+    return;
+  }
+  window.addEventListener('error', function (e) {
+    var d = document.createElement('div');
+    d.style.cssText = 'position:fixed;top:8px;left:8px;background:#7a1020;color:#fff;padding:8px;z-index:99;font:12px monospace;max-width:92vw;white-space:pre-wrap;border-radius:6px';
+    d.textContent = e.message + (e.filename ? ' @ ' + e.filename.replace(/^.*\//, '') + ':' + e.lineno : '');
+    document.body.appendChild(d);
+  });
+
+  var scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x87c8ef);
+  scene.fog = new THREE.Fog(0x87c8ef, 350, 1500);
+
+  var renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.domElement.id = 'c';
+  document.body.insertBefore(renderer.domElement, document.body.firstChild);
+
+  var camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 3000);
+
+  var hemi = new THREE.HemisphereLight(0xbfd8ff, 0x3d5a2a, 0.9);
+  scene.add(hemi);
+
+  var sun = new THREE.DirectionalLight(0xfff2df, 1.2);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.camera.left = -350; sun.shadow.camera.right = 350;
+  sun.shadow.camera.top = 350; sun.shadow.camera.bottom = -350;
+  sun.shadow.camera.near = 1; sun.shadow.camera.far = 1500;
+  sun.shadow.bias = -0.0006;
+  scene.add(sun);
+  scene.add(sun.target);
+  var SUN_OFFSET = new THREE.Vector3(180, 380, 140);
+
+  function makeGroundTex() {
+    var cv = document.createElement('canvas'); cv.width = cv.height = 256;
+    var x = cv.getContext('2d');
+    x.fillStyle = '#5c8a4a'; x.fillRect(0, 0, 256, 256);
+    x.strokeStyle = 'rgba(255,255,255,0.09)'; x.lineWidth = 3;
+    for (var i = 0; i <= 256; i += 64) {
+      x.beginPath(); x.moveTo(i, 0); x.lineTo(i, 256); x.stroke();
+      x.beginPath(); x.moveTo(0, i); x.lineTo(256, i); x.stroke();
+    }
+    x.strokeStyle = 'rgba(20,45,20,0.16)'; x.lineWidth = 1;
+    for (var j = 0; j <= 256; j += 16) {
+      x.beginPath(); x.moveTo(j, 0); x.lineTo(j, 256); x.stroke();
+      x.beginPath(); x.moveTo(0, j); x.lineTo(256, j); x.stroke();
+    }
+    var t = new THREE.CanvasTexture(cv);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(70, 70);
+    return t;
+  }
+  var ground = new THREE.Mesh(new THREE.PlaneGeometry(4200, 4200), new THREE.MeshPhongMaterial({ color: 0xffffff, map: makeGroundTex() }));
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  function makePadTex() {
+    var cv = document.createElement('canvas'); cv.width = cv.height = 256;
+    var x = cv.getContext('2d');
+    x.fillStyle = '#4a5257'; x.fillRect(0, 0, 256, 256);
+    x.beginPath(); x.arc(128, 128, 120, 0, Math.PI * 2); x.strokeStyle = '#e8e8e8'; x.lineWidth = 10; x.stroke();
+    x.beginPath(); x.arc(128, 128, 96, 0, Math.PI * 2); x.strokeStyle = 'rgba(232,232,232,0.45)'; x.lineWidth = 4; x.stroke();
+    x.fillStyle = '#6a7478';
+    x.beginPath(); x.arc(128, 128, 26, 0, Math.PI * 2); x.fill();
+    x.fillStyle = '#ffffff'; x.font = 'bold 92px monospace'; x.textAlign = 'center';
+    x.fillText('H', 128, 158);
+    return new THREE.CanvasTexture(cv);
+  }
+  var pad = new THREE.Mesh(new THREE.CircleGeometry(16, 48), new THREE.MeshPhongMaterial({ color: 0xffffff, map: makePadTex() }));
+  pad.rotation.x = -Math.PI / 2;
+  pad.position.y = 0.02;
+  pad.receiveShadow = true;
+  scene.add(pad);
+
+  var mountainMat = new THREE.MeshPhongMaterial({ color: 0x6b7f95, flatShading: true });
+  for (var mi = 0; mi < 14; mi++) {
+    var a = mi / 14 * Math.PI * 2 + Math.random() * 0.5;
+    var r = 900 + Math.random() * 450;
+    var h = 110 + Math.random() * 190;
+    var wr = 90 + Math.random() * 150;
+    var mn = new THREE.Mesh(new THREE.ConeGeometry(wr, h, 6), mountainMat);
+    mn.position.set(Math.cos(a) * r, h / 2 - 10, Math.sin(a) * r);
+    scene.add(mn);
+  }
+
+  function makeCloud(x, y, z, s) {
+    var g = new THREE.Group();
+    var m = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.92 });
+    var pts = [[0, 0, 0, 1], [1.4, 0.15, 0.2, 0.78], [-1.4, 0.1, 0.15, 0.8], [0.6, 0.4, -0.4, 0.66], [-0.7, 0.35, -0.2, 0.62]];
+    for (var i = 0; i < pts.length; i++) {
+      var sm = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 8), m);
+      sm.position.set(pts[i][0], pts[i][1], pts[i][2]);
+      sm.scale.setScalar(pts[i][3] * s);
+      g.add(sm);
+    }
+    g.position.set(x, y, z);
+    scene.add(g);
+    return g;
+  }
+  var clouds = [];
+  for (var ci = 0; ci < 9; ci++) {
+    var cl = makeCloud(Math.random() * 1600 - 800, 130 + Math.random() * 120, Math.random() * 1600 - 800, 18 + Math.random() * 22);
+    clouds.push({ g: cl, sp: 0.5 + Math.random() * 0.8 });
+  }
+
+  var S = {
+    throttle: 0.6, rpm: 480, collective: 1.0,
+    pitchInput: 0, rollInput: 0, yawInput: 0,
+    heading: 0, pitchAngle: 0, rollAngle: 0,
+    vel: new THREE.Vector3(), pos: new THREE.Vector3(0, 2.6, 0),
+    camTheta: 0, camPhi: 0.3, camDist: 22,
+    camPos: new THREE.Vector3(0, 6.5, 21),
+    time: 0
+  };
+
+  var fus = new THREE.MeshPhongMaterial({ color: 0xf0f0f0, shininess: 40 });
+  var accent = new THREE.MeshPhongMaterial({ color: 0xd22a2a, shininess: 30 });
+  var metal = new THREE.MeshPhongMaterial({ color: 0x4a4f55, shininess: 60 });
+  var dark = new THREE.MeshPhongMaterial({ color: 0x26292e, shininess: 20 });
+  var glass = new THREE.MeshPhongMaterial({ color: 0xa5ddff, transparent: true, opacity: 0.35, shininess: 100, side: THREE.DoubleSide });
+  var bladeMat = new THREE.MeshPhongMaterial({ color: 0x3c3c3c, transparent: true, opacity: 1, side: THREE.DoubleSide, shininess: 20 });
+
+  var heli = new THREE.Group();
+  var body = new THREE.Group();
+  heli.add(body);
+
+  function box(w, h, d, m, x, y, z, rx, ry, rz) {
+    var ms = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+    ms.position.set(x, y, z);
+    if (rx || ry || rz) ms.rotation.set(rx || 0, ry || 0, rz || 0);
+    ms.castShadow = true;
+    body.add(ms);
+    return ms;
+  }
+  function tube(a, b, r, m) {
+    var dir = new THREE.Vector3().subVectors(b, a);
+    var len = dir.length();
+    var ms = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 8), m);
+    ms.position.copy(a).addScaledVector(dir, 0.5);
+    ms.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+    ms.castShadow = true;
+    body.add(ms);
+    return ms;
+  }
+
+  var rotor = new THREE.Group();
+  var blades = [];
+  for (var bi = 0; bi < 4; bi++) {
+    var holder = new THREE.Group();
+    holder.rotation.y = bi * Math.PI / 2;
+    var bl = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.05, 0.5), bladeMat);
+    bl.position.set(2.6, 0.32, 0);
+    bl.castShadow = true;
+    holder.add(bl);
+    blades.push(bl);
+    rotor.add(holder);
+  }
+  var blurMat = new THREE.MeshBasicMaterial({ color: 0xb9c0d2, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide });
+  var blur = new THREE.Mesh(new THREE.CircleGeometry(5.35, 48), blurMat);
+  blur.rotation.x = -Math.PI / 2;
+  blur.position.y = 0.34;
+  rotor.add(blur);
+  var hub = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.34, 16), dark);
+  hub.position.y = 0.13;
+  hub.castShadow = true;
+  rotor.add(hub);
+  body.add(rotor);
+
+  var mast = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.13, 0.55, 12), metal);
+  mast.position.y = -0.28;
+  mast.castShadow = true;
+  body.add(mast);
+
+  box(1.3, 1.0, 3.1, fus, 0, -0.9, 0.35);
+  box(1.32, 0.28, 3.12, accent, 0, -0.72, 0.35);
+  box(0.98, 0.7, 1.0, fus, 0, -0.55, -1.55);
+  var nose = new THREE.Mesh(new THREE.ConeGeometry(0.42, 0.75, 20), fus);
+  nose.rotation.x = -Math.PI / 2;
+  nose.position.set(0, -0.72, -2.05);
+  nose.castShadow = true;
+  body.add(nose);
+  box(0.95, 0.44, 0.16, glass, 0, -0.28, -1.75, -0.4, 0, 0);
+  box(0.07, 0.36, 0.6, glass, 0.45, -0.35, -1.5, 0, 0.18, 0);
+  box(0.07, 0.36, 0.6, glass, -0.45, -0.35, -1.5, 0, -0.18, 0);
+
+  box(0.34, 0.26, 0.42, dark, 0, -0.62, -1.12);
+  var torso = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.28, 12), new THREE.MeshPhongMaterial({ color: 0x2f4f8f }));
+  torso.position.set(0, -0.44, -1.05); torso.castShadow = true; body.add(torso);
+  var helmet = new THREE.Mesh(new THREE.SphereGeometry(0.09, 12, 10), dark);
+  helmet.position.set(0, -0.22, -1.08); helmet.castShadow = true; body.add(helmet);
+
+  var panelCv = document.createElement('canvas'); panelCv.width = 512; panelCv.height = 256;
+  var panelCtx = panelCv.getContext('2d');
+  var panelTex = new THREE.CanvasTexture(panelCv);
+  var panel = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.4), new THREE.MeshBasicMaterial({ map: panelTex }));
+  panel.position.set(0, -0.45, -1.35);
+  body.add(panel);
+
+  box(0.6, 0.5, 2.3, fus, 0, -0.85, 2.05);
+  box(0.07, 1.1, 0.55, accent, 0, -0.15, 3.15);
+  box(0.3, 0.06, 0.5, fus, 0, -0.55, 2.9);
+
+  var tailRotor = new THREE.Group();
+  tailRotor.position.set(-0.4, -0.8, 3.3);
+  var trHub = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.26, 10), dark);
+  trHub.rotation.x = Math.PI / 2;
+  tailRotor.add(trHub);
+  var tailBlades = [];
+  for (var ti = 0; ti < 2; ti++) {
+    var tb = new THREE.Mesh(new THREE.BoxGeometry(0.17, 1.4, 0.05), bladeMat);
+    tb.rotation.z = ti * Math.PI / 2;
+    tailBlades.push(tb);
+    tailRotor.add(tb);
+  }
+  var tailBlurMat = new THREE.MeshBasicMaterial({ color: 0xb9c0d2, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide });
+  var tailBlur = new THREE.Mesh(new THREE.CircleGeometry(0.78, 24), tailBlurMat);
+  tailBlur.position.z = 0.12;
+  tailRotor.add(tailBlur);
+  body.add(tailRotor);
+
+  var sk = [[0.88, -0.55, 0.95], [-0.88, -0.55, 0.95]];
+  for (var s1 = 0; s1 < 2; s1++) {
+    var sx = sk[s1][0];
+    tube(new THREE.Vector3(sx, -1.78, -0.55), new THREE.Vector3(sx, -1.78, 0.95), 0.06, metal);
+    tube(new THREE.Vector3(sx * 0.62, -1.05, -0.35), new THREE.Vector3(sx, -1.74, -0.45), 0.05, metal);
+    tube(new THREE.Vector3(sx * 0.62, -1.05, 0.35), new THREE.Vector3(sx, -1.74, 0.35), 0.05, metal);
+  }
+
+  scene.add(heli);
+
+  var MASS = 1300, G = 9.81, MAX_RPM = 800, HOVER_RPM = 480;
+  var LIFT_K = MASS * G / (HOVER_RPM * HOVER_RPM);
+  var YAW_SPEED = 0.9, BANK_K = 0.35, MAX_TILT = 0.4, SKID_GROUND = 1.8;
+  var Y_AXIS = new THREE.Vector3(0, 1, 0);
+
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+  var keys = {};
+  function kd(e) {
+    var c = e.code;
+    if (c === 'Space' || c === 'ArrowUp' || c === 'ArrowDown' || c === 'ArrowLeft' || c === 'ArrowRight') e.preventDefault();
+    keys[c] = true;
+    if (c === 'KeyR') reset();
+  }
+  function ku(e) { keys[e.code] = false; }
+  window.addEventListener('keydown', kd);
+  window.addEventListener('keyup', ku);
+  window.addEventListener('blur', function () { for (var k in keys) keys[k] = false; });
+
+  var dragging = false, lastX = 0, lastY = 0;
+  renderer.domElement.addEventListener('pointerdown', function (e) { dragging = true; lastX = e.clientX; lastY = e.clientY; });
+  window.addEventListener('pointermove', function (e) {
+    if (!dragging) return;
+    var dx = e.clientX - lastX, dy = e.clientY - lastY;
+    lastX = e.clientX; lastY = e.clientY;
+    S.camTheta += dx * 0.005;
+    S.camPhi = clamp(S.camPhi + dy * 0.005, 0.06, 1.45);
+  });
+  window.addEventListener('pointerup', function () { dragging = false; });
+  renderer.domElement.addEventListener('wheel', function (e) {
+    e.preventDefault();
+    S.camDist = clamp(S.camDist + e.deltaY * 0.02, 6, 90);
+  }, { passive: false });
+
+  window.addEventListener('resize', function () {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+  var altEl = document.getElementById('alt'), spdEl = document.getElementById('spd');
+  var rpmEl = document.getElementById('rpm'), thrEl = document.getElementById('thr'), colEl = document.getElementById('col');
+
+  function drawGauge(x, y, r, label, minV, maxV, val, redline) {
+    var c = panelCtx;
+    var frac = clamp((val - minV) / (maxV - minV), 0, 1);
+    var a = -Math.PI * 0.75 + frac * Math.PI * 1.5;
+    c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2);
+    c.fillStyle = '#111a11'; c.fill();
+    c.lineWidth = 5; c.strokeStyle = '#3f4f3f'; c.stroke();
+    if (redline < maxV) {
+      var a0 = -Math.PI * 0.75 + ((redline - minV) / (maxV - minV)) * Math.PI * 1.5;
+      c.beginPath(); c.arc(x, y, r - 4, a0, Math.PI * 0.75);
+      c.lineWidth = 4; c.strokeStyle = '#ff5040'; c.stroke();
+    }
+    for (var i = 0; i <= 8; i++) {
+      var ta = -Math.PI * 0.75 + i / 8 * Math.PI * 1.5;
+      c.beginPath();
+      c.moveTo(x + Math.cos(ta) * (r - 12), y + Math.sin(ta) * (r - 12));
+      c.lineTo(x + Math.cos(ta) * (r - 4), y + Math.sin(ta) * (r - 4));
+      c.lineWidth = 2; c.strokeStyle = '#9fb89f'; c.stroke();
+    }
+    c.beginPath(); c.moveTo(x, y);
+    c.lineTo(x + Math.cos(a) * (r - 16), y + Math.sin(a) * (r - 16));
+    c.lineWidth = 3; c.strokeStyle = '#ffdf40'; c.stroke();
+    c.beginPath(); c.arc(x, y, 4, 0, Math.PI * 2); c.fillStyle = '#ffdf40'; c.fill();
+    c.fillStyle = '#cfdfcf'; c.font = '20px monospace'; c.textAlign = 'center';
+    c.fillText(label, x, y + r + 22);
+    c.font = '24px monospace'; c.fillStyle = '#eaffea';
+    c.fillText(Math.round(val), x, y - r - 8);
+  }
+
+  function drawPanel(altM, kmh) {
+    var c = panelCtx;
+    c.clearRect(0, 0, 512, 256);
+    c.fillStyle = '#0c110c'; c.fillRect(0, 0, 512, 256);
+    c.strokeStyle = '#3f4f3f'; c.lineWidth = 4; c.strokeRect(4, 4, 504, 248);
+    c.fillStyle = '#6fbf6f'; c.font = '18px monospace'; c.textAlign = 'left';
+    c.fillText('HELI', 18, 28);
+    c.fillStyle = '#cfdfcf'; c.font = '16px monospace'; c.textAlign = 'right';
+    c.fillText('HDG ' + Math.round(((S.heading * 180 / Math.PI) % 360 + 360) % 360).toString().padStart(3, '0') + '°', 494, 28);
+    drawGauge(130, 132, 76, 'ROTOR RPM', 0, 800, S.rpm, 620);
+    drawGauge(330, 132, 76, 'ALTITUDE', 0, 2000, altM, 2000);
+    drawGauge(470, 132, 76, 'SPEED', 0, 250, kmh, 240);
+    panelTex.needsUpdate = true;
+  }
+
+  function reset() {
+    S.throttle = 0.6; S.rpm = 480; S.collective = 1;
+    S.pitchInput = 0; S.rollInput = 0; S.yawInput = 0;
+    S.heading = 0; S.pitchAngle = 0; S.rollAngle = 0;
+    S.vel.set(0, 0, 0); S.pos.set(0, 2.6, 0);
+    S.camTheta = 0; S.camPhi = 0.3; S.camDist = 22;
+    S.camPos.copy(new THREE.Vector3(0, 6.5, 21));
+    heli.rotation.y = 0; body.rotation.set(0, 0, 0);
+  }
+
+  var clock = new THREE.Clock();
+  var tmpQ = new THREE.Quaternion();
+
+  function update(dt) {
+    var pitchIn = (keys['KeyS'] ? 1 : 0) - (keys['KeyW'] ? 1 : 0);
+    var rollIn = (keys['KeyA'] ? 1 : 0) - (keys['KeyD'] ? 1 : 0) + (keys['ArrowLeft'] ? 1 : 0) - (keys['ArrowRight'] ? 1 : 0);
+    var yawIn = (keys['KeyQ'] ? 1 : 0) - (keys['KeyE'] ? 1 : 0);
+    S.pitchInput = pitchIn;
+    S.rollInput = clamp(rollIn, -1, 1);
+    S.yawInput = yawIn;
+
+    if (keys['Space']) S.throttle += 0.5 * dt; else S.throttle -= 0.4 * dt;
+    S.throttle = clamp(S.throttle, 0, 1);
+    if (keys['ArrowUp']) S.collective += 0.5 * dt;
+    if (keys['ArrowDown']) S.collective -= 0.5 * dt;
+    S.collective = clamp(S.collective, 0.55, 1.6);
+
+    var rpmTarget = S.throttle * MAX_RPM;
+    if (S.throttle < 0.15) {
+      var auto = clamp(-S.vel.y * 15, 0, 320);
+      rpmTarget = Math.max(rpmTarget, auto);
+    }
+    if (S.rpm < rpmTarget) S.rpm = Math.min(rpmTarget, S.rpm + 260 * dt);
+    else S.rpm = Math.max(rpmTarget, S.rpm - 170 * dt);
+    S.rpm = Math.max(0, S.rpm);
+
+    var yawRate = S.yawInput * YAW_SPEED;
+    var extraYaw = S.rpm > 520 ? (S.rpm - 520) * 0.008 : 0;
+    S.heading += (yawRate + extraYaw) * dt;
+
+    S.pitchAngle += (S.pitchInput * MAX_TILT - S.pitchAngle) * Math.min(1, 5 * dt);
+    var bankTarget = clamp(S.rollInput * MAX_TILT + (yawRate + extraYaw) * BANK_K, -0.7, 0.7);
+    S.rollAngle += (bankTarget - S.rollAngle) * Math.min(1, 5 * dt);
+
+    tmpQ.setFromEuler(new THREE.Euler(S.pitchAngle, 0, S.rollAngle));
+    var bodyUp = new THREE.Vector3(0, 1, 0).applyQuaternion(tmpQ);
+
+    var lift = LIFT_K * S.rpm * S.rpm * S.collective;
+    var hoverR = Math.sqrt(MASS * G / (LIFT_K * S.collective));
+    if (Math.abs(S.rpm - hoverR) < 15 && Math.abs(S.vel.y) < 0.8) {
+      lift *= 1 + 0.03 * Math.sin(S.time * 3.1);
+    }
+    var alt = S.pos.y - SKID_GROUND;
+    lift *= 1 + 0.18 * clamp(1 - alt / 5, 0, 1);
+
+    var acc = new THREE.Vector3();
+    acc.addScaledVector(bodyUp, lift / MASS);
+    acc.y -= G;
+    var spd = S.vel.length();
+    acc.addScaledVector(S.vel, -0.0045 * spd);
+    S.vel.addScaledVector(acc, dt);
+    S.pos.addScaledVector(S.vel, dt);
+
+    if (S.pos.y < SKID_GROUND) {
+      S.pos.y = SKID_GROUND;
+      if (S.vel.y < 0) S.vel.y *= -0.2;
+      if (Math.abs(S.vel.y) < 0.5) S.vel.y = 0;
+    }
+
+    heli.position.copy(S.pos);
+    heli.rotation.y = S.heading;
+    body.rotation.set(S.pitchAngle, 0, S.rollAngle);
+
+    var rad = S.rpm * Math.PI / 30;
+    rotor.rotation.y += rad * dt;
+    tailRotor.rotation.z += rad * 1.4 * dt;
+    var blurF = clamp((S.rpm - 90) / 260, 0, 1);
+    blurMat.opacity = blurF * 0.42;
+    tailBlurMat.opacity = blurF * 0.5;
+    for (var i = 0; i < blades.length; i++) blades[i].material.opacity = 1 - blurF * 0.6;
+    for (var j = 0; j < tailBlades.length; j++) tailBlades[j].material.opacity = 1 - blurF * 0.6;
+
+    sun.position.copy(S.pos).add(SUN_OFFSET);
+    sun.target.position.copy(S.pos);
+
+    var altM = Math.max(0, S.pos.y - SKID_GROUND);
+    var kmh = Math.hypot(S.vel.x, S.vel.z) * 3.6;
+    altEl.textContent = altM.toFixed(1);
+    spdEl.textContent = Math.round(kmh);
+    rpmEl.textContent = Math.round(S.rpm);
+    thrEl.textContent = Math.round(S.throttle * 100);
+    colEl.textContent = Math.round(S.collective * 100);
+    drawPanel(altM, kmh);
+
+    var sp = new THREE.Vector3(
+      S.camDist * Math.sin(S.camTheta) * Math.cos(S.camPhi),
+      S.camDist * Math.sin(S.camPhi),
+      S.camDist * Math.cos(S.camTheta) * Math.cos(S.camPhi)
+    );
+    var camTarget = new THREE.Vector3(S.pos.x, S.pos.y + 0.6, S.pos.z).add(sp);
+    S.camPos.lerp(camTarget, Math.min(1, 4 * dt));
+    camera.position.copy(S.camPos);
+    camera.lookAt(new THREE.Vector3(S.pos.x, S.pos.y + 0.4, S.pos.z));
+    camera.fov = 60 + Math.min(12, kmh * 0.05);
+    camera.updateProjectionMatrix();
+
+    for (var cw = 0; cw < clouds.length; cw++) {
+      clouds[cw].g.position.x += clouds[cw].sp * dt;
+      if (clouds[cw].g.position.x > 900) clouds[cw].g.position.x = -900;
+    }
+
+    S.time += dt;
+  }
+
+  function animate() {
+    requestAnimationFrame(animate);
+    var dt = Math.min(clock.getDelta(), 0.05);
+    update(dt);
+    renderer.render(scene, camera);
+  }
+
+  reset();
+  animate();
+})();
+</script>
+</body>
+</html>
