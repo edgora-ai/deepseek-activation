@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>deepseek-activation 黑洞渲染对比测试报告</title>
+<style>
+:root { color-scheme: light; --bg:#f7f7f5; --card:#fff; --text:#1a1a1a; --muted:#666; --border:#e3e3df; --accent:#0a66c2; --ok:#1a7f37; --bad:#b42318; --warn:#9a6700; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#141414; --card:#1e1e1e; --text:#e8e8e6; --muted:#9c9c94; --border:#333; --accent:#5aa2e8; --ok:#3fb950; --bad:#f85149; --warn:#d29922; } }
+:root[data-theme="dark"] { --bg:#141414; --card:#1e1e1e; --text:#e8e8e6; --muted:#9c9c94; --border:#333; --accent:#5aa2e8; --ok:#3fb950; --bad:#f85149; --warn:#d29922; }
+* { box-sizing: border-box; }
+body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans SC",sans-serif; background:var(--bg); color:var(--text); line-height:1.6; }
+.wrap { max-width:960px; margin:0 auto; padding:32px 20px 64px; }
+h1 { font-size:1.7em; margin:0 0 4px; }
+.sub { color:var(--muted); font-size:.95em; margin-bottom:28px; }
+h2 { font-size:1.25em; margin:36px 0 12px; border-bottom:1px solid var(--border); padding-bottom:6px; }
+.card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:20px; margin:14px 0; }
+table { width:100%; border-collapse:collapse; font-size:.93em; margin:10px 0; }
+th,td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--border); vertical-align:top; }
+th { font-weight:600; white-space:nowrap; }
+.ok { color:var(--ok); font-weight:600; }
+.bad { color:var(--bad); font-weight:600; }
+.warn { color:var(--warn); font-weight:600; }
+.tag { display:inline-block; padding:1px 8px; border-radius:99px; font-size:.8em; margin-right:6px; }
+.tag-ok { background:rgba(26,127,55,.12); color:var(--ok); }
+.tag-bad { background:rgba(180,35,24,.1); color:var(--bad); }
+code { background:var(--border); padding:1px 5px; border-radius:4px; font-size:.9em; }
+pre { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:14px; overflow-x:auto; font-size:.85em; }
+.footer { margin-top:40px; color:var(--muted); font-size:.85em; }
+@media (max-width:700px){ .wrap{padding:20px 12px 40px} .ovf{overflow-x:auto} }
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>黑洞渲染 · 四通道对比测试报告</h1>
+<div class="sub">deepseek-activation · 2026-08-19 · 模型 deepseek-free / deepseek-v4-flash-free（同一模型）</div>
+
+<h2>1. 测试任务</h2>
+<div class="card">
+<pre>Create blackhole.html: a 3D black hole render with Three.js:
+accretion disk (particles with glow), bloom postprocessing,
+starfield, orbiting camera. Write the file and verify.</pre>
+<p style="margin:10px 0 0;color:var(--muted)">选择理由：简单任务（helper.js 等）四通道都能完成，看不出差别。黑洞需要长输出（300+ 行 HTML、多特效），是压力测试。</p>
+</div>
+
+<h2>2. 结果总表</h2>
+<div class="ovf"><table>
+<tr><th>通道</th><th>条件</th><th>结果</th><th>大小</th><th>代码行</th><th>吸积盘粒子</th><th>验证行为</th></tr>
+<tr><td rowspan="2"><b>DSH 原生</b><br><span style="color:var(--muted)">headless profile<br>minimal preset</span></td><td>无规则层</td><td><span class="tag tag-ok">✅ 1/2</span></td><td>10806 B</td><td>341</td><td>24000</td><td>写文件 + bloom/CanvasTexture/Clock</td></tr>
+<tr><td>重复跑</td><td><span class="tag tag-bad">❌ 超时</span></td><td colspan="4">无文件 —— deepseek-free 长输出断流（与规则无关）</td></tr>
+<tr><td rowspan="2"><b>Codex CLI</b><br><span style="color:var(--muted)">gateway responses</span></td><td>有规则</td><td><span class="tag tag-ok">✅</span></td><td>9525 B</td><td>298</td><td>14000</td><td>写文件 + 尝试无头截图</td></tr>
+<tr><td>无规则</td><td><span class="tag tag-ok">✅</span></td><td>9166 B</td><td>247</td><td>4200–4500</td><td>起 http.server + curl + node verify</td></tr>
+<tr><td rowspan="2"><b>OpenCode</b><br><span style="color:var(--muted)">自带 free 中转</span></td><td>有规则</td><td><span class="tag tag-ok">✅</span></td><td>11675 B</td><td>368</td><td><b>55000</b></td><td>写文件 + 本地验证</td></tr>
+<tr><td>无规则（×2）</td><td><span class="tag tag-ok">✅✅</span></td><td>8471 / 9342 B</td><td>259 / 282</td><td>14000</td><td>写文件 + 本地验证</td></tr>
+<tr><td><b>Claude Code</b><br><span style="color:var(--muted)">gateway anthropic</span></td><td>有/无规则</td><td><span class="tag tag-bad">❌ 1/4</span></td><td colspan="4">唯一成功那次带规则（8728 B）；3 次断流含带规则重试 —— "Execution error"</td></tr>
+</table></div>
+
+<h2>3. 结论：规则是放大器，不是开关</h2>
+<div class="card">
+<ul>
+<li><b>有规则时输出密度更高</b>：Codex 粒子 14000 vs 4500（3×），OpenCode 55000 vs 14000（4×），代码行数 1.2–1.4×。</li>
+<li><b>无规则也出完整黑洞</b>（bloom/吸积盘/星场都在）——质量基线相同，规则不决定成败。</li>
+<li><b>DSH 原生（minimal preset）本身就是一种治理</b>：24000 粒子，比两个 CLI 无规则更强；但 opencode+规则（55000）仍超它。</li>
+<li><b>所有通道都随机波动</b>：DSH 1/2、Claude Code 1/4 成功率 —— 是 deepseek-free 长输出断流，与通道和规则都无关。</li>
+</ul>
+</div>
+
+<h2>4. Claude Code 断流根因分析</h2>
+<div class="card">
+<p><b>现象</b>：`claude -p` 复杂任务报 "Execution error"，文件未写出；简单任务正常。</p>
+<p><b>排除</b>：不是规则问题（带规则重试一样断）、不是权限（简单任务能写文件）、不是 API key（其它通道同 key 正常）。</p>
+<p><b>根因证据（本次实测）</b>：gateway（cli.hroze.org）行为差异 ——</p>
+<table>
+<tr><th>请求</th><th>结果</th></tr>
+<tr><td>短输出 <code>{"input":"hi"}</code></td><td><span class="ok">HTTP 200 in 11.9s</span></td></tr>
+<tr><td>长输出 <code>max_output_tokens:8000</code></td><td><span class="bad">30s 无响应 → 挂起</span></td></tr>
+</table>
+<p>deepseek-free 生成长输出（黑洞 HTML ≈ 500+ tokens 流式）时，gateway 中转对长流<b>挂起或超时</b>；Claude Code 等待流超时 → 报 "Execution error" 且不留文件。opencode 用自己的免费中转所以相对稳定；codex/DSH 走同一 gateway 也偶发（DSH 1/2）。</p>
+<p><b>应对</b>：复杂任务拆分（先规划→分步写文件），或换更稳的中转。</p>
+</div>
+
+<h2>5. 方法论意义</h2>
+<div class="card">
+<p>CLI 上用 AGENTS.md 注入规则层（build/fix 分类 + 每步验证 + 失败重试 + 深度思考）≈ DSH 原生 preset 的效果：<b>殊途同归，验证了移植成功</b>。但不"炸裂"、不是必需 —— 收益是输出密度与纪律，不是能力开关。</p>
+</div>
+
+<h2>6. 复现</h2>
+<div class="card"><pre># DSH 原生（headless，需 pi-ai adapter patch）
+pnpm dsh --profile headless --patch /tmp/pi-ai-patch.yml "&lt;任务&gt;"
+
+# Codex / OpenCode / Claude Code（规则文件分别置于 ~/.codex、~/.config/opencode、~/.claude）
+codex exec -s workspace-write "&lt;任务&gt;"
+opencode run --model opencode/deepseek-v4-flash-free "&lt;任务&gt;"
+claude -p "&lt;任务&gt;"</pre></div>
+
+<div class="footer">测试脚本与规则文件：<a href="https://github.com/edgora-ai/deepseek-activation">edgora-ai/deepseek-activation</a> · 完整数据 docs/verification.md</div>
+</div>
+</body>
+</html>
