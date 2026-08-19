@@ -25,14 +25,14 @@ Create helicopter.html: an interactive 3D helicopter with Three.js:
 | **Claude Code** | 带规则 (solo) | ✅ | **31587 B** | rotor×28, throttle×24, RPM×14, skid×10, HUD×3 |
 | Codex | 带规则 | ✅ | 632039 B | rotor×27, events×36（1.5h 慢工出细活）|
 | Codex | 无规则 | ✅ | 30599 B | 完成（无 timeout 下自然完成）|
-| Claude Code | 无规则 | ❌ 卡死（确认）| — | 30min 无进展；gateway 直连 1.5s 正常 —— claude 端问题 |
+| Claude Code | 无规则 | ✅ | 23477 B | rotor×19, throttle×13, RPM×11（极慢~15min 但完成）|
 | DSH minimal | 原生 | ✅ | 29143 B | rotor×22, skid×19（1h 完成）|
 | DSH router-standard | preset | ✅ | 26663 B | 完成（无 timeout 下自然完成）|
 
 ## 关键发现
 
 ### 1. 直升机任务难度显著高于黑洞
-- 最终 8 配置中 **7 成功 1 失败**（初判 5 失败多为 timeout 误杀，长 timeout 后转正）
+- 最终 8 配置中 **8 成功 0 失败**（初判 5 失败全部是 timeout 误杀——文件其实都写出，被我杀在收尾阶段）
 - 复杂建模+物理+控制是 free 模型的实际压力测试
 
 ### 2. 规则的作用：成功案例全带规则
@@ -40,7 +40,7 @@ Create helicopter.html: an interactive 3D helicopter with Three.js:
 |---|---|
 | OpenCode 成功 | 带规则 ✓（以及无规则也成功）|
 | Claude 成功 | **带规则（solo）** ✓ |
-| 失败通道 | 无规则或 DSH |
+| 失败通道 | 无（全部成功） |
 
 **claude 带规则 31587B vs 无规则卡死**——规则再次成为 claude 的"保底"。
 

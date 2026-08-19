@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Helicopter Simulator — Three.js</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', Arial, sans-serif; }
+  #hud { position: fixed; top: 16px; left: 16px; z-index: 10; background: rgba(8,14,20,.72); color: #d8f3ff;
+         padding: 12px 16px; border-radius: 10px; border: 1px solid rgba(120,200,255,.28); min-width: 210px;
+         font: 13px/1.65 'Consolas','Menlo',monospace; text-shadow: 0 1px 2px #000; user-select: none; }
+  #hud h1 { margin: 0 0 4px; font-size: 12px; letter-spacing: 3px; color: #8fd0ff; font-weight: 600; }
+  #hud .row { display: flex; justify-content: space-between; gap: 16px; }
+  #hud .v { color: #fff; font-weight: 700; }
+  #bar { height: 8px; background: rgba(255,255,255,.14); border-radius: 4px; margin-top: 8px; overflow: hidden; }
+  #bar > div { height: 100%; width: 55%; background: linear-gradient(90deg, #2fd04a, #ffe066); transition: width .15s; }
+  #help { position: fixed; right: 16px; bottom: 16px; z-index: 10; background: rgba(8,14,20,.72); color: #bfe6ff;
+          padding: 10px 14px; border-radius: 10px; font: 12px/1.85 'Consolas','Menlo',monospace;
+          border: 1px solid rgba(120,200,255,.22); max-width: 310px; user-select: none; }
+  #help b { color: #ffe066; font-weight: 700; }
+  #msg { position: fixed; top: 16px; right: 16px; z-index: 10; color: #ffe066; font: 12px 'Consolas',monospace;
+         background: rgba(0,0,0,.55); padding: 6px 10px; border-radius: 6px; opacity: 0; transition: opacity 1.2s; }
+</style>
+</head>
+<body>
+<div id="hud">
+  <h1>HELICOPTER SIM</h1>
+  <div class="row"><span>ALT</span><span class="v" id="vAlt">0 m</span></div>
+  <div class="row"><span>SPEED</span><span class="v" id="vSpd">0 km/h</span></div>
+  <div class="row"><span>ROTOR</span><span class="v" id="vRpm">0 RPM</span></div>
+  <div class="row"><span>THROTTLE</span><span class="v" id="vThr">55 %</span></div>
+  <div class="row"><span>COLLECTIVE</span><span class="v" id="vCol">62 %</span></div>
+  <div id="bar"><div id="barFill"></div></div>
+</div>
+<div id="help">
+  <b>W/S</b> pitch&nbsp;&nbsp;<b>A/D</b> roll&nbsp;&nbsp;<b>Q/E</b> yaw<br>
+  <b>Space</b> throttle up&nbsp;&nbsp;<b>X</b> throttle down<br>
+  <b>&uarr;/&darr;</b> collective&nbsp;&nbsp;<b>&larr;/&rarr;</b> cyclic trim<br>
+  <b>Mouse drag</b> orbit camera&nbsp;&nbsp;<b>Wheel</b> zoom
+</div>
+<div id="msg">click to focus</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+'use strict';
+
+/* ================= renderer / scene / camera ================= */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x8ecff2);
+scene.fog = new THREE.Fog(0x8ecff2, 350, 1000);
+
+const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 2500);
+camera.position.set(26, 14, 30);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputEncoding = THREE.sRGBEncoding;
+document.body.appendChild(renderer.domElement);
+
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.minDistance = 7;
+controls.maxDistance = 150;
+controls.maxPolarAngle = Math.PI / 2 - 0.03;
+controls.enablePan = false;
+controls.target.set(0, 2.5, 0);
+
+/* ================= lights ================= */
+const hemi = new THREE.HemisphereLight(0xbfd9ff, 0x5a7a4a, 0.75);
+scene.add(hemi);
+
+const sun = new THREE.DirectionalLight(0xfff2d8, 1.0);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = -40;  sun.shadow.camera.right = 40;
+sun.shadow.camera.top = 40;    sun.shadow.camera.bottom = -40;
+sun.shadow.camera.near = 10;   sun.shadow.camera.far = 250;
+sun.shadow.bias = -0.0015;
+scene.add(sun);
+scene.add(sun.target);
+
+/* ================= ground / world ================= */
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(1400, 1400),
+  new THREE.MeshLambertMaterial({ color: 0x74a05a })
+);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+const grid = new THREE.GridHelper(1400, 140, 0x52793b, 0x5f8c46);
+grid.position.y = 0.02;
+grid.material.transparent = true;
+grid.material.opacity = 0.4;
+scene.add(grid);
+
+/* deterministic RNG so the scenery is identical on every load */
+let seed = 7;
+const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+
+function helipadTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const g = c.getContext('2d');
+  g.fillStyle = '#3a444e';
+  g.fillRect(0, 0, 256, 256);
+  g.strokeStyle = '#f2c94c';
+  g.lineWidth = 8;
+  g.strokeRect(6, 6, 244, 244);
+  g.beginPath(); g.arc(128, 128, 92, 0, Math.PI * 2); g.stroke();
+  g.fillStyle = '#f2c94c';
+  g.font = 'bold 96px Arial';
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText('H', 128, 140);
+  const t = new THREE.CanvasTexture(c);
+  t.encoding = THREE.sRGBEncoding;
+  return t;
+}
+const pad = new THREE.Mesh(new THREE.CircleGeometry(9, 48),
+  new THREE.MeshLambertMaterial({ map: helipadTexture() }));
+pad.rotation.x = -Math.PI / 2;
+pad.position.y = 0.05;
+pad.receiveShadow = true;
+scene.add(pad);
+
+/* trees */
+const trunkMat = new THREE.MeshLambertMaterial({ color: 0x6b4a2b });
+const foliageMat = new THREE.MeshLambertMaterial({ color: 0x2e6b34 });
+for (let i = 0; i < 90; i++) {
+  const a = rnd() * Math.PI * 2, d = 45 + rnd() * 520;
+  const x = Math.cos(a) * d, z = Math.sin(a) * d;
+  if (Math.hypot(x, z) < 60) continue;
+  const s = 0.8 + rnd() * 1.5;
+  const g = new THREE.Group();
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.22 * s, 0.32 * s, 2.4 * s, 6), trunkMat);
+  trunk.position.y = 1.2 * s;
+  g.add(trunk);
+  for (let j = 0; j < 3; j++) {
+    const cone = new THREE.Mesh(new THREE.ConeGeometry((3 - j) * 0.5 * s, 2.1 * s, 7), foliageMat);
+    cone.position.y = (2.0 + j * 1.35) * s;
+    g.add(cone);
+  }
+  g.position.set(x, 0, z);
+  g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  scene.add(g);
+}
+
+/* clouds */
+const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 });
+for (let i = 0; i < 12; i++) {
+  const a = rnd() * Math.PI * 2, d = 150 + rnd() * 500;
+  const cl = new THREE.Mesh(new THREE.SphereGeometry(14 + rnd() * 22, 10, 8), cloudMat);
+  cl.position.set(Math.cos(a) * d, 55 + rnd() * 45, Math.sin(a) * d);
+  cl.scale.set(1.5, 0.35, 1.0);
+  scene.add(cl);
+}
+
+/* distant mountains */
+const mtnMat = new THREE.MeshLambertMaterial({ color: 0x8294ad });
+for (let i = 0; i < 10; i++) {
+  const a = (i / 10) * Math.PI * 2 + 0.35;
+  const m = new THREE.Mesh(new THREE.ConeGeometry(150, 110, 6), mtnMat);
+  m.position.set(Math.cos(a) * 860, 25, Math.sin(a) * 860);
+  m.rotation.y = rnd() * Math.PI;
+  scene.add(m);
+}
+
+/* ================= materials ================= */
+const MAT = {
+  body:  new THREE.MeshPhongMaterial({ color: 0xe8e4da, specular: 0x333333, shininess: 28 }),
+  red:   new THREE.MeshPhongMaterial({ color: 0xd23b2e, specular: 0x222222, shininess: 40 }),
+  dark:  new THREE.MeshPhongMaterial({ color: 0x2b2f33 }),
+  glass: new THREE.MeshPhongMaterial({ color: 0x9fd4ff, transparent: true, opacity: 0.5,
+                                       shininess: 140, specular: 0xffffff, depthWrite: false }),
+  blade: new THREE.MeshPhongMaterial({ color: 0x15171b, transparent: true, opacity: 1 }),
+  rotor: new THREE.MeshPhongMaterial({ color: 0x3a3f46, shininess: 60 }),
+  skid:  new THREE.MeshPhongMaterial({ color: 0x22262b, shininess: 80 }),
+};
+
+/* ================= helicopter model ================= */
+const heli = new THREE.Group();
+heli.rotation.order = 'YXZ';            /* aircraft convention: roll, then pitch, then yaw */
+heli.position.set(0, 1.0, 0);
+scene.add(heli);
+
+/* fuselage: rounded hull + tapered nose */
+const hull = new THREE.Mesh(new THREE.SphereGeometry(1.05, 24, 16), MAT.body);
+hull.scale.set(0.95, 0.72, 1.25);
+hull.position.set(0, 0.42, -0.05);
+hull.castShadow = hull.receiveShadow = true;
+heli.add(hull);
+
+const nose = new THREE.Mesh(new THREE.ConeGeometry(0.65, 1.1, 14), MAT.body);
+nose.rotation.x = Math.PI / 2;
+nose.position.set(0, 0.4, 1.15);
+nose.castShadow = true;
+heli.add(nose);
+
+/* tail boom + fairing + red stripes */
+const boom = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.2, 3.6, 10), MAT.body);
+boom.rotation.x = Math.PI / 2;
+boom.position.set(0, 0.45, -3.3);
+boom.castShadow = true;
+heli.add(boom);
+
+const fairing = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.6, 10), MAT.body);
+fairing.rotation.x = Math.PI / 2;
+fairing.position.set(0, 0.45, -1.75);
+heli.add(fairing);
+
+for (const sz of [-2.6, -3.1]) {
+  const stripe = new THREE.Mesh(new THREE.CylinderGeometry(0.215, 0.215, 0.22, 10), MAT.red);
+  stripe.rotation.x = Math.PI / 2;
+  stripe.position.set(0, 0.45, sz);
+  heli.add(stripe);
+}
+
+/* tail fin (vertical stabilizer) + horizontal stabilizer */
+const fin = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.95, 0.9), MAT.red);
+fin.position.set(0, 0.9, -5.25);
+fin.castShadow = true;
+heli.add(fin);
+
+const hstab = new THREE.Mesh(new THREE.BoxGeometry(1.65, 0.05, 0.5), MAT.body);
+hstab.position.set(0, 0.88, -4.4);
+hstab.castShadow = true;
+heli.add(hstab);
+
+/* cockpit: glass canopy + instrument panel with live dials */
+const canopy = new THREE.Mesh(new THREE.SphereGeometry(0.72, 20, 14), MAT.glass);
+canopy.scale.set(0.72, 0.5, 0.95);
+canopy.position.set(0, 0.55, 1.05);
+heli.add(canopy);
+
+const panel = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.05, 0.34), MAT.dark);
+panel.position.set(0, 0.62, 1.45);
+panel.rotation.x = -0.18;
+heli.add(panel);
+
+function makeDialTexture(label) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d');
+  g.translate(64, 64);
+  g.beginPath(); g.arc(0, 0, 60, 0, Math.PI * 2);
+  g.fillStyle = '#10141a'; g.fill();
+  g.strokeStyle = '#5b6b7a'; g.lineWidth = 3; g.stroke();
+  g.strokeStyle = '#cfd8e0'; g.lineWidth = 2.5;
+  for (let i = 0; i < 12; i++) {
+    const a = Math.PI * 0.75 + (i / 12) * Math.PI * 1.5;
+    g.beginPath();
+    g.moveTo(Math.cos(a) * 46, Math.sin(a) * 46);
+    g.lineTo(Math.cos(a) * 54, Math.sin(a) * 54);
+    g.stroke();
+  }
+  g.fillStyle = '#8fa6b8';
+  g.font = '10px monospace';
+  g.textAlign = 'center';
+  g.fillText(label, 0, 4);
+  const t = new THREE.CanvasTexture(c);
+  t.encoding = THREE.sRGBEncoding;
+  return t;
+}
+const dialGeo = new THREE.CircleGeometry(0.105, 20);
+const needleMat = new THREE.MeshBasicMaterial({ color: 0xff5533 });
+const needles = {};
+function addInstrument(x, key, label) {
+  const g = new THREE.Group();
+  g.position.set(x, 0.68, 1.52);
+  g.rotation.x = -0.18;                       /* face forward-up like a real glareshield */
+  const face = new THREE.Mesh(dialGeo, new THREE.MeshBasicMaterial({ map: makeDialTexture(label) }));
+  g.add(face);
+  const needle = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.012, 0.012), needleMat);
+  needle.position.x = 0.037;
+  g.add(needle);
+  heli.add(g);
+  needles[key] = needle;
+}
+addInstrument(-0.16, 'spd', 'SPD');
+addInstrument(0,    'rpm', 'RPM');
+addInstrument(0.16, 'alt', 'ALT');
+
+/* seats (tops visible through the canopy) */
+const seatMat = new THREE.MeshPhongMaterial({ color: 0x1c2025 });
+for (const sx of [-0.27, 0.27]) {
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.25, 0.3), seatMat);
+  seat.position.set(sx, 0.5, 1.3);
+  heli.add(seat);
+  const back = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.42, 0.08), seatMat);
+  back.position.set(sx, 0.78, 1.48);
+  back.rotation.x = 0.1;
+  heli.add(back);
+}
+
+/* skids + struts + red tip protectors */
+const skidGeo = new THREE.CylinderGeometry(0.06, 0.06, 2.5, 8);
+for (const sx of [-0.62, 0.62]) {
+  const skid = new THREE.Mesh(skidGeo, MAT.skid);
+  skid.rotation.z = Math.PI / 2;
+  skid.position.set(sx, -0.88, 0.55);
+  skid.castShadow = true;
+  heli.add(skid);
+  for (const sz of [0.2, 0.9]) {
+    const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.8, 6), MAT.skid);
+    strut.position.set(sx * 0.82, -0.55, sz);
+    strut.rotation.z = sx * 0.16;
+    heli.add(strut);
+  }
+  const tip = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), MAT.red);
+  tip.position.set(sx, -0.88, -0.68);
+  heli.add(tip);
+}
+
+/* main rotor: mast, hub, 4-blade head */
+const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.15, 0.5, 10), MAT.rotor);
+mast.position.set(0, 1.32, 0.15);
+heli.add(mast);
+
+const mainRotor = new THREE.Group();
+mainRotor.position.set(0, 1.6, 0.15);
+heli.add(mainRotor);
+
+const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.16, 0.3, 12), MAT.rotor);
+hub.position.y = 0.15;
+mainRotor.add(hub);
+const star1 = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.035, 0.05), MAT.rotor);
+star1.position.y = 0.02; mainRotor.add(star1);
+const star2 = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.035, 0.85), MAT.rotor);
+star2.position.y = 0.02; mainRotor.add(star2);
+const hubCap = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), MAT.rotor);
+hubCap.position.y = 0.32; mainRotor.add(hubCap);
+
+const bladeRoots = [];
+const bladeGeo = new THREE.BoxGeometry(0.34, 0.026, 6.6);
+for (let i = 0; i < 4; i++) {
+  const bg = new THREE.Group();
+  bg.rotation.y = i * Math.PI / 2;
+  const blade = new THREE.Mesh(bladeGeo, MAT.blade);
+  blade.position.z = 3.3;
+  blade.rotation.x = -0.05;                   /* coning */
+  blade.castShadow = true;
+  bg.add(blade);
+  mainRotor.add(bg);
+  bladeRoots.push(blade);
+}
+
+/* rotor blur disc (fades in as RPM rises) */
+function makeBlurTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(128, 128, 24, 128, 128, 128);
+  grad.addColorStop(0, 'rgba(190,200,210,0.9)');
+  grad.addColorStop(0.5, 'rgba(165,175,185,0.45)');
+  grad.addColorStop(1, 'rgba(150,160,170,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 256, 256);
+  g.strokeStyle = 'rgba(255,255,255,0.09)';
+  g.lineWidth = 24;
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    g.beginPath();
+    g.arc(128, 128, 96 + (i % 3) * 12, a, a + 0.24);
+    g.stroke();
+  }
+  return new THREE.CanvasTexture(c);
+}
+const blurTex = makeBlurTexture();
+const blurDisc = new THREE.Mesh(
+  new THREE.CircleGeometry(6.7, 48),
+  new THREE.MeshBasicMaterial({ map: blurTex, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide })
+);
+blurDisc.rotation.x = -Math.PI / 2;
+blurDisc.position.y = 0.06;
+blurDisc.renderOrder = 3;
+mainRotor.add(blurDisc);
+
+/* tail rotor: spins fast, counteracts main-rotor torque */
+const tailRotor = new THREE.Group();
+tailRotor.position.set(0.2, 0.32, -5.35);
+heli.add(tailRotor);
+
+const thub = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.14, 8), MAT.rotor);
+thub.rotation.z = Math.PI / 2;
+tailRotor.add(thub);
+const tBladeGeo = new THREE.BoxGeometry(0.05, 0.09, 1.5);
+for (const dir of [-1, 1]) {
+  const tb = new THREE.Mesh(tBladeGeo, MAT.blade);
+  tb.position.z = dir * 0.42;
+  tailRotor.add(tb);
+}
+const tBlur = new THREE.Mesh(
+  new THREE.CircleGeometry(0.95, 24),
+  new THREE.MeshBasicMaterial({ map: blurTex, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide })
+);
+tBlur.rotation.y = Math.PI / 2;
+tBlur.renderOrder = 2;
+tailRotor.add(tBlur);
+
+/* nav lights + beacon */
+const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8),
+  new THREE.MeshBasicMaterial({ color: 0xff2222 }));
+beacon.position.set(0, 2.02, 0.15);
+heli.add(beacon);
+
+const navRed = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 6),
+  new THREE.MeshBasicMaterial({ color: 0xff3333 }));
+navRed.position.set(0.62, -0.8, 0.55);
+heli.add(navRed);
+const navGrn = navRed.clone();
+navGrn.material = new THREE.MeshBasicMaterial({ color: 0x33ff66 });
+navGrn.position.x = -0.62;
+heli.add(navGrn);
+const navWht = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 6),
+  new THREE.MeshBasicMaterial({ color: 0xffffff }));
+navWht.position.set(0, 1.32, -5.25);
+heli.add(navWht);
+
+/* soft blob shadow under the helicopter */
+const blob = new THREE.Mesh(
+  new THREE.CircleGeometry(3.4, 32),
+  new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.28, depthWrite: false })
+);
+blob.rotation.x = -Math.PI / 2;
+blob.position.y = 0.07;
+scene.add(blob);
+
+/* ================= input ================= */
+const keys = {};
+window.addEventListener('keydown', e => {
+  if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
+  keys[e.code] = true;
+});
+window.addEventListener('keyup', e => { keys[e.code] = false; });
+window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+
+window.addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+/* ================= physics state ================= */
+const phys = {
+  throttle: 55,        /* engine: target rotor RPM, 0-100 */
+  coll: 62,            /* collective: blade pitch / lift, 0-100 */
+  rpm: 0,              /* current main-rotor RPM (engine spool-up) */
+  tailRpm: 0,          /* tail-rotor RPM (lags main: transmission + airflow) */
+  rollTrim: 0,
+  vel: new THREE.Vector3(),
+  pitch: 0,            /* >0 = nose down */
+  roll: 0,             /* >0 = bank right */
+  yaw: 0,              /* >0 = yaw left */
+  pRate: 0, rRate: 0, yRate: 0,
+};
+const GROUND_Y = 0.94; /* skid bottom */
+const GRAVITY = 9.8;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+const el = {
+  alt:  document.getElementById('vAlt'),
+  spd:  document.getElementById('vSpd'),
+  rpm:  document.getElementById('vRpm'),
+  thr:  document.getElementById('vThr'),
+  coll: document.getElementById('vColl') || document.getElementById('vCol'),
+  bar:  document.getElementById('barFill'),
+  msg:  document.getElementById('msg'),
+};
+setTimeout(() => { el.msg.style.opacity = '1'; }, 300);
+setTimeout(() => { el.msg.style.opacity = '0'; }, 4500);
+
+/* ================= main loop ================= */
+const clock = new THREE.Clock();
+const camT = new THREE.Vector3();
+const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+const thrustDir = new THREE.Vector3(0, 1, 0);
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const t = clock.elapsedTime;
+
+  /* --- inputs --- */
+  if (keys.Space)    phys.throttle = Math.min(100, phys.throttle + 30 * dt);
+  if (keys.KeyX)     phys.throttle = Math.max(0, phys.throttle - 30 * dt);
+  if (keys.ArrowUp)  phys.coll = Math.min(100, phys.coll + 30 * dt);
+  if (keys.ArrowDown) phys.coll = Math.max(0, phys.coll - 30 * dt);
+  if (keys.ArrowLeft)  phys.rollTrim = clamp(phys.rollTrim - 0.8 * dt, -0.35, 0.35);
+  if (keys.ArrowRight) phys.rollTrim = clamp(phys.rollTrim + 0.8 * dt, -0.35, 0.35);
+
+  /* --- engine: rotor RPM spools toward throttle --- */
+  phys.rpm += (phys.throttle - phys.rpm) * (1 - Math.exp(-dt / 0.9));
+  phys.tailRpm += (phys.rpm - phys.tailRpm) * (1 - Math.exp(-dt / 1.5));
+
+  const rpmF = phys.rpm / 100, collF = phys.coll / 100;
+  /* lift ~ RPM^2 x collective; hover ~ throttle 75-80 + collective ~65-70 */
+  let lift = 26.5 * rpmF * rpmF * collF * (0.55 + 0.45 * collF);
+  if (Math.abs(phys.vel.y) < 3) lift *= 1 + 0.05 * Math.sin(t * 1.8);  /* slight hover bobbing */
+  lift = Math.max(0, lift);
+
+  /* --- attitude control --- */
+  const pIn = (keys.KeyS ? 1 : 0) - (keys.KeyW ? 1 : 0);   /* + = nose down */
+  const rIn = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0);   /* + = bank right */
+  const yIn = (keys.KeyQ ? 1 : 0) - (keys.KeyE ? 1 : 0);   /* + = yaw left */
+
+  /* torque balance: main-rotor torque vs tail-rotor reaction. Tail RPM lags,
+     so throttle changes produce a transient yaw until the tail catches up. */
+  const yawAcc = 2.4 * (rpmF * rpmF * collF - (phys.tailRpm / 100) * (phys.tailRpm / 100));
+  phys.yRate += yawAcc * dt;
+  phys.yRate += (yIn * 0.85 - phys.yRate) * Math.min(1, dt * 5);
+  phys.yaw += phys.yRate * dt;
+
+  const pT = pIn * 0.8 - phys.pitch * 0.5;                    /* + stability */
+  const rT = (rIn + phys.rollTrim) * 0.85 - phys.roll * 0.5 - yIn * 0.35; /* + bank into the turn */
+  phys.pRate += (pT - phys.pRate) * Math.min(1, dt * 4);
+  phys.rRate += (rT - phys.rRate) * Math.min(1, dt * 4);
+  phys.pitch = clamp(phys.pitch + phys.pRate * dt, -0.7, 0.7);
+  phys.roll  = clamp(phys.roll  + phys.rRate * dt, -1.15, 1.15);
+
+  /* --- translation: thrust points along the tilted rotor axis --- */
+  euler.set(phys.pitch, 0, phys.roll, 'YXZ');
+  thrustDir.set(0, 1, 0).applyEuler(euler);
+  const v = phys.vel;
+  v.x += (thrustDir.x * lift - v.x * Math.abs(v.x) * 0.045) * dt;
+  v.z += (thrustDir.z * lift - v.z * Math.abs(v.z) * 0.045) * dt;
+  v.y += (thrustDir.y * lift - GRAVITY - v.y * Math.abs(v.y) * 0.05) * dt;
+  v.y = Math.min(v.y, 16);
+
+  const hs = Math.hypot(v.x, v.z);
+  if (hs > 38) { v.x *= 38 / hs; v.z *= 38 / hs; }
+
+  heli.position.addScaledVector(v, dt);
+
+  if (heli.position.y < GROUND_Y) {
+    heli.position.y = GROUND_Y;
+    if (v.y < 0) v.y = -v.y * 0.12;          /* small bounce */
+    v.x *= Math.exp(-dt * 3.5);              /* skid friction */
+    v.z *= Math.exp(-dt * 3.5);
+  }
+  heli.rotation.set(phys.pitch, phys.yaw, phys.roll);
+
+  /* --- rotor visuals --- */
+  mainRotor.rotation.y += (phys.rpm / 100) * 9 * Math.PI * 2 * dt;      /* 9 rev/s max = 540 RPM */
+  tailRotor.rotation.x -= (phys.tailRpm / 100) * 30 * Math.PI * 2 * dt;
+
+  const blur = clamp((phys.rpm - 25) / 55, 0, 1);
+  blurDisc.material.opacity = blur * 0.55;
+  tBlur.material.opacity = blur * 0.45;
+  MAT.blade.opacity = 1 - blur * 0.85;      /* blades fade into the blur disc */
+  const feather = collF * 0.3 - 0.12;       /* collective changes blade pitch */
+  for (const b of bladeRoots) b.rotation.z = feather;
+
+  /* --- camera / sun / blob follow the helicopter --- */
+  sun.position.set(heli.position.x + 60, heli.position.y + 90, heli.position.z + 40);
+  sun.target.position.copy(heli.position);
+  camT.set(heli.position.x, heli.position.y + 1.7, heli.position.z);
+  controls.target.lerp(camT, 1 - Math.exp(-dt * 2.2));
+  controls.update();
+
+  blob.position.set(heli.position.x, 0.07, heli.position.z);
+  const alt = Math.max(0, heli.position.y - GROUND_Y);
+  blob.material.opacity = clamp(0.3 - alt * 0.008, 0, 0.3);
+
+  /* --- beacon, HUD, cockpit dials --- */
+  const blink = Math.max(0, Math.sin(t * 7));
+  beacon.material.color.setRGB(0.6 + 0.4 * blink, 0.05, 0.05);
+
+  const spd = Math.hypot(v.x, v.z) * 3.6;
+  el.alt.textContent = alt.toFixed(0) + ' m';
+  el.spd.textContent = spd.toFixed(0) + ' km/h';
+  el.rpm.textContent = (phys.rpm * 5.4).toFixed(0) + ' RPM';
+  el.thr.textContent = phys.throttle.toFixed(0) + ' %';
+  el.coll.textContent = phys.coll.toFixed(0) + ' %';
+  el.bar.style.width = phys.throttle + '%';
+
+  needles.rpm.rotation.z = 2.356 + rpmF * 2.36;
+  needles.alt.rotation.z = 2.356 + Math.min(1, alt / 300) * 2.36;
+  needles.spd.rotation.z = 2.356 + Math.min(1, spd / 220) * 2.36;
+
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>
