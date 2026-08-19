@@ -25,7 +25,8 @@
 | Codex | 无规则 | ✅ | 9166 B | 247 | 4200–4500 |
 | **OpenCode** | 有规则 | ✅ | 11675 B | 368 | **55000** |
 | OpenCode | 无规则 ×2 | ✅✅ | 8471/9342 B | 259/282 | 14000 |
-| **Claude Code** | deepseek-free | ⚠️ 假失败×2 + 断流×2 | 10680 B（写出） | 297 | — |
+| **Claude Code** | deepseek-free | ⚠️ 假失败（文件写出） | 10680/13452/11177 B（3 次全写出） | 297 | — |
+| Claude Code | claude-sonnet-5* | ✅ 52s 正常 | 10117 B | 278 | — |
 
 ## 关键发现
 
@@ -59,6 +60,18 @@
 - 脚本判断"任务成功"应**检查文件是否写出**（存在即成功），而非只看退出码
 - Claude Code 用 deepseek-free 时：文件写出 + Execution error = 假失败，属正常
 - 复杂任务建议拆分，或使用无标题生成通道（codex/opencode/DSH headless）
+
+## 附录：原始产物
+
+所有通道的黑洞 HTML 已随报告提交，见 `docs/results/`：
+
+- `claude-code/blackhole-deepseek-free-run1.html`（10680 B）— deepseek-free 假失败，文件实际写出
+- `claude-code/blackhole-deepseek-free-run2.html`（13452 B）— 同上
+- `claude-code/blackhole-deepseek-free-run3.html`（11177 B）— 同上（900s 后台，文件写出后进程未退被 kill）
+- `claude-code/blackhole-claude-sonnet-5-control.html`（10117 B）— 对照：真正付费 Claude Sonnet（52s 正常）
+- `codex/blackhole-with-rules.html`（9525 B）/ `codex/blackhole-no-rules.html`（9166 B）
+- `opencode/blackhole-with-rules.html`（11675 B）/ `blackhole-no-rules-1.html`（8471 B）/ `blackhole-no-rules-2.html`（9342 B）
+- `dsh/blackhole-native-minimal-preset.html`（10806 B）
 
 ## 附录：假失败的复现
 

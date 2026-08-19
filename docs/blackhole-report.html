@@ -56,7 +56,25 @@ starfield, orbiting camera. Write the file and verify.</pre>
 <tr><td>claude-sonnet-5*</td><td><span class="tag tag-ok">✅ 52s</span></td><td>10117 B</td><td>278</td><td>—</td><td>*.gateway 路由到<b>真正付费 Claude Sonnet</b>（非修复，仅对照）</td></tr>
 </table></div>
 
-<h2>3. 结论：规则是放大器，不是开关</h2>
+<h2>3. 原始产物（全部通道 HTML）</h2>
+<div class="card">
+<table>
+<tr><th>通道</th><th>文件</th><th>大小</th></tr>
+<tr><td rowspan="4"><b>Claude Code</b></td><td><a href="results/claude-code/blackhole-deepseek-free-run1.html">deepseek-free run1（假失败）</a></td><td>10680 B</td></tr>
+<tr><td><a href="results/claude-code/blackhole-deepseek-free-run2.html">deepseek-free run2（假失败）</a></td><td>13452 B</td></tr>
+<tr><td><a href="results/claude-code/blackhole-deepseek-free-run3.html">deepseek-free run3（假失败）</a></td><td>11177 B</td></tr>
+<tr><td><a href="results/claude-code/blackhole-claude-sonnet-5-control.html">claude-sonnet-5 对照（付费）</a></td><td>10117 B</td></tr>
+<tr><td rowspan="2"><b>Codex</b></td><td><a href="results/codex/blackhole-with-rules.html">有规则</a></td><td>9525 B</td></tr>
+<tr><td><a href="results/codex/blackhole-no-rules.html">无规则</a></td><td>9166 B</td></tr>
+<tr><td rowspan="3"><b>OpenCode</b></td><td><a href="results/opencode/blackhole-with-rules.html">有规则</a></td><td>11675 B</td></tr>
+<tr><td><a href="results/opencode/blackhole-no-rules-1.html">无规则 1</a></td><td>8471 B</td></tr>
+<tr><td><a href="results/opencode/blackhole-no-rules-2.html">无规则 2</a></td><td>9342 B</td></tr>
+<tr><td><b>DSH</b></td><td><a href="results/dsh/blackhole-native-minimal-preset.html">原生 minimal preset</a></td><td>10806 B</td></tr>
+</table>
+<p style="margin:8px 0 0;color:var(--muted)">Claude Code 的 3 个 deepseek-free 文件都是"假失败"——任务实际完成、文件写出，只是进程卡标题生成被 timeout 杀而报 Execution error。</p>
+</div>
+
+<h2>5. 结论：规则是放大器，不是开关</h2>
 <div class="card">
 <ul>
 <li><b>有规则时输出密度更高</b>：Codex 粒子 14000 vs 4500（3×），OpenCode 55000 vs 14000（4×），代码行数 1.2–1.4×。</li>
@@ -67,6 +85,8 @@ starfield, orbiting camera. Write the file and verify.</pre>
 </div>
 
 <h2>4. Claude Code 断流根因分析（最终版）</h2>
+
+
 <div class="card">
 <p><b>现象</b>：`claude -p` 复杂任务报 "Execution error"，exit 124（被 timeout 杀），stderr 有 <code>[claude-code:unrecognized_model]</code>（会话标题生成），<b>但文件实际已写出</b>。</p>
 <p><b>实测证据链</b>：</p>
@@ -83,12 +103,12 @@ starfield, orbiting camera. Write the file and verify.</pre>
 <p><b>可接受的实践</b>：判断"任务成功"应<b>检查文件是否写出</b>（存在即成功），而非只看退出码。Claude Code 用 deepseek-free 时：文件写出 + Execution error = 假失败，属正常。</p>
 </div>
 
-<h2>5. 方法论意义</h2>
+<h2>6. 方法论意义</h2>
 <div class="card">
 <p>CLI 上用 AGENTS.md 注入规则层（build/fix 分类 + 每步验证 + 失败重试 + 深度思考）≈ DSH 原生 preset 的效果：<b>殊途同归，验证了移植成功</b>。但不"炸裂"、不是必需 —— 收益是输出密度与纪律，不是能力开关。</p>
 </div>
 
-<h2>6. 复现</h2>
+<h2>7. 复现</h2>
 <div class="card"><pre># DSH 原生（headless，需 pi-ai adapter patch）
 pnpm dsh --profile headless --patch /tmp/pi-ai-patch.yml "&lt;任务&gt;"
 

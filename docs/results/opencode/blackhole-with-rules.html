@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Black Hole</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+    background: #000;
+  }
+  #app {
+    position: fixed;
+    inset: 0;
+  }
+  #app canvas {
+    display: block;
+  }
+  .vignette {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.55) 100%);
+  }
+  .caption {
+    position: fixed;
+    left: 18px;
+    bottom: 12px;
+    color: rgba(255,255,255,0.45);
+    font: 13px/1.4 monospace;
+    letter-spacing: 0.08em;
+    user-select: none;
+    pointer-events: none;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="vignette"></div>
+<div class="caption">BLACK HOLE &#8212; SAGITTARIUS&#8727; &#183; M87&#8727;</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+const app = document.getElementById('app');
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+app.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x000000);
+
+const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1200);
+camera.position.set(12, 5, 12);
+
+/* ------------------------------------------------------------------ */
+/* Soft radial sprite texture (drives the particle glow)               */
+/* ------------------------------------------------------------------ */
+function makeGlowTexture() {
+  const size = 64;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const g = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+  g.addColorStop(0.00, 'rgba(255,255,255,1.0)');
+  g.addColorStop(0.25, 'rgba(255,255,255,0.85)');
+  g.addColorStop(0.60, 'rgba(255,255,255,0.25)');
+  g.addColorStop(1.00, 'rgba(255,255,255,0.0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, size, size);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.needsUpdate = true;
+  return tex;
+}
+const glowTex = makeGlowTexture();
+
+/* ------------------------------------------------------------------ */
+/* Black hole event horizon (pure black sphere)                        */
+/* ------------------------------------------------------------------ */
+const BH_R = 1.6;
+const bh = new THREE.Mesh(
+  new THREE.SphereGeometry(BH_R, 64, 32),
+  new THREE.MeshBasicMaterial({ color: 0x000000 })
+);
+scene.add(bh);
+
+const halo = new THREE.Sprite(
+  new THREE.SpriteMaterial({
+    map: glowTex,
+    color: 0xff8a3c,
+    transparent: true,
+    opacity: 0.10,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  })
+);
+halo.scale.setScalar(7.5);
+scene.add(halo);
+
+/* ------------------------------------------------------------------ */
+/* Accretion disk (particles with glow, spiral arms, doppler beaming)  */
+/* ------------------------------------------------------------------ */
+const DISK_COUNT = 55000;
+const DISK_IN  = 2.8;
+const DISK_OUT = 8.5;
+
+const diskGeo = new THREE.BufferGeometry();
+const dPos   = new Float32Array(DISK_COUNT * 3);
+const dColor = new Float32Array(DISK_COUNT * 3);
+const dSize  = new Float32Array(DISK_COUNT);
+const dBase  = new Float32Array(DISK_COUNT * 3); // un-beamed color
+const dAngle = new Float32Array(DISK_COUNT);
+const dRad   = new Float32Array(DISK_COUNT);
+const dVert  = new Float32Array(DISK_COUNT);
+const dSpeed = new Float32Array(DISK_COUNT);
+
+const cTmp = new THREE.Color();
+for (let i = 0; i < DISK_COUNT; i++) {
+  const r = DISK_IN + Math.pow(Math.random(), 1.4) * (DISK_OUT - DISK_IN);
+  const t = (r - DISK_IN) / (DISK_OUT - DISK_IN);
+
+  let a;
+  if (Math.random() < 0.75) {
+    const arm = Math.floor(Math.random() * 4);
+    a = arm * (Math.PI / 2) + (r - DISK_IN) * 0.55 + (Math.random() - 0.5) * 0.55;
+  } else {
+    a = Math.random() * Math.PI * 2;
+  }
+
+  const thickness = 0.05 + 0.22 * (1 - t);
+  const y = (Math.random() - 0.5) * thickness;
+
+  dPos[i*3+0] = r * Math.cos(a);
+  dPos[i*3+1] = y;
+  dPos[i*3+2] = r * Math.sin(a);
+
+  // temperature gradient: white-yellow inner -> deep red outer
+  const sparkle = 0.85 + Math.random() * 0.15;
+  cTmp.setHSL(0.10 - 0.08 * t, 0.72 + 0.28 * t, (0.78 - 0.34 * t) * sparkle);
+  dBase[i*3+0] = cTmp.r;
+  dBase[i*3+1] = cTmp.g;
+  dBase[i*3+2] = cTmp.b;
+  dColor[i*3+0] = cTmp.r;
+  dColor[i*3+1] = cTmp.g;
+  dColor[i*3+2] = cTmp.b;
+
+  dSize[i] = 0.20 * (1.4 - 0.6 * t) * (0.7 + Math.random() * 0.6);
+  dAngle[i] = a;
+  dRad[i] = r;
+  dVert[i] = y;
+  dSpeed[i] = 3.2 * Math.pow(r, -1.5); // Keplerian rotation
+}
+
+diskGeo.setAttribute('position', new THREE.BufferAttribute(dPos, 3));
+diskGeo.setAttribute('color',    new THREE.BufferAttribute(dColor, 3));
+diskGeo.setAttribute('size',     new THREE.BufferAttribute(dSize, 1));
+
+const diskMat = new THREE.PointsMaterial({
+  map: glowTex,
+  size: 0.20,
+  vertexColors: true,
+  transparent: true,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+  sizeAttenuation: true
+});
+const disk = new THREE.Points(diskGeo, diskMat);
+scene.add(disk);
+
+/* ------------------------------------------------------------------ */
+/* Photon ring: thin bright annulus hugging the event horizon          */
+/* ------------------------------------------------------------------ */
+const RING_COUNT = 2600;
+const ringGeo = new THREE.BufferGeometry();
+const rPos   = new Float32Array(RING_COUNT * 3);
+const rSize  = new Float32Array(RING_COUNT);
+const rAngle = new Float32Array(RING_COUNT);
+
+for (let i = 0; i < RING_COUNT; i++) {
+  const rr = 2.35 + (Math.random() - 0.5) * 0.09;
+  const a = Math.random() * Math.PI * 2;
+  const y = (Math.random() - 0.5) * 0.05;
+  rPos[i*3+0] = rr * Math.cos(a);
+  rPos[i*3+1] = y;
+  rPos[i*3+2] = rr * Math.sin(a);
+  rSize[i] = 0.34;
+  rAngle[i] = a;
+}
+const ringColor = new Float32Array(RING_COUNT * 3);
+cTmp.setHSL(0.08, 0.6, 0.92);
+for (let i = 0; i < RING_COUNT; i++) {
+  ringColor[i*3+0] = cTmp.r;
+  ringColor[i*3+1] = cTmp.g;
+  ringColor[i*3+2] = cTmp.b;
+}
+ringGeo.setAttribute('position', new THREE.BufferAttribute(rPos, 3));
+ringGeo.setAttribute('color',    new THREE.BufferAttribute(ringColor, 3));
+ringGeo.setAttribute('size',     new THREE.BufferAttribute(rSize, 1));
+
+const ring = new THREE.Points(ringGeo, new THREE.PointsMaterial({
+  map: glowTex,
+  size: 0.34,
+  vertexColors: true,
+  transparent: true,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+  sizeAttenuation: true
+}));
+scene.add(ring);
+
+/* ------------------------------------------------------------------ */
+/* Starfield with a tilted galactic band                               */
+/* ------------------------------------------------------------------ */
+const STAR_COUNT = 9000;
+const starGeo = new THREE.BufferGeometry();
+const sPos   = new Float32Array(STAR_COUNT * 3);
+const sColor = new Float32Array(STAR_COUNT * 3);
+const sSize  = new Float32Array(STAR_COUNT);
+
+for (let i = 0; i < STAR_COUNT; i++) {
+  const p = new THREE.Vector3(
+    (Math.random() * 2 - 1),
+    (Math.random() * 2 - 1),
+    (Math.random() * 2 - 1)
+  );
+  if (Math.random() < 0.6) p.y *= 0.25; // concentrate into a galactic plane
+  p.normalize().multiplyScalar(90 + Math.random() * 130);
+
+  sPos[i*3+0] = p.x;
+  sPos[i*3+1] = p.y;
+  sPos[i*3+2] = p.z;
+
+  const tint = new THREE.Color().setHSL(0.08 + Math.random() * 0.06, Math.random() * 0.4, 0.7 + Math.random() * 0.3);
+  sColor[i*3+0] = tint.r;
+  sColor[i*3+1] = tint.g;
+  sColor[i*3+2] = tint.b;
+  sSize[i] = 1.2 + Math.random() * 2.2;
+}
+starGeo.setAttribute('position', new THREE.BufferAttribute(sPos, 3));
+starGeo.setAttribute('color',    new THREE.BufferAttribute(sColor, 3));
+starGeo.setAttribute('size',     new THREE.BufferAttribute(sSize, 1));
+
+const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({
+  map: glowTex,
+  size: 2.2,
+  vertexColors: true,
+  transparent: true,
+  opacity: 0.95,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+  sizeAttenuation: true
+}));
+scene.add(stars);
+
+/* ------------------------------------------------------------------ */
+/* Postprocessing: bloom                                               */
+/* ------------------------------------------------------------------ */
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  1.15,   // strength
+  0.6,    // radius
+  0.05    // threshold
+);
+composer.addPass(bloom);
+
+/* ------------------------------------------------------------------ */
+/* Animation                                                          */
+/* ------------------------------------------------------------------ */
+const clock = new THREE.Clock();
+const camPos = new THREE.Vector3();
+
+function updateDisk(dt) {
+  const camX = camera.position.x;
+  const camY = camera.position.y;
+  const camZ = camera.position.z;
+
+  for (let i = 0; i < DISK_COUNT; i++) {
+    dAngle[i] += dSpeed[i] * dt;
+    const a = dAngle[i];
+    const r = dRad[i];
+
+    const px = r * Math.cos(a);
+    const py = dVert[i];
+    const pz = r * Math.sin(a);
+
+    dPos[i*3+0] = px;
+    dPos[i*3+1] = py;
+    dPos[i*3+2] = pz;
+
+    // doppler beaming: brighten particles moving toward the camera
+    const tx = -Math.sin(a);
+    const tz =  Math.cos(a);
+    const vx = camX - px;
+    const vy = camY - py;
+    const vz = camZ - pz;
+    const inv = 1 / Math.sqrt(vx*vx + vy*vy + vz*vz);
+    const beam = 1.0 + 1.1 * (-(tx*vx + tz*vz) * inv);
+
+    dColor[i*3+0] = dBase[i*3+0] * beam;
+    dColor[i*3+1] = dBase[i*3+1] * beam;
+    dColor[i*3+2] = dBase[i*3+2] * beam;
+  }
+
+  for (let i = 0; i < RING_COUNT; i++) {
+    rAngle[i] += 0.83 * dt;
+    const a = rAngle[i];
+    rPos[i*3+0] = 2.35 * Math.cos(a);
+    rPos[i*3+2] = 2.35 * Math.sin(a);
+  }
+
+  diskGeo.attributes.position.needsUpdate = true;
+  diskGeo.attributes.color.needsUpdate = true;
+  ringGeo.attributes.position.needsUpdate = true;
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const t = clock.elapsedTime;
+
+  // orbiting camera
+  const theta = t * 0.12;
+  const rad = 13 + 2 * Math.sin(t * 0.05);
+  const height = 4.5 + 3.5 * Math.sin(t * 0.13);
+  camPos.set(rad * Math.sin(theta), height, rad * Math.cos(theta));
+  camera.position.copy(camPos);
+  camera.lookAt(0, 0, 0);
+
+  updateDisk(dt);
+
+  composer.render();
+}
+animate();
+
+/* ------------------------------------------------------------------ */
+/* Resize                                                             */
+/* ------------------------------------------------------------------ */
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>

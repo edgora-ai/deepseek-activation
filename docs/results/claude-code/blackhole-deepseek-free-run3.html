@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Black Hole · Three.js</title>
+<style>
+  :root { color-scheme: dark; }
+  * { margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+  canvas { display: block; }
+  /* faint cinematic vignette over the render */
+  body::after {
+    content: "";
+    position: fixed; inset: 0;
+    background: radial-gradient(ellipse at 50% 42%, rgba(70, 32, 10, 0.20), transparent 62%);
+    pointer-events: none;
+  }
+  #ui {
+    position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%);
+    color: rgba(255, 255, 255, 0.5);
+    font: 400 12px/1.6 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+    pointer-events: none; user-select: none;
+  }
+</style>
+</head>
+<body>
+<canvas id="app"></canvas>
+<div id="ui">drag · orbit — scroll · zoom</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+/* ---------------- renderer / scene / camera ---------------- */
+
+const canvas = document.getElementById('app');
+
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+} catch (err) {
+  document.body.innerHTML = '<p style="color:#fff;font:14px monospace;padding:40px">WebGL unavailable: ' + err.message + '</p>';
+  throw err;
+}
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 600);
+
+/* ---------------- soft radial glow texture (stars & halos) ---------------- */
+
+function makeGlowTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+  g.addColorStop(0.0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.25, 'rgba(255,255,255,0.55)');
+  g.addColorStop(0.7, 'rgba(255,255,255,0.10)');
+  g.addColorStop(1.0, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(c);
+}
+const glowTex = makeGlowTexture();
+
+/* ---------------- starfield ---------------- */
+
+function makeStars(count, rMin, rMax, size, brightness) {
+  const positions = new Float32Array(count * 3);
+  const colors = new Float32Array(count * 3);
+  const color = new THREE.Color();
+  for (let i = 0; i < count; i++) {
+    const theta = Math.acos(Math.random() * 2 - 1);   // uniform on sphere
+    const phi = Math.random() * Math.PI * 2;
+    const r = rMin + Math.random() * (rMax - rMin);
+    const s = Math.sin(theta);
+    positions[i * 3]     = r * s * Math.cos(phi);
+    positions[i * 3 + 1] = r * Math.cos(theta);
+    positions[i * 3 + 2] = r * s * Math.sin(phi);
+    // whitish with a hint of blue/amber, varied brightness
+    color.setHSL(0.55 + Math.random() * 0.18, 0.15 + Math.random() * 0.35,
+                 brightness * (0.55 + Math.random() * 0.45));
+    colors[i * 3] = color.r; colors[i * 3 + 1] = color.g; colors[i * 3 + 2] = color.b;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  const mat = new THREE.PointsMaterial({
+    size, map: glowTex, vertexColors: true, transparent: true,
+    depthWrite: false, sizeAttenuation: true, blending: THREE.AdditiveBlending,
+  });
+  return new THREE.Points(geo, mat);
+}
+
+const starField = new THREE.Group();
+starField.add(makeStars(2600, 120, 320, 2.4, 0.85));   // bright layer
+starField.add(makeStars(1400, 120, 320, 1.1, 0.45));   // faint dust layer
+scene.add(starField);
+
+/* ---------------- black hole system (tilted like Interstellar) ---------------- */
+
+const system = new THREE.Group();
+system.rotation.x = 0.22;
+scene.add(system);
+
+const HORIZON_R = 2.0;
+
+// event horizon — pure black, occludes disk & stars behind it
+const horizon = new THREE.Mesh(
+  new THREE.SphereGeometry(HORIZON_R, 48, 32),
+  new THREE.MeshBasicMaterial({ color: 0x000000 })
+);
+system.add(horizon);
+
+// photon ring hugging the horizon
+const ring = new THREE.Mesh(
+  new THREE.RingGeometry(HORIZON_R * 1.15, HORIZON_R * 1.4, 96),
+  new THREE.MeshBasicMaterial({
+    color: 0xffc080, side: THREE.DoubleSide, transparent: true, opacity: 0.9,
+    blending: THREE.AdditiveBlending, depthWrite: false,
+  })
+);
+ring.rotation.x = -Math.PI / 2;   // lie flat in the disk plane (XZ)
+system.add(ring);
+
+// wide warm halo + hot core glow around the silhouette
+const halo = new THREE.Sprite(new THREE.SpriteMaterial({
+  map: glowTex, color: 0xff9a3c, transparent: true, opacity: 0.28,
+  depthWrite: false, blending: THREE.AdditiveBlending,
+}));
+halo.scale.setScalar(7.5);
+system.add(halo);
+
+const core = new THREE.Sprite(new THREE.SpriteMaterial({
+  map: glowTex, color: 0xffd9a8, transparent: true, opacity: 0.8,
+  depthWrite: false, blending: THREE.AdditiveBlending,
+}));
+core.scale.setScalar(5.0);
+system.add(core);
+
+/* ---------------- accretion disk — glowing particles ---------------- */
+
+const DISK = {
+  count: 6000,
+  rMin: 2.7,
+  rMax: 11,
+  k: 5.2,   // Keplerian-ish speed constant: omega = k * r^-1.5
+};
+
+const positions = new Float32Array(DISK.count * 3);
+const phas      = new Float32Array(DISK.count);
+const speeds    = new Float32Array(DISK.count);
+const sizes     = new Float32Array(DISK.count);
+const colors    = new Float32Array(DISK.count * 3);
+
+const cInner = new THREE.Color(0xfff0c0);
+const cOuter = new THREE.Color(0xd03018);
+const tmp = new THREE.Color();
+const rSpan = DISK.rMax - DISK.rMin;
+
+for (let i = 0; i < DISK.count; i++) {
+  const r = DISK.rMin + Math.pow(Math.random(), 1.6) * rSpan;  // density biased inward
+  const a = Math.random() * Math.PI * 2;
+  const t = (r - DISK.rMin) / rSpan;
+  const h = 0.06 + 0.5 * Math.pow(t, 1.7);                     // flared disk
+  positions[i * 3]     = r * Math.cos(a);
+  positions[i * 3 + 1] = (Math.random() - 0.5) * h;
+  positions[i * 3 + 2] = r * Math.sin(a);
+  phas[i]   = a;
+  speeds[i] = DISK.k * Math.pow(r, -1.5) * (0.92 + Math.random() * 0.16);
+  sizes[i]  = 0.35 + 1.1 * Math.pow(1 - t, 1.4) + Math.random() * 0.25;  // inner = bigger
+  tmp.copy(cInner).lerp(cOuter, Math.pow(t, 1.35));
+  const dim = 0.7 - 0.35 * t * t;                              // fades outward
+  colors[i * 3] = tmp.r * dim; colors[i * 3 + 1] = tmp.g * dim; colors[i * 3 + 2] = tmp.b * dim;
+}
+
+const diskGeo = new THREE.BufferGeometry();
+diskGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+diskGeo.setAttribute('aPhase', new THREE.BufferAttribute(phas, 1));
+diskGeo.setAttribute('aSpeed', new THREE.BufferAttribute(speeds, 1));
+diskGeo.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
+diskGeo.setAttribute('aColor', new THREE.BufferAttribute(colors, 3));
+
+const diskMat = new THREE.ShaderMaterial({
+  transparent: true,
+  depthWrite: false,
+  blending: THREE.AdditiveBlending,
+  uniforms: {
+    uTime: { value: 0 },
+    uPixelRatio: { value: renderer.getPixelRatio() },
+  },
+  vertexShader: /* glsl */ `
+    attribute float aPhase;
+    attribute float aSpeed;
+    attribute float aSize;
+    attribute vec3 aColor;
+    uniform float uTime;
+    uniform float uPixelRatio;
+    varying vec3 vColor;
+    void main() {
+      vColor = aColor;
+      float ang = aPhase + uTime * aSpeed;      // differential rotation in-shader
+      float c = cos(ang);
+      float s = sin(ang);
+      vec3 p = vec3(position.x * c - position.z * s,
+                    position.y,
+                    position.x * s + position.z * c);
+      vec4 mv = modelViewMatrix * vec4(p, 1.0);
+      gl_PointSize = max(aSize * uPixelRatio * (170.0 / -mv.z), 1.0);
+      gl_Position = projectionMatrix * mv;
+    }
+  `,
+  fragmentShader: /* glsl */ `
+    varying vec3 vColor;
+    void main() {
+      vec2 q = gl_PointCoord * 2.0 - 1.0;
+      float d = length(q);
+      if (d > 1.0) discard;
+      float a = pow(1.0 - d, 2.0);              // soft round particle
+      gl_FragColor = vec4(vColor * a, a);
+    }
+  `,
+});
+
+const disk = new THREE.Points(diskGeo, diskMat);
+system.add(disk);
+
+/* ---------------- postprocessing: bloom ---------------- */
+
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 1.0, 0.6, 0.85);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+
+/* ---------------- camera controls ---------------- */
+
+const state = {
+  az: 0, el: 0.42, dist: 16,      // spherical offsets around the hole
+  autoAz: 0,
+  dragging: false, lastX: 0, lastY: 0,
+};
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const AUTO_SPEED = reduceMotion ? 0.0 : 0.12;
+
+canvas.addEventListener('pointerdown', (e) => {
+  state.dragging = true;
+  state.lastX = e.clientX;
+  state.lastY = e.clientY;
+  canvas.setPointerCapture(e.pointerId);
+});
+canvas.addEventListener('pointermove', (e) => {
+  if (!state.dragging) return;
+  state.az += (e.clientX - state.lastX) * 0.005;
+  state.el = THREE.MathUtils.clamp(state.el + (e.clientY - state.lastY) * 0.004, 0.05, 1.35);
+  state.lastX = e.clientX;
+  state.lastY = e.clientY;
+});
+canvas.addEventListener('pointerup', () => (state.dragging = false));
+canvas.addEventListener('pointercancel', () => (state.dragging = false));
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  state.dist = THREE.MathUtils.clamp(state.dist * Math.exp(e.deltaY * 0.0012), 6.5, 42);
+}, { passive: false });
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  composer.setSize(innerWidth, innerHeight);
+});
+
+/* ---------------- main loop ---------------- */
+
+const clock = new THREE.Clock();
+
+function tick() {
+  requestAnimationFrame(tick);
+  const dt = Math.min(clock.getDelta(), 0.05);
+
+  if (!state.dragging) state.autoAz += dt * AUTO_SPEED;   // auto orbit
+
+  const az = state.autoAz + state.az;
+  const ce = Math.cos(state.el), se = Math.sin(state.el);
+  camera.position.set(
+    state.dist * ce * Math.sin(az),
+    state.dist * se,
+    state.dist * ce * Math.cos(az)
+  );
+  camera.lookAt(0, 0, 0);
+
+  starField.rotation.y += dt * 0.008;                      // slow parallax drift
+  diskMat.uniforms.uTime.value += dt;
+
+  composer.render();
+}
+
+tick();
+</script>
+</body>
+</html>

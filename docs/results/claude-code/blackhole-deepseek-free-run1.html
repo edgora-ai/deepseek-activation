@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Black Hole — Three.js</title>
+<link rel="icon" href="data:," />
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; padding: 0; height: 100%; background: #000; overflow: hidden; }
+  #c { display: block; width: 100vw; height: 100vh; }
+  #hud {
+    position: fixed; left: 14px; bottom: 12px;
+    color: rgba(220, 230, 255, 0.55);
+    font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    letter-spacing: 0.06em; pointer-events: none; user-select: none;
+    transition: opacity 1.6s ease;
+  }
+  #hud.fade { opacity: 0; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud">BLACK HOLE · drag to orbit · scroll to zoom</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+// ---------------------------------------------------------------------------
+// Renderer / scene / camera
+// ---------------------------------------------------------------------------
+
+const canvas = document.getElementById('c');
+const hud = document.getElementById('hud');
+
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+} catch (err) {
+  hud.textContent = 'WebGL unavailable: ' + err.message;
+  throw err;
+}
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1500);
+camera.position.set(15, 5.5, 10); // slightly above the disk plane
+
+const clock = new THREE.Clock();
+
+// ---------------------------------------------------------------------------
+// Glow sprite texture (radial gradient shared by every particle system)
+// ---------------------------------------------------------------------------
+
+function makeGlowTexture() {
+  const size = 64;
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  g.addColorStop(0.0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.22, 'rgba(255,255,255,0.9)');
+  g.addColorStop(0.55, 'rgba(255,255,255,0.28)');
+  g.addColorStop(1.0, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, size, size);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+const glowTexture = makeGlowTexture();
+
+// ---------------------------------------------------------------------------
+// Starfield — sparse shell of point sprites around the scene
+// ---------------------------------------------------------------------------
+
+const STAR_COUNT = 6000;
+const starGeo = new THREE.BufferGeometry();
+{
+  const positions = new Float32Array(STAR_COUNT * 3);
+  const colors = new Float32Array(STAR_COUNT * 3);
+  const color = new THREE.Color();
+  for (let i = 0; i < STAR_COUNT; i++) {
+    // uniform point on a sphere shell, radius 280–520
+    const u = Math.random() * 2 - 1;
+    const th = Math.random() * Math.PI * 2;
+    const s = Math.sqrt(1 - u * u);
+    const r = 280 + Math.random() * 240;
+    positions[i * 3]     = r * s * Math.cos(th);
+    positions[i * 3 + 1] = r * u;
+    positions[i * 3 + 2] = r * s * Math.sin(th);
+    const warmth = Math.random();
+    if (warmth < 0.75)      color.setRGB(0.75 + Math.random() * 0.25, 0.80 + Math.random() * 0.20, 1.00);
+    else if (warmth < 0.92) color.setRGB(1.00, 0.85 + Math.random() * 0.15, 0.70);
+    else                    color.setRGB(1.00, 0.60 + Math.random() * 0.40, 0.45);
+    colors[i * 3] = color.r; colors[i * 3 + 1] = color.g; colors[i * 3 + 2] = color.b;
+  }
+  starGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  starGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+}
+const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({
+  size: 1.5,
+  sizeAttenuation: false,
+  vertexColors: true,
+  transparent: true,
+  opacity: 0.9,
+  depthWrite: false,
+  blending: THREE.AdditiveBlending,
+}));
+scene.add(stars);
+
+// ---------------------------------------------------------------------------
+// Accretion disk — Keplerian-rotating particle layers with vertex colors
+// ---------------------------------------------------------------------------
+
+const DISK_STOPS = [
+  { t: 0.00, c: [1.00, 0.96, 0.84] }, // white-hot inner edge
+  { t: 0.28, c: [1.00, 0.60, 0.28] }, // orange
+  { t: 0.60, c: [0.95, 0.34, 0.45] }, // magenta
+  { t: 1.00, c: [0.45, 0.24, 0.85] }, // deep violet outer edge
+];
+
+function diskColor(t) {
+  let i = 0;
+  while (i < DISK_STOPS.length - 2 && t > DISK_STOPS[i + 1].t) i++;
+  const a = DISK_STOPS[i], b = DISK_STOPS[i + 1];
+  const k = Math.min(1, Math.max(0, (t - a.t) / (b.t - a.t)));
+  return [
+    a.c[0] + (b.c[0] - a.c[0]) * k,
+    a.c[1] + (b.c[1] - a.c[1]) * k,
+    a.c[2] + (b.c[2] - a.c[2]) * k,
+  ];
+}
+
+function makeDiskLayer({ count, rInner, rOuter, size, brightness, jitter }) {
+  const positions = new Float32Array(count * 3);
+  const colors = new Float32Array(count * 3);
+  const radius = new Float32Array(count);
+  const angle = new Float32Array(count);
+  const omega = new Float32Array(count);
+  const yBase = new Float32Array(count);
+  const phase = new Float32Array(count);
+
+  for (let i = 0; i < count; i++) {
+    const t = Math.pow(Math.random(), 1.5); // bias particles toward the hot inner edge
+    const r = rInner + (rOuter - rInner) * t;
+    const a = Math.random() * Math.PI * 2;
+    radius[i] = r;
+    angle[i] = a;
+    omega[i] = 2.2 * Math.pow(r, -1.5); // Keplerian: inner gas moves faster
+    // disk flares: scale height grows with radius
+    const w = jitter * (0.35 + 0.65 * t);
+    yBase[i] = (Math.random() * 2 - 1) * w;
+    phase[i] = Math.random() * Math.PI * 2;
+    positions[i * 3]     = r * Math.cos(a);
+    positions[i * 3 + 1] = yBase[i];
+    positions[i * 3 + 2] = r * Math.sin(a);
+    const c = diskColor(t);
+    colors[i * 3]     = c[0] * brightness;
+    colors[i * 3 + 1] = c[1] * brightness;
+    colors[i * 3 + 2] = c[2] * brightness;
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+  const points = new THREE.Points(geo, new THREE.PointsMaterial({
+    size,
+    map: glowTexture,
+    vertexColors: true,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  }));
+  scene.add(points);
+
+  return {
+    count,
+    update(dt, t) {
+      const pos = positions;
+      for (let i = 0; i < count; i++) {
+        angle[i] += omega[i] * dt;
+        const a = angle[i];
+        pos[i * 3]     = radius[i] * Math.cos(a);
+        pos[i * 3 + 1] = yBase[i] + jitter * 0.12 * Math.sin(t * 2.2 + phase[i]);
+        pos[i * 3 + 2] = radius[i] * Math.sin(a);
+      }
+      geo.attributes.position.needsUpdate = true;
+    },
+  };
+}
+
+const diskLayers = [
+  makeDiskLayer({ count: 14000, rInner: 2.2, rOuter: 4.6, size: 0.85, brightness: 2.6, jitter: 0.10 }),
+  makeDiskLayer({ count: 10000, rInner: 4.0, rOuter: 7.0, size: 0.62, brightness: 1.8, jitter: 0.22 }),
+  makeDiskLayer({ count:  7000, rInner: 6.0, rOuter: 9.5, size: 0.45, brightness: 1.15, jitter: 0.35 }),
+  makeDiskLayer({ count:  9000, rInner: 2.5, rOuter: 3.6, size: 0.50, brightness: 3.4, jitter: 0.03 }), // bright inner band
+];
+
+// ---------------------------------------------------------------------------
+// Event horizon (black silhouette) + lensed photon ring
+// ---------------------------------------------------------------------------
+
+const horizon = new THREE.Mesh(
+  new THREE.SphereGeometry(1.0, 48, 32),
+  new THREE.MeshBasicMaterial({ color: 0x000000 })
+);
+scene.add(horizon);
+
+const photonRing = new THREE.Mesh(
+  new THREE.TorusGeometry(1.55, 0.09, 24, 128),
+  new THREE.MeshBasicMaterial({
+    color: new THREE.Color(1.0, 0.75, 0.5).multiplyScalar(2.2),
+    transparent: true,
+    opacity: 0.95,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  })
+);
+photonRing.rotation.x = Math.PI / 2; // lay flat in the equatorial plane
+scene.add(photonRing);
+
+// ---------------------------------------------------------------------------
+// Controls
+// ---------------------------------------------------------------------------
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.7;
+controls.minDistance = 7;
+controls.maxDistance = 60;
+controls.minPolarAngle = 0.1;
+controls.maxPolarAngle = 1.45;
+controls.target.set(0, 0, 0);
+
+// ---------------------------------------------------------------------------
+// Postprocessing — bloom
+// ---------------------------------------------------------------------------
+
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+composer.addPass(new UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  1.55, // strength
+  0.9,  // radius
+  0.2   // threshold
+));
+composer.addPass(new OutputPass());
+
+// ---------------------------------------------------------------------------
+// Resize / animation loop
+// ---------------------------------------------------------------------------
+
+function onResize() {
+  const w = window.innerWidth, h = window.innerHeight;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+  composer.setSize(w, h);
+}
+window.addEventListener('resize', onResize);
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const t = clock.getElapsedTime();
+  for (const layer of diskLayers) layer.update(dt, t);
+  stars.rotation.y += dt * 0.003;
+  controls.update();
+  composer.render();
+}
+animate();
+
+// fade the hint text once the view settles
+setTimeout(() => hud.classList.add('fade'), 7000);
+</script>
+</body>
+</html>
