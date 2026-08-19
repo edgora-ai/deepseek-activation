@@ -69,22 +69,44 @@ starfield, orbiting camera. Write the file and verify.</pre>
 <tr><td rowspan="3"><b>OpenCode</b></td><td><a href="results/opencode/blackhole-with-rules.html">有规则</a></td><td>11675 B</td></tr>
 <tr><td><a href="results/opencode/blackhole-no-rules-1.html">无规则 1</a></td><td>8471 B</td></tr>
 <tr><td><a href="results/opencode/blackhole-no-rules-2.html">无规则 2</a></td><td>9342 B</td></tr>
-<tr><td><b>DSH</b></td><td><a href="results/dsh/blackhole-native-minimal-preset.html">原生 minimal preset</a></td><td>10806 B</td></tr>
+<tr><td rowspan="2"><b>DSH</b></td><td><a href="results/dsh/blackhole-native-minimal-preset.html">原生 minimal preset</a></td><td>10806 B</td></tr>
+<tr><td><a href="results/dsh/blackhole-router-standard.html">router-standard preset</a></td><td>11312 B</td></tr>
 </table>
 <p style="margin:8px 0 0;color:var(--muted)">Claude Code 的 3 个 deepseek-free 文件都是"假失败"——任务实际完成、文件写出，只是进程卡标题生成被 timeout 杀而报 Execution error。</p>
 </div>
 
-<h2>5. 结论：规则是放大器，不是开关</h2>
+<h2>4. 结论：规则是放大器，不是开关</h2>
 <div class="card">
 <ul>
 <li><b>有规则时输出密度更高</b>：Codex 粒子 14000 vs 4500（3×），OpenCode 55000 vs 14000（4×），代码行数 1.2–1.4×。</li>
 <li><b>无规则也出完整黑洞</b>（bloom/吸积盘/星场都在）——质量基线相同，规则不决定成败。</li>
 <li><b>DSH 原生（minimal preset）本身就是一种治理</b>：24000 粒子，比两个 CLI 无规则更强；但 opencode+规则（55000）仍超它。</li>
-<li><b>所有通道都随机波动</b>：DSH 1/2、Claude Code 1/4 成功率 —— 是 deepseek-free 长输出断流，与通道和规则都无关。</li>
+<li><b>成功率是误导指标</b>：Claude Code 的 "失败" 是假失败（3/3 文件实际写出）；DSH 第二轮超时是 deepseek-free 长输出断流。实际各通道任务都能完成。</li>
 </ul>
 </div>
 
-<h2>4. Claude Code 断流根因分析（最终版）</h2>
+<h2>5. 特征差异（不只是大小）</h2>
+<div class="card">
+<p>提示词只要求"看起像黑洞"（笼统），未指定粒子数/物理/交互/特效，所以规模接近。特征分析显示差异在<b>实现了哪些特征</b>：</p>
+<div class="ovf"><table>
+<tr><th>特征</th><th>DSH-mini</th><th>DSH-router</th><th>OC+规则</th><th>OC无规则</th><th>CX+规则</th><th>CX无规则</th><th>CC</th></tr>
+<tr><td>Kepler 轨道</td><td>—</td><td>✅</td><td>✅</td><td>—</td><td>—</td><td>✅</td><td>✅</td></tr>
+<tr><td>OrbitControls</td><td>—</td><td>✅</td><td>—</td><td>✅</td><td>—</td><td>✅</td><td>✅</td></tr>
+<tr><td>Doppler beaming</td><td>—</td><td>—</td><td>✅</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+<tr><td>引力透镜</td><td>✅</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+<tr><td>Points 数</td><td>4</td><td>3</td><td>6</td><td>3</td><td>3</td><td>6</td><td>4</td></tr>
+<tr><td>盘倾斜</td><td>—</td><td>✅</td><td>✅</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+</table></div>
+<ul>
+<li><b>没有通道实现全部特征</b>——每个侧重点不同</li>
+<li><b>Doppler beaming 只在 OC+规则</b>（规则激活物理细节）</li>
+<li><b>引力透镜只在 DSH-mini</b>（DSH 原生追求全特效）</li>
+<li><b>OC+规则 与 CX无规则 Points 最全（6）</b>——规则影响不一定线性</li>
+</ul>
+<p><b>提示词局限</b>：严格提示词（指定粒子数/Kepler/Doppler/lensing）会让 deepseek-free 超时（生成太长），故以特征分析呈现差异。</p>
+</div>
+
+<h2>6. Claude Code 断流根因分析（最终版）</h2>
 
 
 <div class="card">
@@ -103,12 +125,12 @@ starfield, orbiting camera. Write the file and verify.</pre>
 <p><b>可接受的实践</b>：判断"任务成功"应<b>检查文件是否写出</b>（存在即成功），而非只看退出码。Claude Code 用 deepseek-free 时：文件写出 + Execution error = 假失败，属正常。</p>
 </div>
 
-<h2>6. 方法论意义</h2>
+<h2>7. 方法论意义</h2>
 <div class="card">
 <p>CLI 上用 AGENTS.md 注入规则层（build/fix 分类 + 每步验证 + 失败重试 + 深度思考）≈ DSH 原生 preset 的效果：<b>殊途同归，验证了移植成功</b>。但不"炸裂"、不是必需 —— 收益是输出密度与纪律，不是能力开关。</p>
 </div>
 
-<h2>7. 复现</h2>
+<h2>8. 复现</h2>
 <div class="card"><pre># DSH 原生（headless，需 pi-ai adapter patch）
 pnpm dsh --profile headless --patch /tmp/pi-ai-patch.yml "&lt;任务&gt;"
 
