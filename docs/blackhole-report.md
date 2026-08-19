@@ -1,5 +1,19 @@
 # 黑洞渲染对比测试报告（2026-08-19）
 
+## Round 2（全新重跑，2026-08-19 10:1x）
+
+**注意**：此轮为全新重跑，非旧数据复用。同一任务、同一提示词，逐通道串行/轻并行执行，产物在 `docs/results/round2/`。
+
+| 通道 | 结果 | 大小 | 特征 | 备注 |
+|---|---|---|---|---|
+| **Codex（带规则）** | ✅ | 9194 B | bloom 3 + Points 4 + 事件 2 | 全新写出 |
+| **OpenCode（带规则）** | ✅ | 7231 B | bloom 3 + Points 4 + OrbitControls + 事件 | 全新写出 |
+| **DSH minimal** | ✅ | 8014 B | Kepler + bloom 3 + Points 4 + 事件 | 全新写出 |
+| **DSH router-standard** | ✅ | 9721 B | **Kepler ×3 + OrbitControls + bloom 3** | 全新写出；router-standard 激活物理+交互特征 |
+| **Claude Code** | ⚠️ 假失败 | 无文件 | — | log 有助手消息但进程中断（deepseek-free 固有行为，非首见） |
+
+**round2 要点**：三个可完成通道（codex/opencode/dsh-min）都成功，但**DeepSeek-free 输出波幅大**（同提示词下 7231-9194B 不等）。Claude Code 再次假失败——无文件但日志显示任务开始了——证实这是 deepseek-free 在 Claude Code 的固有行为（标题生成卡死，第 6 节详述）。
+
 ## 背景
 
 回答：**不同预设（规则层）在不同工具（Claude Code / Codex / OpenCode / DSH）下的表现差异**。选择 3D 黑洞渲染（300+ 行 HTML、多特效）作为压力任务——简单任务四通道都能完成，看不出差别。

@@ -35,6 +35,20 @@ pre { background:var(--card); border:1px solid var(--border); border-radius:8px;
 <h1>黑洞渲染 · 四通道对比测试报告</h1>
 <div class="sub">deepseek-activation · 2026-08-19 · 模型 deepseek-free / deepseek-v4-flash-free（同一模型）</div>
 
+<h2>0. Round 2 — 全新重跑（2026-08-19 10:1x）</h2>
+<div class="card">
+<p><b>此轮为全新重跑</b>，同一任务+提示词逐通道执行，产物在 <code>docs/results/round2/</code>。</p>
+<table>
+<tr><th>通道</th><th>结果</th><th>大小</th><th>特征（与预设/规则相关）</th></tr>
+<tr><td>Codex（带规则）</td><td><span class="tag tag-ok">✅</span></td><td>9194 B</td><td>bloom 3 + Points 4 + 交互事件 2</td></tr>
+<tr><td>OpenCode（带规则）</td><td><span class="tag tag-ok">✅</span></td><td>7231 B</td><td>bloom 3 + Points 4 + OrbitControls + 事件</td></tr>
+<tr><td>DSH minimal</td><td><span class="tag tag-ok">✅</span></td><td>8014 B</td><td>Kepler + bloom 3 + Points 4</td></tr>
+<tr><td>DSH router-standard</td><td><span class="tag tag-ok">✅</span></td><td>9721 B</td><td><b>Kepler ×3 + OrbitControls + bloom 3</b> — 预设激活物理+交互</td></tr>
+<tr><td>Claude Code</td><td><span class="tag tag-warn">⚠️ 假失败</span></td><td>无文件</td><td>log 有助手消息但进程中断（deepseek-free 固有行为）</td></tr>
+</table>
+<p style="margin:8px 0 0;color:var(--muted)">三个可完成通道都成功；DeepSeek-free 输出波幅大（同提示词 7231-9721B）。Claude Code 再次假失败 — 证实第 6 节结论。</p>
+</div>
+
 <h2>1. 测试任务</h2>
 <div class="card">
 <pre>Create blackhole.html: a 3D black hole render with Three.js:
@@ -71,6 +85,10 @@ starfield, orbiting camera. Write the file and verify.</pre>
 <tr><td><a href="results/opencode/blackhole-no-rules-2.html">无规则 2</a></td><td>9342 B</td></tr>
 <tr><td rowspan="2"><b>DSH</b></td><td><a href="results/dsh/blackhole-native-minimal-preset.html">原生 minimal preset</a></td><td>10806 B</td></tr>
 <tr><td><a href="results/dsh/blackhole-router-standard.html">router-standard preset</a></td><td>11312 B</td></tr>
+<tr><td rowspan="4"><b>Round 2（全新）</b></td><td><a href="results/round2/codex-with-rules-blackhole.html">Codex 带规则</a></td><td>9194 B</td></tr>
+<tr><td><a href="results/round2/opencode-with-rules-blackhole.html">OpenCode 带规则</a></td><td>7231 B</td></tr>
+<tr><td><a href="results/round2/dsh-minimal-preset-blackhole.html">DSH minimal</a></td><td>8014 B</td></tr>
+<tr><td><a href="results/round2/dsh-router-standard-blackhole.html">DSH router-standard</a></td><td>9721 B</td></tr>
 </table>
 <p style="margin:8px 0 0;color:var(--muted)">Claude Code 的 3 个 deepseek-free 文件都是"假失败"——任务实际完成、文件写出，只是进程卡标题生成被 timeout 杀而报 Execution error。</p>
 </div>

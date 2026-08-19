@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Black Hole — Three.js</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #000; }
+  canvas { display: block; }
+  #info {
+    position: fixed; bottom: 12px; left: 0; right: 0;
+    text-align: center; color: rgba(255, 255, 255, 0.55);
+    font: 13px/1.6 system-ui, sans-serif;
+    pointer-events: none; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  }
+</style>
+</head>
+<body>
+<div id="info">Black hole &middot; accretion disk, bloom, starfield &middot; Three.js — camera auto-orbits</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+/* ---------- renderer / scene / camera ---------- */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x05060a);
+
+const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 1000);
+camera.position.set(0, 5, 16);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+document.body.appendChild(renderer.domElement);
+
+/* ---------- bloom postprocessing ---------- */
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloomPass = new UnrealBloomPass(
+  new THREE.Vector2(innerWidth, innerHeight),
+  1.15,   // strength
+  0.55,   // radius
+  0.12    // threshold
+);
+composer.addPass(bloomPass);
+
+/* ---------- soft glow sprite texture (used by particles) ---------- */
+function makeGlowTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grad.addColorStop(0.0, 'rgba(255, 255, 255, 1.0)');
+  grad.addColorStop(0.25, 'rgba(255, 255, 255, 0.75)');
+  grad.addColorStop(0.6, 'rgba(255, 255, 255, 0.22)');
+  grad.addColorStop(1.0, 'rgba(255, 255, 255, 0.0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 64, 64);
+  const tex = new THREE.CanvasTexture(c);
+  tex.needsUpdate = true;
+  return tex;
+}
+const glowTex = makeGlowTexture();
+
+/* ---------- starfield ---------- */
+function makeStarfield(count, minR, maxR, size, hue, sat) {
+  const pos = new Float32Array(count * 3);
+  const col = new Float32Array(count * 3);
+  const c = new THREE.Color();
+  for (let i = 0; i < count; i++) {
+    const u = Math.random() * 2 - 1;           // uniform on sphere
+    const theta = Math.random() * Math.PI * 2;
+    const r = minR + Math.random() * (maxR - minR);
+    const s = Math.sqrt(1 - u * u);
+    const i3 = i * 3;
+    pos[i3] = r * s * Math.cos(theta);
+    pos[i3 + 1] = r * u;
+    pos[i3 + 2] = r * s * Math.sin(theta);
+    c.setHSL(hue + (Math.random() - 0.5) * 0.06, sat, 0.35 + Math.random() * 0.65);
+    col[i3] = c.r; col[i3 + 1] = c.g; col[i3 + 2] = c.b;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  const mat = new THREE.PointsMaterial({
+    size, sizeAttenuation: true, vertexColors: true,
+    transparent: true, opacity: 0.9, depthWrite: false,
+  });
+  return new THREE.Points(geo, mat);
+}
+
+const stars = makeStarfield(4500, 180, 420, 1.35, 0.35);
+scene.add(stars);
+const brightStars = makeStarfield(140, 160, 380, 2.6, 0.08);
+scene.add(brightStars);
+
+/* ---------- accretion disk: particles with per-particle orbital motion ---------- */
+const DISK = { inner: 2.3, outer: 9.0, count: 15000, kepler: 1.35 };
+const diskPos = new Float32Array(DISK.count * 3);
+const diskCol = new Float32Array(DISK.count * 3);
+const radii = new Float32Array(DISK.count);
+const angles = new Float32Array(DISK.count);
+const heights = new Float32Array(DISK.count);
+const turbId = new Float32Array(DISK.count);
+
+const cHot = new THREE.Color(0xfff4e0);
+const cMid = new THREE.Color(0xff9a4d);
+const cCool = new THREE.Color(0xc72f14);
+
+for (let i = 0; i < DISK.count; i++) {
+  const r = DISK.inner + Math.pow(Math.random(), 0.55) * (DISK.outer - DISK.inner);
+  const a = Math.random() * Math.PI * 2;
+  const spread = 0.02 + 0.14 * (r - DISK.inner) / (DISK.outer - DISK.inner);
+  const i3 = i * 3;
+  radii[i] = r;
+  angles[i] = a;
+  heights[i] = (Math.random() - 0.5) * spread * r;
+  turbId[i] = Math.random() * 6.2832;
+
+  diskPos[i3] = Math.cos(a) * r;
+  diskPos[i3 + 1] = heights[i];
+  diskPos[i3 + 2] = Math.sin(a) * r;
+
+  const t = (r - DISK.inner) / (DISK.outer - DISK.inner);
+  const col = new THREE.Color().lerpColors(cHot, cMid, t).lerp(cCool, t * t);
+  const bright = (1 - 0.6 * t) * (0.72 + 0.28 * Math.random());
+  diskCol[i3] = col.r * bright;
+  diskCol[i3 + 1] = col.g * bright;
+  diskCol[i3 + 2] = col.b * bright;
+}
+
+const diskGeo = new THREE.BufferGeometry();
+diskGeo.setAttribute('position', new THREE.BufferAttribute(diskPos, 3));
+diskGeo.setAttribute('color', new THREE.BufferAttribute(diskCol, 3));
+
+const disk = new THREE.Points(diskGeo, new THREE.PointsMaterial({
+  size: 0.24,
+  map: glowTex,
+  vertexColors: true,
+  blending: THREE.AdditiveBlending,
+  transparent: true,
+  depthWrite: false,
+  depthTest: true,
+  sizeAttenuation: true,
+}));
+scene.add(disk);
+
+/* ---------- black hole body: shadow sphere + photon ring + soft corona ---------- */
+const horizon = new THREE.Mesh(
+  new THREE.SphereGeometry(1.0, 48, 32),
+  new THREE.MeshBasicMaterial({ color: 0x000000 })
+);
+scene.add(horizon);
+
+const ringGeo = new THREE.RingGeometry(1.42, 1.66, 128);
+ringGeo.rotateX(-Math.PI / 2); // lie flat in the disk plane
+const photonRing = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({
+  color: 0xffe9c4,
+  transparent: true,
+  opacity: 0.85,
+  side: THREE.DoubleSide,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+}));
+scene.add(photonRing);
+
+const corona = new THREE.Sprite(new THREE.SpriteMaterial({
+  map: glowTex,
+  color: 0xffa050,
+  transparent: true,
+  opacity: 0.22,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+}));
+corona.scale.setScalar(5.5);
+scene.add(corona);
+
+/* ---------- animation loop: disk shear + orbiting camera ---------- */
+const clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = clock.getDelta();
+  const t = clock.elapsedTime;
+
+  // Keplerian differential rotation + mild turbulence
+  const pos = diskGeo.attributes.position.array;
+  for (let i = 0; i < DISK.count; i++) {
+    const r = radii[i];
+    const a = angles[i] + t * DISK.kepler / Math.pow(r, 1.5);
+    const wob = Math.sin(t * 2.2 + turbId[i]) * 0.05 * (0.3 + 0.7 * (r - DISK.inner) / (DISK.outer - DISK.inner));
+    const i3 = i * 3;
+    pos[i3] = Math.cos(a) * r;
+    pos[i3 + 2] = Math.sin(a) * r;
+    pos[i3 + 1] = heights[i] + wob;
+  }
+  diskGeo.attributes.position.needsUpdate = true;
+
+  // slow starfield drift
+  stars.rotation.y += dt * 0.004;
+  brightStars.rotation.y += dt * 0.006;
+
+  // cinematic camera orbit around the hole, looking at the shadow
+  const orbitA = t * 0.11;
+  const orbitR = 13.5 + Math.sin(t * 0.07) * 2.5;
+  const orbitY = 3.4 + Math.sin(t * 0.16) * 2.6;
+  camera.position.set(Math.cos(orbitA) * orbitR, orbitY, Math.sin(orbitA) * orbitR);
+  camera.lookAt(0, 0, 0);
+
+  composer.render();
+}
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  composer.setSize(innerWidth, innerHeight);
+});
+
+animate();
+</script>
+</body>
+</html>
