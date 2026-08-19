@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Black Hole Visualization</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #000;
+        }
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.159.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.159.0/examples/js/postprocessing/EffectComposer.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.159.0/examples/js/postprocessing/RenderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.159.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.159.0/examples/js/shaders/CopyShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.159.0/examples/js/postprocessing/ShaderPass.js"></script>
+
+    <script>
+        let scene, camera, renderer, composer;
+        let blackHole, accretionDisk, stars;
+        let cameraAngle = 0;
+
+        function init() {
+            // Scene
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x000000, 0.0008);
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 15, 30);
+            camera.lookAt(0, 0, 0);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            document.body.appendChild(renderer.domElement);
+
+            // Black Hole (event horizon)
+            const blackHoleGeometry = new THREE.SphereGeometry(2, 32, 32);
+            const blackHoleMaterial = new THREE.MeshBasicMaterial({
+                color: 0x000000,
+                transparent: true,
+                opacity: 1
+            });
+            blackHole = new THREE.Mesh(blackHoleGeometry, blackHoleMaterial);
+            scene.add(blackHole);
+
+            // Photon sphere glow
+            const glowGeometry = new THREE.SphereGeometry(2.5, 32, 32);
+            const glowMaterial = new THREE.MeshBasicMaterial({
+                color: 0xff6600,
+                transparent: true,
+                opacity: 0.3,
+                side: THREE.BackSide
+            });
+            const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+            scene.add(glow);
+
+            // Accretion Disk (particles)
+            createAccretionDisk();
+
+            // Starfield
+            createStarfield();
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0x222222);
+            scene.add(ambientLight);
+
+            const pointLight = new THREE.PointLight(0xff8800, 2, 50);
+            pointLight.position.set(0, 0, 0);
+            scene.add(pointLight);
+
+            // Bloom Post-processing
+            composer = new THREE.EffectComposer(renderer);
+            const renderPass = new THREE.RenderPass(scene, camera);
+            composer.addPass(renderPass);
+
+            const bloomPass = new THREE.UnrealBloomPass(
+                new THREE.Vector2(window.innerWidth, window.innerHeight),
+                1.5,  // strength
+                0.4,  // radius
+                0.85  // threshold
+            );
+            composer.addPass(bloomPass);
+
+            // Window resize handler
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function createAccretionDisk() {
+            const particleCount = 8000;
+            const positions = new Float32Array(particleCount * 3);
+            const colors = new Float32Array(particleCount * 3);
+            const sizes = new Float32Array(particleCount);
+
+            for (let i = 0; i < particleCount; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const radius = 3 + Math.random() * 12;
+                const thickness = (Math.random() - 0.5) * 0.5;
+
+                positions[i * 3] = Math.cos(angle) * radius;
+                positions[i * 3 + 1] = thickness;
+                positions[i * 3 + 2] = Math.sin(angle) * radius;
+
+                // Color gradient: inner red-orange, outer yellow-white
+                const t = (radius - 3) / 12;
+                if (t < 0.3) {
+                    colors[i * 3] = 1.0;
+                    colors[i * 3 + 1] = 0.3 + t * 0.5;
+                    colors[i * 3 + 2] = 0.0;
+                } else if (t < 0.6) {
+                    colors[i * 3] = 1.0;
+                    colors[i * 3 + 1] = 0.5 + t * 0.5;
+                    colors[i * 3 + 2] = 0.1 + t * 0.2;
+                } else {
+                    colors[i * 3] = 1.0;
+                    colors[i * 3 + 1] = 0.9;
+                    colors[i * 3 + 2] = 0.7 + t * 0.3;
+                }
+
+                sizes[i] = Math.random() * 0.3 + 0.1;
+            }
+
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+            const material = new THREE.PointsMaterial({
+                size: 0.3,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.8,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+
+            accretionDisk = new THREE.Points(geometry, material);
+            scene.add(accretionDisk);
+        }
+
+        function createStarfield() {
+            const starCount = 3000;
+            const positions = new Float32Array(starCount * 3);
+            const colors = new Float32Array(starCount * 3);
+
+            for (let i = 0; i < starCount; i++) {
+                positions[i * 3] = (Math.random() - 0.5) * 400;
+                positions[i * 3 + 1] = (Math.random() - 0.5) * 400;
+                positions[i * 3 + 2] = (Math.random() - 0.5) * 400;
+
+                const starColor = Math.random();
+                if (starColor < 0.7) {
+                    colors[i * 3] = 1;
+                    colors[i * 3 + 1] = 1;
+                    colors[i * 3 + 2] = 1;
+                } else if (starColor < 0.85) {
+                    colors[i * 3] = 0.7;
+                    colors[i * 3 + 1] = 0.8;
+                    colors[i * 3 + 2] = 1;
+                } else {
+                    colors[i * 3] = 1;
+                    colors[i * 3 + 1] = 0.8;
+                    colors[i * 3 + 2] = 0.6;
+                }
+            }
+
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+            const material = new THREE.PointsMaterial({
+                size: 0.5,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.8
+            });
+
+            stars = new THREE.Points(geometry, material);
+            scene.add(stars);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Rotate accretion disk
+            if (accretionDisk) {
+                accretionDisk.rotation.y += 0.002;
+            }
+
+            // Orbit camera
+            cameraAngle += 0.003;
+            const radius = 30;
+            camera.position.x = Math.cos(cameraAngle) * radius;
+            camera.position.z = Math.sin(cameraAngle) * radius;
+            camera.position.y = 15 + Math.sin(cameraAngle * 0.5) * 5;
+            camera.lookAt(0, 0, 0);
+
+            // Slowly rotate starfield
+            if (stars) {
+                stars.rotation.y += 0.0001;
+            }
+
+            composer.render();
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        init();
+        animate();
+    </script>
+</body>
+</html>

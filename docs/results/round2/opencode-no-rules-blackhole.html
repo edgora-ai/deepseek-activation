@@ -1,48 +1,35 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Black Hole</title>
 <style>
   html, body {
     margin: 0;
     padding: 0;
-    height: 100%;
     overflow: hidden;
     background: #000;
+    height: 100%;
   }
   #app {
-    position: fixed;
-    inset: 0;
+    width: 100%;
+    height: 100%;
   }
-  #app canvas {
+  canvas {
     display: block;
   }
-  .vignette {
+  .hud {
     position: fixed;
-    inset: 0;
+    top: 16px;
+    left: 16px;
+    color: rgba(255,255,255,0.55);
+    font: 12px/1.5 ui-monospace, Menlo, Consolas, monospace;
     pointer-events: none;
-    background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.55) 100%);
-  }
-  .caption {
-    position: fixed;
-    left: 18px;
-    bottom: 12px;
-    color: rgba(255,255,255,0.45);
-    font: 13px/1.4 monospace;
-    letter-spacing: 0.08em;
     user-select: none;
-    pointer-events: none;
-    text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+    text-shadow: 0 0 8px rgba(0,0,0,0.9);
   }
 </style>
-</head>
-<body>
-<div id="app"></div>
-<div class="vignette"></div>
-<div class="caption">BLACK HOLE &#8212; SAGITTARIUS&#8727; &#183; M87&#8727;</div>
-
 <script type="importmap">
 {
   "imports": {
@@ -51,6 +38,10 @@
   }
 }
 </script>
+</head>
+<body>
+<div id="app"></div>
+<div class="hud">black hole &mdash; three.js / bloom / orbiting camera</div>
 
 <script type="module">
 import * as THREE from 'three';
@@ -128,7 +119,7 @@ const diskGeo = new THREE.BufferGeometry();
 const dPos   = new Float32Array(DISK_COUNT * 3);
 const dColor = new Float32Array(DISK_COUNT * 3);
 const dSize  = new Float32Array(DISK_COUNT);
-const dBase  = new Float32Array(DISK_COUNT * 3); // un-beamed color
+const dBase  = new Float32Array(DISK_COUNT * 3);
 const dAngle = new Float32Array(DISK_COUNT);
 const dRad   = new Float32Array(DISK_COUNT);
 const dVert  = new Float32Array(DISK_COUNT);
@@ -154,7 +145,6 @@ for (let i = 0; i < DISK_COUNT; i++) {
   dPos[i*3+1] = y;
   dPos[i*3+2] = r * Math.sin(a);
 
-  // temperature gradient: white-yellow inner -> deep red outer
   const sparkle = 0.85 + Math.random() * 0.15;
   cTmp.setHSL(0.10 - 0.08 * t, 0.72 + 0.28 * t, (0.78 - 0.34 * t) * sparkle);
   dBase[i*3+0] = cTmp.r;
@@ -168,7 +158,7 @@ for (let i = 0; i < DISK_COUNT; i++) {
   dAngle[i] = a;
   dRad[i] = r;
   dVert[i] = y;
-  dSpeed[i] = 3.2 * Math.pow(r, -1.5); // Keplerian rotation
+  dSpeed[i] = 3.2 * Math.pow(r, -1.5);
 }
 
 diskGeo.setAttribute('position', new THREE.BufferAttribute(dPos, 3));
@@ -243,7 +233,7 @@ for (let i = 0; i < STAR_COUNT; i++) {
     (Math.random() * 2 - 1),
     (Math.random() * 2 - 1)
   );
-  if (Math.random() < 0.6) p.y *= 0.25; // concentrate into a galactic plane
+  if (Math.random() < 0.6) p.y *= 0.25;
   p.normalize().multiplyScalar(90 + Math.random() * 130);
 
   sPos[i*3+0] = p.x;
@@ -279,9 +269,9 @@ const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
 const bloom = new UnrealBloomPass(
   new THREE.Vector2(window.innerWidth, window.innerHeight),
-  1.15,   // strength
-  0.6,    // radius
-  0.05    // threshold
+  1.15,
+  0.6,
+  0.05
 );
 composer.addPass(bloom);
 
@@ -309,7 +299,6 @@ function updateDisk(dt) {
     dPos[i*3+1] = py;
     dPos[i*3+2] = pz;
 
-    // doppler beaming: brighten particles moving toward the camera
     const tx = -Math.sin(a);
     const tz =  Math.cos(a);
     const vx = camX - px;
@@ -340,7 +329,6 @@ function animate() {
   const dt = Math.min(clock.getDelta(), 0.05);
   const t = clock.elapsedTime;
 
-  // orbiting camera
   const theta = t * 0.12;
   const rad = 13 + 2 * Math.sin(t * 0.05);
   const height = 4.5 + 3.5 * Math.sin(t * 0.13);

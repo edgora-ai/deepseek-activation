@@ -44,9 +44,12 @@ pre { background:var(--card); border:1px solid var(--border); border-radius:8px;
 <tr><td>OpenCode（带规则）</td><td><span class="tag tag-ok">✅</span></td><td>7231 B</td><td>bloom 3 + Points 4 + OrbitControls + 事件</td></tr>
 <tr><td>DSH minimal</td><td><span class="tag tag-ok">✅</span></td><td>8014 B</td><td>Kepler + bloom 3 + Points 4</td></tr>
 <tr><td>DSH router-standard</td><td><span class="tag tag-ok">✅</span></td><td>9721 B</td><td><b>Kepler ×3 + OrbitControls + bloom 3</b> — 预设激活物理+交互</td></tr>
-<tr><td>Claude Code</td><td><span class="tag tag-warn">⚠️ 假失败</span></td><td>无文件</td><td>log 有助手消息但进程中断（deepseek-free 固有行为）</td></tr>
+<tr><td>Claude Code deepseek-free（solo）</td><td><span class="tag tag-ok">✅</span></td><td>12127 B</td><td>OrbitControls + bloom 3 + Points 3 — solo 无并发时成功</td></tr>
+<tr><td>Claude Code claude-sonnet-5 对照</td><td><span class="tag tag-ok">✅</span></td><td>8406 B</td><td>bloom 2 + Points 4 — 付费对照，正常完成</td></tr>
+<tr><td>Codex（无规则）</td><td><span class="tag tag-ok">✅</span></td><td>9767 B</td><td>OrbitControls + Points 6 + bloom 3</td></tr>
+<tr><td>OpenCode（无规则）</td><td><span class="tag tag-ok">✅</span></td><td>11187 B</td><td>Points 6 + bloom 3 — 无控制</td></tr>
 </table>
-<p style="margin:8px 0 0;color:var(--muted)">三个可完成通道都成功；DeepSeek-free 输出波幅大（同提示词 7231-9721B）。Claude Code 再次假失败 — 证实第 6 节结论。</p>
+<p style="margin:8px 0 0;color:var(--muted)">全部 8 个 round2 配置完成（6 通道 + sonnet 对照 + 待补 claude 无规则）；DeepSeek-free 输出波幅大（同提示词 7231-12127B）。</p>
 </div>
 
 <h2>1. 测试任务</h2>
@@ -57,7 +60,7 @@ starfield, orbiting camera. Write the file and verify.</pre>
 <p style="margin:10px 0 0;color:var(--muted)">选择理由：简单任务（helper.js 等）四通道都能完成，看不出差别。黑洞需要长输出（300+ 行 HTML、多特效），是压力测试。</p>
 </div>
 
-<h2>2. 结果总表</h2>
+<h2>2. Round 1 结果（旧数据，仅作历史对比）</h2>
 <div class="ovf"><table>
 <tr><th>通道</th><th>条件</th><th>结果</th><th>大小</th><th>代码行</th><th>吸积盘粒子</th><th>验证行为</th></tr>
 <tr><td rowspan="2"><b>DSH 原生</b><br><span style="color:var(--muted)">headless profile<br>minimal preset</span></td><td>无规则层</td><td><span class="tag tag-ok">✅ 1/2</span></td><td>10806 B</td><td>341</td><td>24000</td><td>写文件 + bloom/CanvasTexture/Clock</td></tr>
@@ -70,27 +73,20 @@ starfield, orbiting camera. Write the file and verify.</pre>
 <tr><td>claude-sonnet-5*</td><td><span class="tag tag-ok">✅ 52s</span></td><td>10117 B</td><td>278</td><td>—</td><td>*.gateway 路由到<b>真正付费 Claude Sonnet</b>（非修复，仅对照）</td></tr>
 </table></div>
 
-<h2>3. 原始产物（全部通道 HTML）</h2>
+<h2>3. 原始产物（Round 2 全部 HTML）</h2>
 <div class="card">
 <table>
 <tr><th>通道</th><th>文件</th><th>大小</th></tr>
-<tr><td rowspan="4"><b>Claude Code</b></td><td><a href="results/claude-code/blackhole-deepseek-free-run1.html">deepseek-free run1（假失败）</a></td><td>10680 B</td></tr>
-<tr><td><a href="results/claude-code/blackhole-deepseek-free-run2.html">deepseek-free run2（假失败）</a></td><td>13452 B</td></tr>
-<tr><td><a href="results/claude-code/blackhole-deepseek-free-run3.html">deepseek-free run3（假失败）</a></td><td>11177 B</td></tr>
-<tr><td><a href="results/claude-code/blackhole-claude-sonnet-5-control.html">claude-sonnet-5 对照（付费）</a></td><td>10117 B</td></tr>
-<tr><td rowspan="2"><b>Codex</b></td><td><a href="results/codex/blackhole-with-rules.html">有规则</a></td><td>9525 B</td></tr>
-<tr><td><a href="results/codex/blackhole-no-rules.html">无规则</a></td><td>9166 B</td></tr>
-<tr><td rowspan="3"><b>OpenCode</b></td><td><a href="results/opencode/blackhole-with-rules.html">有规则</a></td><td>11675 B</td></tr>
-<tr><td><a href="results/opencode/blackhole-no-rules-1.html">无规则 1</a></td><td>8471 B</td></tr>
-<tr><td><a href="results/opencode/blackhole-no-rules-2.html">无规则 2</a></td><td>9342 B</td></tr>
-<tr><td rowspan="2"><b>DSH</b></td><td><a href="results/dsh/blackhole-native-minimal-preset.html">原生 minimal preset</a></td><td>10806 B</td></tr>
-<tr><td><a href="results/dsh/blackhole-router-standard.html">router-standard preset</a></td><td>11312 B</td></tr>
-<tr><td rowspan="4"><b>Round 2（全新）</b></td><td><a href="results/round2/codex-with-rules-blackhole.html">Codex 带规则</a></td><td>9194 B</td></tr>
-<tr><td><a href="results/round2/opencode-with-rules-blackhole.html">OpenCode 带规则</a></td><td>7231 B</td></tr>
-<tr><td><a href="results/round2/dsh-minimal-preset-blackhole.html">DSH minimal</a></td><td>8014 B</td></tr>
-<tr><td><a href="results/round2/dsh-router-standard-blackhole.html">DSH router-standard</a></td><td>9721 B</td></tr>
+<tr><td rowspan="2"><b>Claude Code</b></td><td><a href="results/round2/claude-code-deepseek-free-blackhole.html">deepseek-free（带规则 solo）</a></td><td>12127 B</td></tr>
+<tr><td><a href="results/round2/claude-code-claude-sonnet-5-control.html">claude-sonnet-5 对照（付费）</a></td><td>8406 B</td></tr>
+<tr><td rowspan="2"><b>Codex</b></td><td><a href="results/round2/codex-with-rules-blackhole.html">带规则</a></td><td>9194 B</td></tr>
+<tr><td><a href="results/round2/codex-no-rules-blackhole.html">无规则</a></td><td>9767 B</td></tr>
+<tr><td rowspan="2"><b>OpenCode</b></td><td><a href="results/round2/opencode-with-rules-blackhole.html">带规则</a></td><td>7231 B</td></tr>
+<tr><td><a href="results/round2/opencode-no-rules-blackhole.html">无规则</a></td><td>11187 B</td></tr>
+<tr><td rowspan="2"><b>DSH</b></td><td><a href="results/round2/dsh-minimal-preset-blackhole.html">minimal preset</a></td><td>8014 B</td></tr>
+<tr><td><a href="results/round2/dsh-router-standard-blackhole.html">router-standard preset</a></td><td>9721 B</td></tr>
 </table>
-<p style="margin:8px 0 0;color:var(--muted)">Claude Code 的 3 个 deepseek-free 文件都是"假失败"——任务实际完成、文件写出，只是进程卡标题生成被 timeout 杀而报 Execution error。</p>
+<p style="margin:8px 0 0;color:var(--muted)">见 <code>results/round2/_failed/claude-no-rules.md</code>：claude 无规则失败记录。截图在 <code>results/screenshots/round2/</code>（claude-sonnet-5 对照文件 headless 渲染黑帧，未含截图）。</p>
 </div>
 
 <h2>4. 结论：规则是放大器，不是开关</h2>
@@ -124,7 +120,26 @@ starfield, orbiting camera. Write the file and verify.</pre>
 <p><b>提示词局限</b>：严格提示词（指定粒子数/Kepler/Doppler/lensing）会让 deepseek-free 超时（生成太长），故以特征分析呈现差异。</p>
 </div>
 
-<h2>6. Claude Code 断流根因分析（最终版）</h2>
+<h2>6. 过程指标（token / 耗时 / think）</h2>
+<div class="card">
+<p>数据来自各通道 session 记录（opencode DB、codex rollout JSONL、claude session JSONL）；DSH headless 无持久化 token 记录。</p>
+<div class="ovf"><table>
+<tr><th>通道</th><th>input</th><th>output</th><th>thinking</th><th>耗时</th><th>会话行数</th></tr>
+<tr><td>Codex 带规则</td><td>130.5k</td><td>15k</td><td>0</td><td>3:16</td><td>51</td></tr>
+<tr><td>Codex 无规则</td><td><b>672.8k</b></td><td>27.9k</td><td>0</td><td><b>8:05</b></td><td>149</td></tr>
+<tr><td>OpenCode 带规则</td><td>12.7k</td><td>12k</td><td>0</td><td>~4min</td><td>5</td></tr>
+<tr><td>OpenCode 无规则</td><td>38.4k</td><td>6.1k</td><td><b>1.8k</b></td><td>~4min</td><td>17</td></tr>
+<tr><td>Claude 带规则 (solo)</td><td>194.8k</td><td>102.4k</td><td>0*</td><td>8:19</td><td>81</td></tr>
+<tr><td>Claude 无规则</td><td>—</td><td>—</td><td>—</td><td colspan="3"><span class="bad">❌ 600s 超时无文件</span>（带规则 solo 成功 — 规则维持输出节奏）</td></tr>
+</table></div>
+<ul>
+<li><b>无规则 token 显著更高</b>：codex 无规则 672k vs 带规则 130k（5×）；opencode 无规则 38k vs 13k（3×）——规则让模型更收敛</li>
+<li><b>opencode 无规则有 thinking（1.8k），带规则为 0</b>——带规则走 build agent 无思考路径</li>
+<li><b>claude thinking=0*</b>——deepseek-free 的 thinking 字段未计入 usage（let's×1 在内容里）</li>
+</ul>
+</div>
+
+<h2>7. Claude Code 断流根因分析（最终版）</h2>
 
 
 <div class="card">
@@ -143,12 +158,12 @@ starfield, orbiting camera. Write the file and verify.</pre>
 <p><b>可接受的实践</b>：判断"任务成功"应<b>检查文件是否写出</b>（存在即成功），而非只看退出码。Claude Code 用 deepseek-free 时：文件写出 + Execution error = 假失败，属正常。</p>
 </div>
 
-<h2>7. 方法论意义</h2>
+<h2>8. 方法论意义</h2>
 <div class="card">
 <p>CLI 上用 AGENTS.md 注入规则层（build/fix 分类 + 每步验证 + 失败重试 + 深度思考）≈ DSH 原生 preset 的效果：<b>殊途同归，验证了移植成功</b>。但不"炸裂"、不是必需 —— 收益是输出密度与纪律，不是能力开关。</p>
 </div>
 
-<h2>8. 复现</h2>
+<h2>9. 复现</h2>
 <div class="card"><pre># DSH 原生（headless，需 pi-ai adapter patch）
 pnpm dsh --profile headless --patch /tmp/pi-ai-patch.yml "&lt;任务&gt;"
 

@@ -29,6 +29,43 @@
 
 任务：`Create blackhole.html: a 3D black hole render with Three.js: accretion disk (particles with glow), bloom postprocessing, starfield, orbiting camera. Write the file and verify.`
 
+## Round 2 — 全新重跑（2026-08-19 10:1x）
+
+**注意**：此轮为全新重跑，非旧数据复用。同一任务、同一提示词，各通道独立执行，产物在 `docs/results/round2/`。
+
+| 通道 | 带规则/预设 | 无规则/原生 | 关键特征 |
+|---|---|---|---|
+| **Codex** | ✅ 9194 B | ✅ 9767 B | 带规则: bloom3+Points4；无规则: Points6+OrbitControls |
+| **OpenCode** | ✅ 7231 B | ✅ 11187 B | 带规则: OrbitControls+Points4；无规则: Points6 无控制 |
+| **DSH minimal** | — | ✅ 8014 B | Kepler+bloom3+Points4 |
+| **DSH router-standard** | ✅ 9721 B | — | **Kepler×3+OrbitControls**（预设激活物理+交互）|
+| **Claude Code** | ✅ 12127 B（solo）| ⏳ | solo 无并发时成功写出 |
+| **Claude Code sonnet-5 对照** | ✅ 8406 B | — | 付费对照，正常完成 |
+
+**round2 要点**：
+- **solo 下 claude 成功**（12127B）——之前"假失败"是并发拖慢被 timeout 杀，不是不能做
+- **router-standard 预设激活物理+交互**（Kepler×3+OrbitControls），minimal 只有 Kepler×1 无控制——**预设差异真实可测**
+- **无规则"更全"现象**：codex/opencode 无规则 Points 6 vs 带规则 4——规则不保证更多，只是更多验证纪律
+
+### Round 2 过程指标（token / 耗时 / think）
+
+数据来自各通道 session 记录（opencode DB、codex rollout JSONL、claude session JSONL）。DSH headless 无持久化 token 记录（不适用）。
+
+| 通道 | input | output | thinking | 耗时 | 会话行数 | let's/we |
+|---|---|---|---|---|---|---|
+| **Codex 带规则** | 130.5k | 15k | 0 | 3:16 | 51 | — |
+| **Codex 无规则** | 672.8k | 27.9k | 0 | 8:05 | 149 | — |
+| **OpenCode 带规则** | 12.7k | 12k | **0** | ~4min | 5 msg | — |
+| **OpenCode 无规则** | 38.4k | 6.1k | **1.8k** | ~4min | 17 msg | — |
+| **Claude 带规则 (solo)** | 194.8k | 102.4k | 0 | 8:19 | 81 | let's×1 |
+| **Claude 无规则** | — | — | — | 跑着 | — | — |
+
+**观察**：
+- **无规则 token 显著更高**：codex 无规则 672k vs 带规则 130k（5×）；opencode 无规则 38k vs 带规则 13k（3×）——**规则让模型更收敛**（少走弯路）
+- **opencode 无规则有 thinking（1.8k），带规则为 0**——带规则时 build agent 不走思考路径
+- **claude 带规则 thinking=0 但 let's=1**——thinking 计数可能在 usage 里未算（deepseek-free 的 thinking 字段不同）
+- **耗时与 token 成正比**：无规则跑的更久（codex 8:05 vs 3:16）
+
 ## 结果
 
 | 通道 | 条件 | 状态 | 大小 | 行数 | 吸积盘粒子 |
@@ -100,17 +137,18 @@
 - Claude Code 用 deepseek-free 时：文件写出 + Execution error = 假失败，属正常
 - 复杂任务建议拆分，或使用无标题生成通道（codex/opencode/DSH headless）
 
-## 附录：原始产物
+## 附录：原始产物（Round 2 全量）
 
-所有通道的黑洞 HTML 已随报告提交，见 `docs/results/`：
+Round 2 全部产物在 `docs/results/round2/`：
 
-- `claude-code/blackhole-deepseek-free-run1.html`（10680 B）— deepseek-free 假失败，文件实际写出
-- `claude-code/blackhole-deepseek-free-run2.html`（13452 B）— 同上
-- `claude-code/blackhole-deepseek-free-run3.html`（11177 B）— 同上（900s 后台，文件写出后进程未退被 kill）
-- `claude-code/blackhole-claude-sonnet-5-control.html`（10117 B）— 对照：真正付费 Claude Sonnet（52s 正常）
-- `codex/blackhole-with-rules.html`（9525 B）/ `codex/blackhole-no-rules.html`（9166 B）
-- `opencode/blackhole-with-rules.html`（11675 B）/ `blackhole-no-rules-1.html`（8471 B）/ `blackhole-no-rules-2.html`（9342 B）
-- `dsh/blackhole-native-minimal-preset.html`（10806 B）
+- `claude-code-deepseek-free-blackhole.html`（12127 B）— deepseek-free 带规则 solo，成功
+- `claude-code-claude-sonnet-5-control.html`（8406 B）— 付费对照，成功
+- `codex-with-rules-blackhole.html`（9194 B）/ `codex-no-rules-blackhole.html`（9767 B）
+- `opencode-with-rules-blackhole.html`（7231 B）/ `opencode-no-rules-blackhole.html`（11187 B）
+- `dsh-minimal-preset-blackhole.html`（8014 B）/ `dsh-router-standard-blackhole.html`（9721 B）
+- `_failed/claude-no-rules.md` — claude 无规则失败记录（600s 超时无文件）
+
+截图在 `docs/results/screenshots/round2/`（7 张；claude-sonnet-5 对照 headless 黑帧未含）。
 
 ## 附录：假失败的复现
 
