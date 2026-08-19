@@ -52,7 +52,8 @@ starfield, orbiting camera. Write the file and verify.</pre>
 <tr><td>无规则</td><td><span class="tag tag-ok">✅</span></td><td>9166 B</td><td>247</td><td>4200–4500</td><td>起 http.server + curl + node verify</td></tr>
 <tr><td rowspan="2"><b>OpenCode</b><br><span style="color:var(--muted)">自带 free 中转</span></td><td>有规则</td><td><span class="tag tag-ok">✅</span></td><td>11675 B</td><td>368</td><td><b>55000</b></td><td>写文件 + 本地验证</td></tr>
 <tr><td>无规则（×2）</td><td><span class="tag tag-ok">✅✅</span></td><td>8471 / 9342 B</td><td>259 / 282</td><td>14000</td><td>写文件 + 本地验证</td></tr>
-<tr><td><b>Claude Code</b><br><span style="color:var(--muted)">gateway anthropic</span></td><td>有/无规则</td><td><span class="tag tag-warn">⚠️ 2伪失败+2断流</span></td><td colspan="4">见第 4 节：2 次文件已写出仅报错（伪失败）+ 2 次真中断 —— 均报 "Execution error"、exit 124</td></tr>
+<tr><td rowspan="2"><b>Claude Code</b><br><span style="color:var(--muted)">gateway anthropic</span></td><td>deepseek-free</td><td><span class="tag tag-warn">⚠️ 假失败×2+断流×2</span></td><td>10680 B</td><td>297</td><td>—</td><td>任务实际成功（文件写出），进程卡在标题生成 → timeout 杀 → "Execution error"</td></tr>
+<tr><td>claude-sonnet-5*</td><td><span class="tag tag-ok">✅ 52s</span></td><td>10117 B</td><td>278</td><td>—</td><td>*.gateway 路由到<b>真正付费 Claude Sonnet</b>（非修复，仅对照）</td></tr>
 </table></div>
 
 <h2>3. 结论：规则是放大器，不是开关</h2>
@@ -65,28 +66,21 @@ starfield, orbiting camera. Write the file and verify.</pre>
 </ul>
 </div>
 
-<h2>4. Claude Code 断流根因分析（修正版）</h2>
+<h2>4. Claude Code 断流根因分析（最终版）</h2>
 <div class="card">
-<p><b>现象</b>：`claude -p` 复杂任务报 "Execution error"，exit 124（被 timeout 杀），stderr 有 <code>[claude-code:unrecognized_model]</code>（会话标题生成）。</p>
-<p><b>实测证据链（本次单跑 + 完整 stderr/stdout 捕获）</b>：</p>
+<p><b>现象</b>：`claude -p` 复杂任务报 "Execution error"，exit 124（被 timeout 杀），stderr 有 <code>[claude-code:unrecognized_model]</code>（会话标题生成），<b>但文件实际已写出</b>。</p>
+<p><b>实测证据链</b>：</p>
 <table>
 <tr><th>运行</th><th>stderr</th><th>文件</th><th>stdout</th><th>EXIT</th></tr>
-<tr><td>1（240s）</td><td>unrecognized_model（标题生成）</td><td><span class="ok">✅ 10680 B</span></td><td>Execution error</td><td>124</td></tr>
-<tr><td>2（240s）</td><td>unrecognized_model</td><td><span class="bad">❌ 无</span></td><td>Execution error</td><td>124</td></tr>
-<tr><td>3（300s）</td><td>unrecognized_model</td><td><span class="ok">✅ 13452 B</span></td><td>Execution error</td><td>124</td></tr>
+<tr><td>bh-cc（240s）</td><td>unrecognized_model</td><td><span class="ok">✅ 10680 B</span></td><td>Execution error</td><td>124</td></tr>
+<tr><td>bh-cc3（300s）</td><td>unrecognized_model</td><td><span class="ok">✅ 13452 B</span></td><td>Execution error</td><td>124</td></tr>
+<tr><td>bh-cc5（900s 后台）</td><td>unrecognized_model</td><td><span class="ok">✅ 11175 B</span>（08:50 写出）</td><td>空（进程 11+ 分钟未退）</td><td>—（被 kill）</td></tr>
+<tr><td>bh-cc7 <b>claude-sonnet-5*</b></td><td>unrecognized_model</td><td><span class="ok">✅ 10117 B</span></td><td>完整最终消息</td><td><span class="ok">✅ 正常 52s</span></td></tr>
 </table>
-<p><b>两种失败模式，同报 "Execution error"</b>：</p>
-<ol>
-<li><b>任务完成但进程不退</b>（2/4 次）：文件已写出（10680/13452 B 完整黑洞），CLI 停在收尾阶段 —— 会话标题生成用 <code>deepseek-free</code> 被 Claude Code 判为 <code>unrecognized_model</code>（免费模型不在标题生成白名单），标题失败后进程挂起不退出 → 被 timeout 杀 → 报 Execution error。</li>
-<li><b>真任务中断</b>（2/4 次）：文件未写出，任务本身没完成。</li>
-</ol>
-<p><b>为什么 opencode / codex 没有此问题</b>：</p>
-<ul>
-<li>codex exec / opencode run 是 headless 批处理，<b>没有会话标题生成步骤</b> —— 任务完成即退出，不存在"收尾卡住"。</li>
-<li>DSH headless 同样无标题生成（title 仅 web 交互模式）。</li>
-<li>Claude Code 比其他通道多出的唯一一步就是 <code>generate_session_title</code>，它用 Haiku 档模型名（此处 deepseek-free）→ 卡住。</li>
-</ul>
-<p><b>应对</b>：Claude Code 用 deepseek-free 时复杂任务会偶发"假失败"（文件已写但报错）—— 检查文件是否已生成，别只看报错；或改回 Claude Code 认识的模型名。</p>
+<p><b>*并非修复</b>：实测 gateway 把 <code>claude-sonnet-5</code> 路由到<b>真正的付费 Claude Sonnet 5</b>（响应体 model 字段验证）——52 秒正常完成是付费模型的能力，不能作为 deepseek-free 的修复。</p>
+<p><b>根因</b>：Claude Code 有<b>会话标题生成</b>步骤（<code>generate_session_title</code>），用主模型名（deepseek-free）调 gateway → 本地判定 <code>unrecognized_model</code>（deepseek-free 不在标题白名单）→ 标题失败后<b>进程卡在收尾不退出</b> → timeout 杀 → 报 "Execution error"。文件实际已写出。</p>
+<p><b>为什么 opencode / codex / DSH 没有此问题</b>：它们 headless 批处理<b>没有会话标题生成步骤</b> —— 任务完成即退出。</p>
+<p><b>可接受的实践</b>：判断"任务成功"应<b>检查文件是否写出</b>（存在即成功），而非只看退出码。Claude Code 用 deepseek-free 时：文件写出 + Execution error = 假失败，属正常。</p>
 </div>
 
 <h2>5. 方法论意义</h2>
@@ -101,7 +95,10 @@ pnpm dsh --profile headless --patch /tmp/pi-ai-patch.yml "&lt;任务&gt;"
 # Codex / OpenCode / Claude Code（规则文件分别置于 ~/.codex、~/.config/opencode、~/.claude）
 codex exec -s workspace-write "&lt;任务&gt;"
 opencode run --model opencode/deepseek-v4-flash-free "&lt;任务&gt;"
-claude -p "&lt;任务&gt;"</pre></div>
+claude -p "&lt;任务&gt;"
+
+# Claude Code 假失败判定：文件写出 + Execution error = 任务其实成功
+ls -la blackhole.html   # 存在即成功，别只看退出码</pre></div>
 
 <div class="footer">测试脚本与规则文件：<a href="https://github.com/edgora-ai/deepseek-activation">edgora-ai/deepseek-activation</a> · 完整数据 docs/verification.md</div>
 </div>

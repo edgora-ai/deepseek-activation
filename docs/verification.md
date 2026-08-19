@@ -57,7 +57,8 @@
 
 | 条件 | 结果 | 备注 |
 |---|---|---|
-| 有/无规则 | ❌ 4 次 1 成 3 断流 | "Execution error" 流中断；带规则重试也会失败 |
+| deepseek-free | ⚠️ 假失败（文件写出 + Execution error） | 任务实际成功；进程卡在标题生成（unrecognized_model）→ timeout 杀 → 误报 |
+| claude-sonnet-5* | ✅ 52s 正常 | *.gateway 路由到真正付费 Claude Sonnet，非修复方案 |
 
 ## 四通道对比结论
 
