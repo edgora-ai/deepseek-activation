@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Helicopter Sim — Three.js</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0d1b2a;
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; }
+  canvas { display: block; }
+  #title { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 10;
+    color: #dff3ff; font-size: 15px; letter-spacing: 4px; text-shadow: 0 1px 5px #000;
+    pointer-events: none; user-select: none; }
+  #hud { position: fixed; right: 14px; bottom: 14px; z-index: 10; min-width: 236px;
+    background: rgba(6, 18, 28, 0.62); border: 1px solid rgba(120, 220, 255, 0.35);
+    border-radius: 10px; padding: 12px 14px; color: #9fe8ff; font-size: 13px; line-height: 1.85;
+    pointer-events: none; user-select: none; backdrop-filter: blur(3px); }
+  #hud h1 { font-size: 12px; letter-spacing: 2.5px; margin-bottom: 6px; color: #7fd4ff;
+    border-bottom: 1px solid rgba(120, 220, 255, 0.25); padding-bottom: 5px; font-weight: 700; }
+  #hud .row { display: flex; justify-content: space-between; gap: 18px; }
+  #hud .lbl { color: #5f9db8; }
+  #hud .val { color: #eaffff; font-weight: 700; }
+  #hud .row.warn .val { color: #ffd75e; }
+  #hud .row.danger .val { color: #ff8080; }
+  #legend { position: fixed; left: 14px; bottom: 14px; z-index: 10; max-width: 330px;
+    background: rgba(6, 18, 28, 0.6); border: 1px solid rgba(120, 220, 255, 0.25);
+    border-radius: 10px; padding: 10px 13px; color: #9fe8ff; font-size: 12px; line-height: 1.8;
+    pointer-events: none; user-select: none; }
+  #legend b { color: #eaffff; }
+  #legend .k { color: #ffd75e; }
+  #err { position: fixed; top: 50px; left: 50%; transform: translateX(-50%); z-index: 30;
+    background: #a01818; color: #fff; padding: 10px 16px; border-radius: 8px;
+    display: none; font-size: 13px; max-width: 80vw; white-space: pre-wrap; }
+  @media (max-width: 700px) { #legend { display: none; } }
+</style>
+</head>
+<body>
+<div id="title">HELICOPTER&nbsp;·&nbsp;THREE.JS</div>
+<div id="hud">
+  <h1>FLIGHT DATA</h1>
+  <div class="row"><span class="lbl">ALT</span><span class="val" id="hudAlt">0 m</span></div>
+  <div class="row"><span class="lbl">IAS</span><span class="val" id="hudSpd">0 km/h</span></div>
+  <div class="row"><span class="lbl">ROTOR</span><span class="val" id="hudRpm">0 RPM</span></div>
+  <div class="row"><span class="lbl">TAIL</span><span class="val" id="hudTrp">0 %</span></div>
+  <div class="row"><span class="lbl">THR</span><span class="val" id="hudThr">0 %</span></div>
+  <div class="row"><span class="lbl">COL</span><span class="val" id="hudCol">0 %</span></div>
+  <div class="row"><span class="lbl">PITCH</span><span class="val" id="hudPitch">0°</span></div>
+  <div class="row"><span class="lbl">ROLL</span><span class="val" id="hudRoll">0°</span></div>
+  <div class="row"><span class="lbl">HDG</span><span class="val" id="hudHdg">N</span></div>
+  <div class="row"><span class="lbl">STATUS</span><span class="val" id="hudStat">ENGAGED</span></div>
+</div>
+<div id="legend">
+  <b>CONTROLS</b><br>
+  <span class="k">W / S</span> &nbsp;pitch (nose down / up)<br>
+  <span class="k">A / D</span> &nbsp;roll (left / right)<br>
+  <span class="k">Q / E</span> &nbsp;yaw / pedals (left / right)<br>
+  <span class="k">SPACE</span> &nbsp;throttle up &nbsp;·&nbsp; <span class="k">SHIFT</span> throttle down<br>
+  <span class="k">↑ / ↓</span> &nbsp;collective &nbsp;·&nbsp; <span class="k">← / →</span> cyclic<br>
+  <span class="k">MOUSE</span> &nbsp;drag to orbit view &nbsp;·&nbsp; <span class="k">WHEEL</span> zoom
+</div>
+<div id="err"></div>
+<script>
+(function () {
+  "use strict";
+
+  /* ---- fallback CDN loader for the non-module Three.js build ---- */
+  var threeSources = [
+    "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js",
+    "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js",
+    "https://unpkg.com/three@0.128.0/build/three.min.js"
+  ];
+  function loadThree(i) {
+    if (i >= threeSources.length) { bootError("Could not load Three.js from any CDN (network required)."); return; }
+    var s = document.createElement("script");
+    s.src = threeSources[i];
+    s.onload = function () { if (window.THREE) boot(); else loadThree(i + 1); };
+    s.onerror = function () { loadThree(i + 1); };
+    document.head.appendChild(s);
+  }
+  function bootError(msg) {
+    var el = document.getElementById("err");
+    el.style.display = "block";
+    el.textContent = "ERROR: " + msg;
+    console.error(msg);
+  }
+
+  window.addEventListener("error", function (ev) {
+    var el = document.getElementById("err");
+    if (el) { el.style.display = "block"; el.textContent = "ERROR: " + (ev.message || ev.type); }
+  });
+
+  /* ================================================================
+     MAIN
+  ================================================================ */
+  function boot() {
+    var THREE = window.THREE;
+    var D = document, W = window;
+    var clamp = function (v, a, b) { return Math.max(a, Math.min(b, v)); };
+    var deg = function (r) { return Math.round(r * 57.2958); };
+
+    /* ---------- renderer ---------- */
+    var renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+    renderer.setPixelRatio(Math.min(W.devicePixelRatio || 1, 2));
+    renderer.setSize(W.innerWidth, W.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
+    D.body.appendChild(renderer.domElement);
+
+    var scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xbfd9e8);
+    scene.fog = new THREE.Fog(0xbfd9e8, 260, 1500);
+
+    var camera = new THREE.PerspectiveCamera(60, W.innerWidth / W.innerHeight, 0.1, 3000);
+    camera.position.set(9, 5, 11);
+
+    /* ---------- lights ---------- */
+    var hemi = new THREE.HemisphereLight(0xcfe8ff, 0x6f9a5a, 0.85);
+    scene.add(hemi);
+    var sun = new THREE.DirectionalLight(0xfff3dd, 1.15);
+    sun.position.set(45, 85, 30);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.camera.left = -90; sun.shadow.camera.right = 90;
+    sun.shadow.camera.top = 90; sun.shadow.camera.bottom = -90;
+    sun.shadow.camera.near = 1; sun.shadow.camera.far = 350;
+    sun.shadow.bias = -0.0006;
+    scene.add(sun);
+    scene.add(sun.target);
+
+    /* ---------- small texture helpers ---------- */
+    function radialTexture(innerA, outerA) {
+      var c = D.createElement("canvas"); c.width = 256; c.height = 256;
+      var g2 = c.getContext("2d");
+      var gr = g2.createRadialGradient(128, 128, 4, 128, 128, 128);
+      gr.addColorStop(0, "rgba(255,255,255," + innerA + ")");
+      gr.addColorStop(1, "rgba(255,255,255," + outerA + ")");
+      g2.fillStyle = gr; g2.fillRect(0, 0, 256, 256);
+      var t = new THREE.CanvasTexture(c);
+      return t;
+    }
+    function textTexture(text, fg, bg) {
+      var c = D.createElement("canvas"); c.width = 256; c.height = 256;
+      var g2 = c.getContext("2d");
+      g2.fillStyle = bg; g2.fillRect(0, 0, 256, 256);
+      g2.fillStyle = fg; g2.font = "bold 150px monospace";
+      g2.textAlign = "center"; g2.textBaseline = "middle";
+      g2.fillText(text, 128, 140);
+      var t = new THREE.CanvasTexture(c);
+      t.encoding = THREE.sRGBEncoding;
+      return t;
+    }
+
+    /* ---------- ground ---------- */
+    var ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(3000, 3000),
+      new THREE.MeshStandardMaterial({ color: 0x4b7f45, roughness: 1, metalness: 0 })
+    );
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    var grid = new THREE.GridHelper(800, 80, 0x355f33, 0x355f33);
+    grid.material.transparent = true; grid.material.opacity = 0.35;
+    scene.add(grid);
+
+    var pad = new THREE.Mesh(
+      new THREE.CircleGeometry(3.6, 48),
+      new THREE.MeshStandardMaterial({ color: 0x8a8f96, roughness: 0.9 })
+    );
+    pad.rotation.x = -Math.PI / 2; pad.position.y = 0.01; pad.receiveShadow = true;
+    scene.add(pad);
+    var padMark = new THREE.Mesh(
+      new THREE.PlaneGeometry(2.4, 2.4),
+      new THREE.MeshBasicMaterial({ map: textTexture("H", "#ffffff", "#8a8f96"), transparent: true })
+    );
+    padMark.rotation.x = -Math.PI / 2; padMark.position.y = 0.02;
+    scene.add(padMark);
+
+    /* ---------- scattered trees & hills ---------- */
+    var treeGeoTrunk = new THREE.CylinderGeometry(0.18, 0.26, 1.1, 6);
+    var treeGeoFoliage = new THREE.ConeGeometry(1.5, 3.4, 8);
+    var trunkMat = new THREE.MeshStandardMaterial({ color: 0x6b4a2f, roughness: 1 });
+    var leafMat = new THREE.MeshStandardMaterial({ color: 0x2e6b34, roughness: 1 });
+    var rng = function (seed) {
+      return function () { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+    };
+    var rand = rng(1337);
+    for (var t = 0; t < 70; t++) {
+      var ang = rand() * Math.PI * 2;
+      var dist = 26 + rand() * 460;
+      var px = Math.cos(ang) * dist, pz = Math.sin(ang) * dist;
+      var s = 0.7 + rand() * 1.6;
+      var tr = new THREE.Mesh(treeGeoTrunk, trunkMat);
+      tr.position.set(px, 0.55 * s, pz); tr.scale.set(s, s, s);
+      tr.castShadow = true;
+      var fo = new THREE.Mesh(treeGeoFoliage, leafMat);
+      fo.position.set(0, (1.1 + 1.6) * s, 0);
+      var tree = new THREE.Group();
+      tree.add(tr); tree.add(fo);
+      tree.position.set(px, 0, pz);
+      scene.add(tree);
+    }
+    var hillMat = new THREE.MeshStandardMaterial({ color: 0x5d7f66, roughness: 1, flatShading: true });
+    for (var h = 0; h < 8; h++) {
+      var a2 = rand() * Math.PI * 2;
+      var d2 = 650 + rand() * 750;
+      var hill = new THREE.Mesh(new THREE.ConeGeometry(180 + rand() * 220, 120 + rand() * 160, 7), hillMat);
+      hill.position.set(Math.cos(a2) * d2, -20, Math.sin(a2) * d2);
+      scene.add(hill);
+    }
+
+    /* ---------- clouds ---------- */
+    var cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.5, depthWrite: false });
+    for (var c = 0; c < 14; c++) {
+      var cl = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), cloudMat);
+      cl.scale.set(18 + rand() * 26, 6 + rand() * 5, 10 + rand() * 16);
+      cl.position.set((rand() - 0.5) * 900, 75 + rand() * 90, (rand() - 0.5) * 900);
+      scene.add(cl);
+    }
+
+    /* ================================================================
+       HELICOPTER MODEL — nose points toward -Z, tail toward +Z
+    ================================================================ */
+    var heliRoot = new THREE.Group();       // world position + heading
+    var heliBody = new THREE.Group();       // pitch / roll / bank
+    heliRoot.add(heliBody);
+    scene.add(heliRoot);
+
+    var bodyRed = new THREE.MeshStandardMaterial({ color: 0xd63a2e, roughness: 0.45, metalness: 0.25 });
+    var bodyDark = new THREE.MeshStandardMaterial({ color: 0x23262e, roughness: 0.7, metalness: 0.3 });
+    var glassMat = new THREE.MeshPhongMaterial({
+      color: 0x9fd8ff, transparent: true, opacity: 0.32, side: THREE.DoubleSide,
+      depthWrite: false, shininess: 90
+    });
+
+    /* fuselage — lathe profile laid along Z */
+    var profile = [];
+    var pts = [[0.001, 0], [0.14, 0.3], [0.30, 0.7], [0.44, 1.15], [0.52, 1.6],
+               [0.54, 2.0], [0.50, 2.4], [0.34, 2.8], [0.14, 3.05], [0.02, 3.22]];
+    for (var p = 0; p < pts.length; p++) profile.push(new THREE.Vector2(pts[p][0], pts[p][1]));
+    var fuseGeo = new THREE.LatheGeometry(profile, 24);
+    fuseGeo.rotateX(-Math.PI / 2);          // lathe axis +Y -> -Z (nose)
+    fuseGeo.translate(0, 0, 1.35);          // center fuselage
+    var fuselage = new THREE.Mesh(fuseGeo, bodyRed);
+    fuselage.scale.set(1.05, 0.8, 1.0);
+    fuselage.position.y = 0.42;
+    fuselage.castShadow = true;
+    heliBody.add(fuselage);
+
+    /* tail boom + fins */
+    var boom = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.17, 2.45, 12), bodyRed);
+    boom.geometry.rotateX(Math.PI / 2);
+    boom.position.set(0, 0.3, 2.55);
+    boom.castShadow = true;
+    heliBody.add(boom);
+    var fin = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.62, 0.55), bodyDark);
+    fin.position.set(0, 0.62, 3.72);
+    fin.castShadow = true;
+    heliBody.add(fin);
+    var hStab = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.03, 0.4), bodyRed);
+    hStab.position.set(0, 0.42, 3.28);
+    hStab.castShadow = true;
+    heliBody.add(hStab);
+    var finTip = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.16, 0.1), bodyRed);
+    finTip.position.set(0, 0.96, 3.72);
+    heliBody.add(finTip);
+
+    /* windshield + side windows */
+    var windshield = new THREE.Mesh(new THREE.SphereGeometry(0.6, 20, 14, 0, Math.PI * 2, 0, 1.15), glassMat);
+    windshield.scale.set(1.02, 0.82, 1.35);
+    windshield.position.set(0, 0.56, -1.15);
+    heliBody.add(windshield);
+    var glassLeft = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.3, 0.7), glassMat);
+    glassLeft.position.set(-0.55, 0.42, -0.85);
+    heliBody.add(glassLeft);
+    var glassRight = glassLeft.clone();
+    glassRight.position.x = 0.55;
+    heliBody.add(glassRight);
+
+    /* skids */
+    function strut(from, to, r) {
+      var a = new THREE.Vector3(from[0], from[1], from[2]);
+      var b = new THREE.Vector3(to[0], to[1], to[2]);
+      var dir = b.clone().sub(a);
+      var len = dir.length();
+      var m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 8), bodyDark);
+      m.position.copy(a).add(b).multiplyScalar(0.5);
+      m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+      m.castShadow = true;
+      return m;
+    }
+    var skidMat = new THREE.MeshStandardMaterial({ color: 0x3a3d45, roughness: 0.6, metalness: 0.5 });
+    function skidTube(x) {
+      var tube = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 2.15, 10), skidMat);
+      tube.geometry.rotateX(Math.PI / 2);
+      tube.position.set(x, -0.6, -0.1);
+      tube.castShadow = true;
+      return tube;
+    }
+    heliBody.add(skidTube(-0.62));
+    heliBody.add(skidTube(0.62));
+    heliBody.add(strut([-0.42, 0.05, -0.15], [-0.62, -0.6, -0.1], 0.026));
+    heliBody.add(strut([0.42, 0.05, -0.15], [0.62, -0.6, -0.1], 0.026));
+    heliBody.add(strut([-0.42, 0.05, 0.55], [-0.62, -0.6, 0.45], 0.026));
+    heliBody.add(strut([0.42, 0.05, 0.55], [0.62, -0.6, 0.45], 0.026));
+
+    /* cockpit interior: seats, pilots, instrument panel */
+    var seatMat = new THREE.MeshStandardMaterial({ color: 0x1d2026, roughness: 0.9 });
+    var suitMat = new THREE.MeshStandardMaterial({ color: 0x2f4d6e, roughness: 0.8 });
+    var headMat = new THREE.MeshStandardMaterial({ color: 0xd8b08c, roughness: 0.8 });
+    function pilot(x) {
+      var g = new THREE.Group();
+      var seat = new THREE.Mesh(new THREE.BoxGeometry(0.33, 0.26, 0.3), seatMat);
+      seat.position.set(0, -0.06, 0);
+      var torso = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.3, 0.3), suitMat);
+      torso.position.set(0, 0.16, 0.02);
+      var head = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 10), headMat);
+      head.position.set(0, 0.4, 0.03);
+      var helmet = new THREE.Mesh(new THREE.SphereGeometry(0.115, 12, 10, 0, Math.PI * 2, 0, 1.4), suitMat);
+      helmet.position.set(0, 0.4, 0.03);
+      g.add(seat); g.add(torso); g.add(head); g.add(helmet);
+      g.position.set(x, 0.14, -0.62);
+      return g;
+    }
+    heliBody.add(pilot(-0.34));
+    heliBody.add(pilot(0.34));
+
+    var panelGroup = new THREE.Group();
+    panelGroup.position.set(0, 0.42, -1.28);
+    panelGroup.rotation.x = -1.05;
+    var panelBox = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.2, 0.06), bodyDark);
+    panelGroup.add(panelBox);
+    var gaugeMat = new THREE.MeshStandardMaterial({ color: 0x0c0f14, roughness: 0.5, metalness: 0.2 });
+    var needleMat = new THREE.MeshStandardMaterial({ color: 0xf5f5f2, roughness: 0.4, emissive: 0x555555 });
+    var gaugeRefs = [];
+    function gauge(x, y) {
+      var g = new THREE.Group();
+      g.position.set(x, y, 0.045);
+      var dial = new THREE.Mesh(new THREE.CircleGeometry(0.062, 24), gaugeMat);
+      g.add(dial);
+      var ring = new THREE.Mesh(new THREE.RingGeometry(0.062, 0.07, 24), new THREE.MeshBasicMaterial({ color: 0x8f9aa5 }));
+      g.add(ring);
+      var pivot = new THREE.Group();
+      pivot.position.set(0, 0, 0.005);
+      var needle = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.085, 0.004), needleMat);
+      needle.position.y = 0.042;
+      pivot.add(needle);
+      g.add(pivot);
+      panelGroup.add(g);
+      return pivot;
+    }
+    var nRpm = gauge(-0.28, 0.03);   // rotor rpm
+    var nAlt = gauge(0.0, 0.03);     // altitude
+    var nVsi = gauge(0.28, 0.03);    // vertical speed
+    heliBody.add(panelGroup);
+
+    /* engine block under belly */
+    var belly = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.22, 0.9), bodyDark);
+    belly.position.set(0, 0.1, 0.1);
+    belly.castShadow = true;
+    heliBody.add(belly);
+
+    /* nav lights */
+    var navR = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 8), new THREE.MeshBasicMaterial({ color: 0xff2222 }));
+    navR.position.set(-0.5, 0.14, 3.72);
+    var navG = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 8), new THREE.MeshBasicMaterial({ color: 0x22ff44 }));
+    navG.position.set(0.5, 0.14, 3.72);
+    heliBody.add(navR); heliBody.add(navG);
+
+    /* ---- main rotor: mast, hub, 4 blades, blur disc ---- */
+    var mast = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.07, 0.62, 10), bodyDark);
+    mast.position.set(0, 0.66, -0.05);
+    mast.castShadow = true;
+    heliBody.add(mast);
+
+    var rotorY = 1.02;
+    var rotorTilt = new THREE.Group();          // cyclic disk tilt
+    rotorTilt.position.set(0, rotorY, -0.05);
+    var rotorSpin = new THREE.Group();          // spinning assembly
+    rotorTilt.add(rotorSpin);
+    heliBody.add(rotorTilt);
+
+    var hub = new THREE.Mesh(new THREE.SphereGeometry(0.09, 12, 10), bodyDark);
+    hub.castShadow = true;
+    rotorSpin.add(hub);
+
+    var bladeMat = new THREE.MeshStandardMaterial({
+      color: 0xdfe3e8, roughness: 0.5, metalness: 0.3, transparent: true, opacity: 1
+    });
+    var bladeGeo = new THREE.BoxGeometry(2.2, 0.03, 0.22);
+    for (var b = 0; b < 4; b++) {
+      var blade = new THREE.Mesh(bladeGeo, bladeMat);
+      blade.position.set(1.05, 0, 0);
+      blade.rotation.set(0.06, 0, -0.02);
+      blade.castShadow = true;
+      var holder = new THREE.Group();
+      holder.add(blade);
+      holder.rotation.y = b * Math.PI / 2;
+      rotorSpin.add(holder);
+    }
+
+    var blurMainMat = new THREE.MeshBasicMaterial({
+      map: radialTexture(0.9, 0.0), transparent: true, depthWrite: false, opacity: 0, side: THREE.DoubleSide
+    });
+    var blurMain = new THREE.Mesh(new THREE.CircleGeometry(2.3, 48), blurMainMat);
+    blurMain.rotation.x = -Math.PI / 2;
+    blurMain.position.y = 0.012;
+    blurMain.visible = false;
+    rotorSpin.add(blurMain);
+
+    /* ---- tail rotor ---- */
+    var tailGroup = new THREE.Group();
+    tailGroup.position.set(0.16, 0.3, 3.72);
+    var tailSpin = new THREE.Group();
+    tailGroup.add(tailSpin);
+    var tailBladeMat = new THREE.MeshStandardMaterial({
+      color: 0xdfe3e8, roughness: 0.5, metalness: 0.3, transparent: true, opacity: 1
+    });
+    var tailHub = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.16, 8), bodyDark);
+    tailHub.geometry.rotateX(Math.PI / 2);
+    tailHub.castShadow = true;
+    tailSpin.add(tailHub);
+    var tailBlades = [];
+    for (var tb2 = 0; tb2 < 2; tb2++) {
+      var tbl = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.09, 0.02), tailBladeMat);
+      tbl.position.set(tb2 === 0 ? 0.28 : -0.28, 0, 0);
+      tbl.rotation.x = 0.2;
+      tbl.castShadow = true;
+      tailSpin.add(tbl);
+      tailBlades.push(tbl);
+    }
+    var blurTailMat = new THREE.MeshBasicMaterial({
+      map: radialTexture(0.85, 0.0), transparent: true, opacity: 0, depthWrite: false
+    });
+    var blurTail = new THREE.Mesh(new THREE.CircleGeometry(0.5, 24), blurTailMat);
+    blurTail.position.z = -0.005;
+    tailSpin.add(blurTail);
+    heliBody.add(tailGroup);
+
+    /* ---- fake ground shadow blob (visible from any angle) ---- */
+    var blobMat = new THREE.MeshBasicMaterial({
+      map: radialTexture(0.75, 0.0), transparent: true, depthWrite: false, opacity: 0.3
+    });
+    var blob = new THREE.Mesh(new THREE.CircleGeometry(1.7, 32), blobMat);
+    blob.rotation.x = -Math.PI / 2;
+    blob.position.y = 0.02;
+    scene.add(blob);
+
+    /* ================================================================
+       INPUT
+    ================================================================ */
+    var input = { keys: new Set(), az: 0, el: 0.32, dist: 10, dragging: false, lx: 0, ly: 0 };
+    W.addEventListener("keydown", function (e) {
+      if (e.code === "Space" || e.code.indexOf("Arrow") === 0) e.preventDefault();
+      input.keys.add(e.code);
+    });
+    W.addEventListener("keyup", function (e) { input.keys.delete(e.code); });
+    W.addEventListener("blur", function () { input.keys.clear(); });
+
+    var canvas = renderer.domElement;
+    canvas.addEventListener("pointerdown", function (e) {
+      input.dragging = true; input.lx = e.clientX; input.ly = e.clientY;
+      canvas.setPointerCapture(e.pointerId);
+    });
+    canvas.addEventListener("pointermove", function (e) {
+      if (!input.dragging) return;
+      var dx = e.clientX - input.lx, dy = e.clientY - input.ly;
+      input.lx = e.clientX; input.ly = e.clientY;
+      input.az += dx * 0.005;
+      input.el = clamp(input.el + dy * 0.005, 0.05, 1.35);
+    });
+    canvas.addEventListener("pointerup", function () { input.dragging = false; });
+    canvas.addEventListener("wheel", function (e) {
+      e.preventDefault();
+      input.dist = clamp(input.dist * (1 + e.deltaY * 0.001), 4.5, 26);
+    }, { passive: false });
+
+    /* ================================================================
+       PHYSICS STATE
+    ================================================================ */
+    var G = 9.81;
+    var MAX_RPM = 650;
+    var MAX_LIFT = 34;
+    var SKID_H = 0.66;
+    var TAIL_K = 820;
+
+    var st = {
+      pos: new THREE.Vector3(0, SKID_H, 0),
+      vel: new THREE.Vector3(0, 0, 0),
+      pitch: 0, roll: 0, heading: 0,
+      yawRate: 0, rpm: 0, tailRpm: 0,
+      throttle: 0.6, collective: 0.6,
+      cyclicRoll: 0, bobPhase: 0,
+      frames: 0
+    };
+
+    function blurAmt(rpm) { return clamp((rpm - 320) / (MAX_RPM - 320), 0, 1); }
+
+    /* ================================================================
+       LOOP
+    ================================================================ */
+    var clock = new THREE.Clock();
+    var camTarget = new THREE.Vector3();
+    var camDesired = new THREE.Vector3();
+    var compassNames = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+
+    function update(dt) {
+      var keys = input.keys;
+      st.frames++;
+
+      /* --- pilot inputs --- */
+      if (keys.has("Space")) st.throttle = Math.min(1, st.throttle + 0.5 * dt);
+      if (keys.has("ShiftLeft") || keys.has("ShiftRight")) st.throttle = Math.max(0.05, st.throttle - 0.5 * dt);
+      if (keys.has("ArrowUp")) st.collective = Math.min(1, st.collective + 0.45 * dt);
+      if (keys.has("ArrowDown")) st.collective = Math.max(0.05, st.collective - 0.45 * dt);
+      var cycTarget = ((keys.has("ArrowLeft") ? -1 : 0) + (keys.has("ArrowRight") ? 1 : 0));
+      st.cyclicRoll += (cycTarget * 0.55 - st.cyclicRoll) * Math.min(1, dt * 3);
+
+      /* --- engine / rotor rpm --- */
+      var rpmTarget = 240 + st.throttle * 400;
+      st.rpm += (rpmTarget - st.rpm) * Math.min(1, dt * 1.1);
+      var rpmFrac = st.rpm / MAX_RPM;
+
+      /* --- torque vs anti-torque (tail rotor) --- */
+      var torque = 0.3 + 1.25 * st.collective * Math.pow(Math.max(0.05, rpmFrac), 2);
+      var tailTarget = torque * TAIL_K;
+      st.tailRpm += (tailTarget - st.tailRpm) * Math.min(1, dt * 5);
+      var antiTorque = st.tailRpm / TAIL_K;
+      var pedal = (keys.has("KeyQ") ? 1 : 0) + (keys.has("KeyE") ? -1 : 0);
+      st.yawRate += ((torque - antiTorque) * 2.6 + pedal * 1.7) * dt;
+      st.yawRate *= Math.exp(-dt * 1.4);
+      st.heading += st.yawRate * dt;
+
+      /* --- attitudes (pitch / roll) --- */
+      var inpPitch = (keys.has("KeyS") ? 0.3 : 0) + (keys.has("KeyW") ? -0.3 : 0);
+      var inpRoll = (keys.has("KeyA") ? 0.34 : 0) + (keys.has("KeyD") ? -0.34 : 0);
+      var bankComp = clamp(st.yawRate * 0.22, -0.5, 0.5);   // bank into turns
+      st.pitch += (inpPitch - st.pitch) * Math.min(1, dt * 2.8);
+      var rollTarget = inpRoll + st.cyclicRoll * 0.3 + bankComp;
+      st.roll += (rollTarget - st.roll) * Math.min(1, dt * 2.8);
+
+      /* --- lift / forces --- */
+      var alt = Math.max(0, st.pos.y - SKID_H);
+      var lift = MAX_LIFT * st.collective * st.collective * Math.pow(Math.max(0.05, rpmFrac), 1.6);
+      if (alt < 3) lift *= 1 + 0.22 * (1 - alt / 3);         // ground effect
+      st.bobPhase += dt * (1.1 + st.rpm * 0.0022);
+      var speedH = Math.sqrt(st.vel.x * st.vel.x + st.vel.z * st.vel.z);
+      var hovering = speedH < 5 && Math.abs(st.vel.y) < 1.8 && alt < 80;
+      if (hovering) {
+        var ph = st.bobPhase;
+        lift *= 1 + 0.038 * Math.sin(ph) + 0.016 * Math.sin(ph * 2.3 + 2.0);
+      }
+      st.vel.y += (lift - G) * dt;
+      st.vel.y = clamp(st.vel.y, -25, 25);
+      st.vel.y *= Math.exp(-dt * 0.12);
+
+      var thrust = lift * 0.85;
+      var fwdAcc = -Math.sin(st.pitch) * thrust;
+      var latAcc = -Math.sin(st.roll) * thrust;
+      if (hovering) {
+        fwdAcc += 0.14 * Math.sin(st.bobPhase * 0.93 + 1.3);
+        latAcc += 0.12 * Math.sin(st.bobPhase * 0.77 + 0.4);
+      }
+      var ch = Math.cos(st.heading), sh = Math.sin(st.heading);
+      var rightX = ch, rightZ = -sh;        // local +X in world
+      var fwdX = -sh, fwdZ = -ch;           // local -Z in world
+      st.vel.x += (latAcc * rightX + fwdAcc * fwdX) * dt;
+      st.vel.z += (latAcc * rightZ + fwdAcc * fwdZ) * dt;
+      speedH = Math.sqrt(st.vel.x * st.vel.x + st.vel.z * st.vel.z);
+      if (speedH > 45) { st.vel.x *= 45 / speedH; st.vel.z *= 45 / speedH; }
+      var damp = Math.exp(-dt * (0.35 + (speedH > 2 ? 0.2 : 0.65)));
+      st.vel.x *= damp; st.vel.z *= damp;
+
+      st.pos.x += st.vel.x * dt; st.pos.y += st.vel.y * dt; st.pos.z += st.vel.z * dt;
+      if (st.pos.y < SKID_H) {
+        st.pos.y = SKID_H;
+        if (st.vel.y < 0) st.vel.y = 0;
+        st.vel.x *= Math.exp(-dt * 2); st.vel.z *= Math.exp(-dt * 2);
+      }
+
+      /* --- animate model --- */
+      heliRoot.position.copy(st.pos);
+      heliRoot.rotation.y = st.heading;
+      heliBody.rotation.x = st.pitch;
+      heliBody.rotation.z = st.roll;
+      rotorTilt.rotation.x = -st.pitch * 0.5 - st.cyclicRoll * 0.06;
+      rotorTilt.rotation.z = -st.roll * 0.45;
+      rotorSpin.rotation.y -= st.rpm * (Math.PI * 2 / 60) * dt;
+      tailSpin.rotation.z += st.tailRpm * (Math.PI * 2 / 60) * dt;
+
+      var mb = blurAmt(st.rpm);
+      blurMainMat.opacity = mb * 0.5;
+      blurMain.visible = mb > 0.01;
+      bladeMat.opacity = 1 - mb * 0.82;
+      var tb = clamp((st.tailRpm - 650) / 1100, 0, 1);
+      blurTailMat.opacity = tb * 0.6;
+      tailBladeMat.opacity = 1 - tb * 0.8;
+
+      blob.position.set(st.pos.x, 0.02, st.pos.z);
+      var bs = clamp(3.4 - alt * 0.05, 1.2, 3.6);
+      blob.scale.set(bs, bs, bs);
+      blobMat.opacity = clamp(0.34 - alt * 0.045, 0, 0.34);
+
+      sun.position.set(st.pos.x + 35, 85, st.pos.z + 25);
+      sun.target.position.copy(st.pos);
+
+      /* --- instrument needles --- */
+      nRpm.rotation.z = -2.35 + clamp(st.rpm / MAX_RPM, 0, 1) * 4.7;
+      nAlt.rotation.z = -2.35 + clamp(alt / 150, 0, 1) * 4.7;
+      nVsi.rotation.z = clamp(st.vel.y / 18, -1, 1) * 2.35;
+
+      /* --- chase camera --- */
+      camTarget.set(st.pos.x, st.pos.y + 1.15, st.pos.z);
+      var ce = Math.cos(input.el), se2 = Math.sin(input.el);
+      camDesired.set(
+        camTarget.x + input.dist * ce * Math.sin(input.az),
+        camTarget.y + input.dist * se2,
+        camTarget.z + input.dist * ce * Math.cos(input.az)
+      );
+      camera.position.lerp(camDesired, 1 - Math.exp(-dt * 5));
+      camera.lookAt(camTarget);
+      camera.fov = 60 + clamp(speedH * 0.22, 0, 12);
+      camera.updateProjectionMatrix();
+
+      updateHUD(alt, speedH);
+    }
+
+    /* ================================================================
+       HUD
+    ================================================================ */
+    function $id(id) { return D.getElementById(id); }
+    var compassIdx = Math.round(((st.heading % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2) / (Math.PI * 2) * 8) % 8;
+    function updateHUD(alt, speedH) {
+      var ias = Math.round(speedH * 3.6);
+      var rpm = Math.round(st.rpm);
+      $id("hudAlt").textContent = Math.round(alt) + " m";
+      $id("hudSpd").textContent = ias + " km/h";
+      $id("hudRpm").textContent = rpm + " RPM";
+      $id("hudTrp").textContent = Math.round(clamp(st.tailRpm / (1.55 * TAIL_K), 0, 1) * 100) + " %";
+      $id("hudThr").textContent = Math.round(st.throttle * 100) + " %";
+      $id("hudCol").textContent = Math.round(st.collective * 100) + " %";
+      $id("hudPitch").textContent = deg(st.pitch) + "°";
+      $id("hudRoll").textContent = deg(st.roll) + "°";
+      var hd = ((st.heading % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+      var ci = Math.floor(hd / (Math.PI * 2) * 8) % 8;
+      $id("hudHdg").textContent = Math.round(hd * 57.2958) + "° " + compassNames[ci];
+      var row = $id("hudRpm").parentNode;
+      row.className = rpm < 300 ? "row danger" : rpm < 380 ? "row warn" : "row";
+      $id("hudStat").textContent = st.pos.y <= SKID_H + 0.01 && st.collective < 0.35 ? "LANDED" : "ENGAGED";
+    }
+
+    /* ================================================================
+       RENDER LOOP
+    ================================================================ */
+    function loop() {
+      var dt = Math.min(clock.getDelta(), 0.05);
+      update(dt);
+      renderer.render(scene, camera);
+      if (st.frames === 2) {
+        D.body.setAttribute("data-ready", "yes");
+        W.__HELI_OK = true;
+      }
+      requestAnimationFrame(loop);
+    }
+
+    W.addEventListener("resize", function () {
+      camera.aspect = W.innerWidth / W.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(W.innerWidth, W.innerHeight);
+    });
+
+    st.frames = 0;
+    loop();
+  }
+
+  loadThree(0);
+})();
+</script>
+</body>
+</html>
