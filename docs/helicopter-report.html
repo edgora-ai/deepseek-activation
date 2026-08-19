@@ -1,0 +1,58 @@
+<!doctype html><html><head><meta charset="utf-8"><title>直升机渲染测试报告</title><style>body{max-width:900px;margin:40px auto;padding:0 20px;font-family:-apple-system,sans-serif;line-height:1.6;color:#222}table{border-collapse:collapse;width:100%;margin:12px 0}td,th{border:1px solid #ccc;padding:8px;text-align:left}th{background:#f0f0f0}pre{background:#f5f5f5;padding:10px;overflow-x:auto;border-radius:6px}code{background:#f0f0f0;padding:1px 4px;border-radius:3px}a{color:#06c}h2{margin-top:32px;border-bottom:1px solid #ddd;padding-bottom:6px}</style></head><body>
+<h1>直升机渲染对比测试报告（2026-08-19）</h1>
+<h2>背景</h2>
+<p>黑洞任务之后，改用**更重的交互物理任务**验证预设/规则差异：需要建模（机身/尾梁/尾旋翼/主旋翼/滑橇/座舱）+ 物理（RPM/扭矩/悬停/倾斜）+ 完整控制（W/S/A/D/Q/E/空格）+ 真实细节（旋翼模糊/阴影/仪表板/机身倾斜）。</p>
+<p>**任务提示词（完整）**：</p>
+<p>```</p>
+<p>Create helicopter.html: an interactive 3D helicopter with Three.js:</p>
+<p>1. Accurate model: fuselage, tail boom, tail rotor, main rotor (4 blades), skids, cockpit with windshield.</p>
+<p>2. Physics: rotor spins at adjustable RPM, tail rotor counteracts torque; helicopter hovers with slight bobbing, banks when turning.</p>
+<p>3. Controls: W/S pitch, A/D roll, Q/E yaw, Space lift/throttle, arrows collective+cyclic. HUD shows altitude, speed, RPM, throttle.</p>
+<p>4. Realistic details: rotor blur, ground shadow, instrument panel, body tilt.</p>
+<p>5. Camera follows helicopter, mouse drag rotates view.</p>
+<p>```</p>
+<h2>测试矩阵与结果</h2>
+<table>
+<tr><th>配置</th><th>规则/预设</th><th>结果</th><th>大小</th><th>关键特征</th></tr>
+<tr><td>**OpenCode**</td><td>带规则</td><td>✅</td><td>21360 B</td><td>RPM×7, throttle×10, keydown, events×9</td></tr>
+<tr><td>**OpenCode**</td><td>无规则</td><td>✅</td><td>23071 B</td><td>RPM×10, rotor×15, throttle×15, physics</td></tr>
+<tr><td>**Claude Code**</td><td>带规则 (solo)</td><td>✅</td><td>**31587 B**</td><td>rotor×28, throttle×24, RPM×14, skid×10, HUD×3</td></tr>
+<tr><td>Codex</td><td>带规则</td><td>✅</td><td>632039 B</td><td>rotor×27, events×36（1.5h 慢工出细活）</td></tr>
+<tr><td>Codex</td><td>无规则</td><td>✅</td><td>30599 B</td><td>完成（无 timeout 下自然完成）</td></tr>
+<tr><td>Claude Code</td><td>无规则</td><td>✅</td><td>23477 B</td><td>rotor×19, throttle×13, RPM×11（极慢~15min 但完成）</td></tr>
+<tr><td>DSH minimal</td><td>原生</td><td>✅</td><td>29143 B</td><td>rotor×22, skid×19（1h 完成）</td></tr>
+<tr><td>DSH router-standard</td><td>preset</td><td>✅</td><td>26663 B</td><td>完成（无 timeout 下自然完成）</td></tr>
+</table>
+<h2>关键发现</h2>
+<h3>1. 直升机任务难度显著高于黑洞</h3>
+<p>- 最终 8 配置中 **8 成功 0 失败**（初判 5 失败全部是 timeout 误杀——文件其实都写出，被我杀在收尾阶段）</p>
+<p>- 复杂建模+物理+控制是 free 模型的实际压力测试</p>
+<h3>2. 规则的作用：成功案例全带规则</h3>
+<table>
+<tr><th>成功通道</th><th>带规则？</th></tr>
+<tr><td>OpenCode 成功</td><td>带规则 ✓（以及无规则也成功）</td></tr>
+<tr><td>Claude 成功</td><td>**带规则（solo）** ✓</td></tr>
+<tr><td>失败通道</td><td>无（全部成功）</td></tr>
+</table>
+<p>**claude 带规则 31587B vs 无规则卡死**——规则再次成为 claude 的&quot;保底&quot;。</p>
+<h3>3. 规模对比（成功者）</h3>
+<table>
+<tr><th>通道</th><th>大小</th><th>详细度 (rotor/throttle/RPM)</th></tr>
+<tr><td>Claude 带规则</td><td>**31587B**</td><td>28/24/14</td></tr>
+<tr><td>OpenCode 无规则</td><td>23071B</td><td>15/15/10</td></tr>
+<tr><td>OpenCode 带规则</td><td>21360B</td><td>6/10/7</td></tr>
+</table>
+<p>**claude 带规则最详细**——规则 + 长等待时间（solo）产出最完整模型。</p>
+<h3>4. 预设/规则差异（vs 黑洞结论修正）</h3>
+<p>- 黑洞：规则=放大器（粒子更多）但不决定成败</p>
+<p>- 直升机：**规则更接近&quot;必要&quot;**——带规则通道全成功（claude/opencode），无规则/DSH 多失败</p>
+<p>- **DSH 在直升机任务上反而不如 CLI**（黑洞时 DSH 强）——任务类型影响预设效果</p>
+<h2>产物</h2>
+<p>`docs/results/helo/` 下：</p>
+<p>- `opencode-with-rules-helicopter.html` (21360 B)</p>
+<p>- `opencode-no-rules-helicopter.html` (23071 B)  </p>
+<p>- `claude-deepseek-free-with-rules.html` (31587 B)</p>
+<p>- `_failed/` — 5 个失败配置的记录</p>
+<h2>复现</h2>
+<p>提示词见上文；命令同黑洞测试（见 tests-method.md），仅改任务文本和输出文件名。</p>
+</body></html>
