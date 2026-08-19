@@ -27,36 +27,52 @@
 | Codex | deepseek-free | ✅ 文件+验证 | "This is a build task"（分类）+ verify 8 |
 | OpenCode | deepseek-v4-flash-free | ✅ 文件+测试通过 | "ALL TESTS PASSED" |
 
-## 复杂任务对比（3D 黑洞渲染，n=3 per client）
+## 复杂任务对比（3D 黑洞渲染）
 
 任务：`Create blackhole.html: 3D black hole render with Three.js: accretion disk (particles with glow), bloom postprocessing, starfield, orbiting camera.`
 
-### Codex
+### DSH 原生（headless profile，minimal preset，无规则层）
 
-| 条件 | 成功 | 代码行 | 吸积盘粒子 | 验证行为 |
+| 运行 | 结果 | 代码行 | 吸积盘粒子 | 备注 |
+|---|---|---|---|---|
+| 1 | ✅ | 341 | 24000 | 10806b，bloom+CanvasTexture+Clock |
+| 2 | ❌ | — | — | 超时无文件（deepseek-free 长任务断流） |
+
+### Codex CLI
+
+| 条件 | 结果 | 代码行 | 吸积盘粒子 | 验证行为 |
 |---|---|---|---|---|
 | 有规则 | ✅ | 298 | 14000 | 写文件 + 尝试无头截图 |
 | 无规则 | ✅ | 247 | 4500/4200 | 起 http.server + curl + node verify |
 
 ### OpenCode（自带 free 中转）
 
-| 条件 | 成功 | 代码行 | 吸积盘粒子 | 验证行为 |
+| 条件 | 结果 | 代码行 | 吸积盘粒子 | 验证行为 |
 |---|---|---|---|---|
 | 有规则 | ✅ | 368 | **55000** | 写文件 + 本地验证 |
 | 无规则 | ✅ | 259-282 | 14000 | 写文件 + 本地验证 |
+| 无规则 | ✅ | 282 | 14000 | 写文件 + 本地验证 |
 
 ### Claude Code
 
-| 条件 | 成功 | 备注 |
+| 条件 | 结果 | 备注 |
 |---|---|---|
 | 有/无规则 | ❌ 4 次 1 成 3 断流 | "Execution error" 流中断；带规则重试也会失败 |
 
-## 结论
+## 四通道对比结论
 
-- **规则 = 放大器，不是开关**：有规则时粒子/代码更大（14000 vs 4500；55000 vs 14000），但无规则也出 bloom/黑洞——质量基线相同
-- **补一句最诚实的**：规则把"验证"纪律变成默认行为（codex 无规则时也保留了 curl/测试验证，因为它自己的系统提示已经要求验证）——规则收益是**密度/颗粒度**，不是"有/无"
-- **Claude Code 断流与规则无关**：复杂任务多次带规则/不带规则都失败，是 deepseek-free 长输出流中断
-- **受客户端影响**: codex/opencode 稳定，Claude Code 超长任务不稳定
+| 通道 | 带规则 | 无规则/原生 | 粒子差 | 代码差 |
+|---|---|---|---|---|
+| DSH 原生 | — | ✅ 24000（1/2 成功） | — | 341L |
+| Codex | ✅ 14000 | ✅ 4500 | 3× | 298 vs 247L |
+| OpenCode | ✅ 55000 | ✅ 14000 | 4× | 368 vs 259L |
+| Claude Code | ❌ | ❌ | — | — |
+
+**核心发现**：
+- **规则 = 放大器，不是开关**：有规则时粒子/代码更大（3-4×），但无规则也出 bloom/黑洞——质量基线相同
+- **DSH 原生（minimal preset）本身即可 24000 粒子**——比两个 CLI 无规则更强，但跟 opencode 有规则（55000）仍有差距
+- **所有通道都随机波动**：DSH 1/2、Claude Code 1/4 成功率——是 deepseek-free 长输出断流，与规则无关
+- **DSH 的价值**：原生 preset 已内建治理（minimal/standard/router 预设），CLI 需要自己注入 AGENTS.md 才有等价物
 
 ## 复现方法
 
