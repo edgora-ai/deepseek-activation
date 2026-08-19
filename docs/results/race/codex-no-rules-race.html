@@ -1,0 +1,604 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Saturn Ring Grand Prix — animated SVG race</title>
+<style>
+  html,body{margin:0;padding:0;background:#070b1c;overflow:hidden;}
+  body{display:flex;align-items:center;justify-content:center;min-height:100vh;}
+  svg.race{display:block;width:min(100vw,186.7vh);height:auto;max-width:100vw;max-height:100vh;}
+  .star{animation:tw 2.6s ease-in-out infinite;}
+  @keyframes tw{0%,100%{opacity:.12}50%{opacity:.95}}
+  .halo{animation:pulse 5.5s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:.55}50%{opacity:.95}}
+  .shoot{animation:shoot 11s linear infinite;}
+  .shoot2{animation:shoot2 15s linear infinite;}
+  @keyframes shoot{
+    0%{transform:translate(0,0);opacity:0}
+    4%{opacity:.9}
+    14%{opacity:.9}
+    22%{transform:translate(-560px,320px);opacity:0}
+    100%{transform:translate(-560px,320px);opacity:0}
+  }
+  @keyframes shoot2{
+    0%,32%{transform:translate(0,0);opacity:0}
+    36%{opacity:.85}
+    48%{transform:translate(-680px,380px);opacity:0}
+    100%{transform:translate(-680px,380px);opacity:0}
+  }
+  .tire{fill:none;stroke:#20242c;stroke-width:5;}
+  .rim{fill:none;stroke:#7d8590;stroke-width:1.6;}
+  .hub{fill:#39414d;stroke:#59636f;stroke-width:1;}
+  .spoke{stroke:#aab2bd;stroke-width:1.3;}
+  .hudTitle{font:700 20px/1 "Segoe UI",Arial,sans-serif;fill:#ffe9a8;letter-spacing:2px;}
+  .hudSub{font:500 12px/1 "Segoe UI",Arial,sans-serif;fill:#8fa6cf;letter-spacing:3px;}
+  .hudHead{font:700 11px/1 "Segoe UI",Arial,sans-serif;fill:#6f84ad;letter-spacing:1px;}
+  .hudNum{font:700 15px/1 Consolas,monospace;fill:#ffe9a8;}
+  .hudName{font:700 14px/1 "Segoe UI",Arial,sans-serif;letter-spacing:.5px;}
+  .hudVal{font:600 13px/1 Consolas,monospace;fill:#d8e6ff;}
+  .mainTitle{font:800 24px/1 "Segoe UI",Arial,sans-serif;fill:#ffe9a8;letter-spacing:2.5px;}
+  .mainSub{font:500 13px/1 "Segoe UI",Arial,sans-serif;fill:#9fb3d8;letter-spacing:1.5px;}
+  .clock{font:600 16px/1 Consolas,monospace;fill:#cfe0ff;}
+</style>
+</head>
+<body>
+<svg class="race" viewBox="0 0 1400 750" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Animated race: a rabbit on a bicycle, a turtle on a motorcycle, and a bald eagle on a tricycle racing along the rings of Saturn">
+<defs>
+  <linearGradient id="bgG" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#080d20"/>
+    <stop offset=".55" stop-color="#141b38"/>
+    <stop offset="1" stop-color="#232a4d"/>
+  </linearGradient>
+  <radialGradient id="haloG" cx=".5" cy=".5" r=".5">
+    <stop offset="0" stop-color="rgba(255,226,150,.55)"/>
+    <stop offset=".6" stop-color="rgba(255,210,130,.18)"/>
+    <stop offset="1" stop-color="rgba(255,210,130,0)"/>
+  </radialGradient>
+  <linearGradient id="planetG" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#f2dfb8"/>
+    <stop offset=".28" stop-color="#eccf9b"/>
+    <stop offset=".45" stop-color="#d9a85c"/>
+    <stop offset=".62" stop-color="#c9934a"/>
+    <stop offset=".8" stop-color="#b37d3c"/>
+    <stop offset="1" stop-color="#8f5f2e"/>
+  </linearGradient>
+  <linearGradient id="planetShade" x1="0" y1="0" x2="1" y2="0">
+    <stop offset=".5" stop-color="rgba(20,8,0,0)"/>
+    <stop offset=".85" stop-color="rgba(20,8,0,.3)"/>
+    <stop offset="1" stop-color="rgba(10,4,0,.55)"/>
+  </linearGradient>
+  <linearGradient id="trackG" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#4a4d5c"/>
+    <stop offset=".5" stop-color="#3a3d4a"/>
+    <stop offset="1" stop-color="#2b2e38"/>
+  </linearGradient>
+  <pattern id="chk" width="14" height="14" patternUnits="userSpaceOnUse">
+    <rect width="7" height="7" fill="#f5f5f5"/>
+    <rect x="7" y="7" width="7" height="7" fill="#f5f5f5"/>
+    <rect x="7" width="7" height="7" fill="#16181d"/>
+    <rect y="7" width="7" height="7" fill="#16181d"/>
+  </pattern>
+  <clipPath id="planetClip"><circle cx="700" cy="330" r="210"/></clipPath>
+</defs>
+
+<rect x="0" y="0" width="1400" height="750" fill="url(#bgG)"/>
+<g id="stars"></g>
+
+<g class="shoot">
+  <line x1="330" y1="70" x2="300" y2="95" stroke="#ffffff" stroke-width="2" stroke-linecap="round" opacity=".9"/>
+  <line x1="300" y1="95" x2="285" y2="108" stroke="rgba(255,255,255,.4)" stroke-width="1.5" stroke-linecap="round"/>
+</g>
+<g class="shoot2">
+  <line x1="980" y1="40" x2="940" y2="72" stroke="#ffffff" stroke-width="2" stroke-linecap="round" opacity=".85"/>
+  <line x1="940" y1="72" x2="916" y2="92" stroke="rgba(255,255,255,.35)" stroke-width="1.5" stroke-linecap="round"/>
+</g>
+
+<circle class="halo" cx="700" cy="330" r="290" fill="url(#haloG)"/>
+
+<g transform="rotate(-8 700 410)">
+  <ellipse cx="700" cy="410" rx="460" ry="166" fill="none" stroke="#d8c9a3" stroke-width="14" opacity=".95"/>
+  <ellipse cx="700" cy="410" rx="488" ry="176" fill="none" stroke="#cbb98f" stroke-width="10" opacity=".9"/>
+  <ellipse cx="700" cy="410" rx="510" ry="184" fill="none" stroke="#a08d63" stroke-width="24" opacity=".75"/>
+  <ellipse cx="700" cy="410" rx="542" ry="195" fill="none" stroke="#8c7950" stroke-width="9" opacity=".85"/>
+  <ellipse cx="700" cy="410" rx="572" ry="206" fill="none" stroke="#c9b888" stroke-width="30" opacity=".62"/>
+  <ellipse cx="700" cy="410" rx="610" ry="220" fill="none" stroke="#b3a37c" stroke-width="14" opacity=".85"/>
+  <ellipse cx="700" cy="410" rx="644" ry="232" fill="none" stroke="#95835b" stroke-width="22" opacity=".68"/>
+  <ellipse cx="700" cy="410" rx="674" ry="243" fill="none" stroke="#d3c49a" stroke-width="10" opacity=".8"/>
+</g>
+
+<g clip-path="url(#planetClip)">
+  <circle cx="700" cy="330" r="210" fill="url(#planetG)"/>
+  <circle cx="700" cy="345" r="204" fill="rgba(255,255,255,.06)"/>
+  <circle cx="700" cy="420" r="158" fill="rgba(0,0,0,.1)"/>
+  <circle cx="700" cy="485" r="118" fill="rgba(0,0,0,.13)"/>
+  <circle cx="700" cy="255" r="146" fill="rgba(255,240,200,.08)"/>
+  <circle cx="700" cy="330" r="210" fill="url(#planetShade)"/>
+  <g transform="rotate(-8 700 410)">
+    <ellipse cx="700" cy="410" rx="570" ry="205" fill="none" stroke="rgba(26,12,0,.35)" stroke-width="52"/>
+    <ellipse cx="700" cy="410" rx="600" ry="217" fill="none" stroke="rgba(255,240,210,.12)" stroke-width="8"/>
+    <ellipse cx="700" cy="410" rx="520" ry="186" fill="none" stroke="rgba(26,12,0,.22)" stroke-width="10"/>
+  </g>
+</g>
+
+<g transform="rotate(-8 700 410)">
+  <path d="M 240 410 A 460 166 0 0 0 1160 410" fill="none" stroke="#d8c9a3" stroke-width="14" opacity=".95"/>
+  <path d="M 212 410 A 488 176 0 0 0 1188 410" fill="none" stroke="#cbb98f" stroke-width="10" opacity=".9"/>
+  <path d="M 190 410 A 510 184 0 0 0 1210 410" fill="none" stroke="#a08d63" stroke-width="24" opacity=".75"/>
+  <path d="M 158 410 A 542 195 0 0 0 1242 410" fill="none" stroke="#8c7950" stroke-width="9" opacity=".85"/>
+  <path d="M 128 410 A 572 206 0 0 0 1272 410" fill="none" stroke="#c9b888" stroke-width="30" opacity=".62"/>
+  <path d="M 90 410 A 610 220 0 0 0 1310 410" fill="none" stroke="#b3a37c" stroke-width="14" opacity=".85"/>
+  <path d="M 56 410 A 644 232 0 0 0 1344 410" fill="none" stroke="#95835b" stroke-width="22" opacity=".68"/>
+  <path d="M 26 410 A 674 243 0 0 0 1374 410" fill="none" stroke="#d3c49a" stroke-width="10" opacity=".8"/>
+</g>
+
+<path d="M 0 606 Q 700 486 1400 606 L 1400 674 Q 700 554 0 674 Z" fill="url(#trackG)"/>
+<path d="M 0 650 Q 700 530 1400 650" fill="none" stroke="#ffffff" stroke-width="2" opacity=".07"/>
+<path d="M 0 660 Q 700 540 1400 660" fill="none" stroke="#ffffff" stroke-width="2" opacity=".05"/>
+<path d="M 0 606 Q 700 486 1400 606" fill="none" stroke="#8f96a8" stroke-width="2.5" opacity=".9"/>
+<path d="M 0 604 Q 700 484 1400 604" fill="none" stroke="#14161c" stroke-width="2" opacity=".6"/>
+<path d="M 0 672 Q 700 552 1400 672" fill="none" stroke="#e74c3c" stroke-width="6" stroke-dasharray="36 36" opacity=".95"/>
+<path d="M 0 672 Q 700 552 1400 672" fill="none" stroke="#f2f2f6" stroke-width="6" stroke-dasharray="18 54" opacity=".95"/>
+<path d="M 0 678 Q 700 558 1400 678" fill="none" stroke="#14161c" stroke-width="2" opacity=".55"/>
+<path d="M 0 640 Q 700 520 1400 640" fill="none" stroke="#ffe9a8" stroke-width="3" stroke-dasharray="34 26" opacity=".9"/>
+
+<g id="markers"></g>
+
+<g id="gantry">
+  <line x1="360" y1="594" x2="360" y2="506" stroke="#1c1f28" stroke-width="6"/>
+  <line x1="516" y1="585" x2="516" y2="506" stroke="#1c1f28" stroke-width="6"/>
+  <path d="M 350 506 L 370 506 L 360 494 Z" fill="#ff5a4e"/>
+  <path d="M 506 506 L 526 506 L 516 494 Z" fill="#f2f2f6"/>
+  <g transform="translate(438,512) rotate(-3.8)">
+    <rect x="-90" y="-3" width="180" height="10" rx="3" fill="#1c1f28" stroke="#d9b45f" stroke-width="1.5"/>
+  </g>
+  <g transform="translate(438,504) rotate(-3.8)">
+    <rect x="-90" y="-6" width="180" height="6" fill="url(#chk)"/>
+  </g>
+  <text x="438" y="490" text-anchor="middle" font-size="16" font-weight="800" letter-spacing="5"
+        fill="#ffe9a8" stroke="#0b1026" stroke-width="3" font-family="'Segoe UI',Arial,sans-serif">START / FINISH</text>
+</g>
+
+<g transform="translate(438,589) rotate(-3.8)">
+  <rect x="-11" y="-37" width="22" height="74" fill="url(#chk)" stroke="rgba(0,0,0,.45)" stroke-width="1.5"/>
+</g>
+
+<g id="racers">
+
+  <g id="racer-rabbit">
+    <ellipse cx="41" cy="3" rx="56" ry="7" fill="rgba(0,0,0,.35)"/>
+    <g id="rabbit-streak" opacity="0">
+      <line x1="-12" y1="-52" x2="-42" y2="-52" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" opacity=".5"/>
+      <line x1="-10" y1="-38" x2="-34" y2="-38" stroke="#ffffff" stroke-width="2" stroke-linecap="round" opacity=".35"/>
+      <circle cx="-48" cy="-44" r="2.5" fill="#ffffff" opacity=".3"/>
+    </g>
+    <g id="rabbit-lean">
+      <g transform="translate(0,-26)">
+        <circle r="26" class="tire"/><circle r="21" class="rim"/>
+        <g id="rr-spokes">
+          <line x1="-21" y1="0" x2="21" y2="0" class="spoke"/>
+          <line x1="-21" y1="0" x2="21" y2="0" class="spoke" transform="rotate(45)"/>
+          <line x1="-21" y1="0" x2="21" y2="0" class="spoke" transform="rotate(90)"/>
+          <line x1="-21" y1="0" x2="21" y2="0" class="spoke" transform="rotate(135)"/>
+        </g>
+        <circle r="3.5" class="hub"/>
+      </g>
+      <g transform="translate(82,-26)">
+        <circle r="26" class="tire"/><circle r="21" class="rim"/>
+        <g id="rf-spokes">
+          <line x1="-21" y1="0" x2="21" y2="0" class="spoke"/>
+          <line x1="-21" y1="0" x2="21" y2="0" class="spoke" transform="rotate(45)"/>
+          <line x1="-21" y1="0" x2="21" y2="0" class="spoke" transform="rotate(90)"/>
+          <line x1="-21" y1="0" x2="21" y2="0" class="spoke" transform="rotate(135)"/>
+        </g>
+        <circle r="3.5" class="hub"/>
+      </g>
+      <path d="M 0,-26 L 40,-34 L 24,-62 M 24,-62 L 66,-50 M 66,-50 L 40,-34" fill="none" stroke="#2f6fd0" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+      <path d="M 68,-48 L 82,-26" fill="none" stroke="#2f6fd0" stroke-width="4" stroke-linecap="round"/>
+      <path d="M 0,-22 L 40,-30" fill="none" stroke="#6b7280" stroke-width="2"/>
+      <circle cx="40" cy="-34" r="7" fill="#4b5563" stroke="#2b3038" stroke-width="1.5"/>
+      <path d="M 22,-64 L 24,-62" stroke="#2f6fd0" stroke-width="4"/>
+      <ellipse cx="22" cy="-65" rx="11" ry="4.2" fill="#39414d" stroke="#22262d" stroke-width="1.5" transform="rotate(-8 22 -65)"/>
+      <path d="M 24,-62 Q 70,-59 80,-58" fill="none" stroke="#2f6fd0" stroke-width="4" stroke-linecap="round"/>
+      <circle cx="81" cy="-58" r="3" fill="#22262d"/>
+      <g id="rr-crank">
+        <line x1="40" y1="-34" x2="52" y2="-34" stroke="#39414d" stroke-width="4" stroke-linecap="round"/>
+        <rect x="49" y="-38.5" width="9" height="4.5" rx="2" fill="#8b93a1"/>
+        <ellipse cx="54" cy="-35.5" rx="6" ry="4" fill="#f2f2f6" stroke="#c9c9cf" stroke-width="1.5"/>
+        <line x1="40" y1="-34" x2="28" y2="-34" stroke="#39414d" stroke-width="4" stroke-linecap="round"/>
+        <rect x="23" y="-38.5" width="9" height="4.5" rx="2" fill="#8b93a1"/>
+        <ellipse cx="26" cy="-35.5" rx="6" ry="4" fill="#f2f2f6" stroke="#c9c9cf" stroke-width="1.5"/>
+      </g>
+      <path id="rr-leg1" d="M 24,-66 L 44,-44" fill="none" stroke="#f2f2f6" stroke-width="7" stroke-linecap="round"/>
+      <path id="rr-leg2" d="M 24,-66 L 30,-30" fill="none" stroke="#e2e2e6" stroke-width="7" stroke-linecap="round"/>
+      <path d="M 34,-76 Q 52,-70 76,-56" fill="none" stroke="#f2f2f6" stroke-width="6.5" stroke-linecap="round"/>
+      <circle cx="76" cy="-56" r="4" fill="#f2f2f6" stroke="#c9c9cf" stroke-width="1.2"/>
+      <g id="rr-tail">
+        <circle cx="3" cy="-68" r="6.5" fill="#f5f5f7" stroke="#d0d0d6" stroke-width="1.4"/>
+      </g>
+      <ellipse cx="22" cy="-78" rx="20" ry="18" fill="#f5f5f7" stroke="#d0d0d6" stroke-width="1.5"/>
+      <ellipse cx="27" cy="-82" rx="12" ry="10" fill="#ffffff" opacity=".9"/>
+      <g id="rabbit-head">
+        <circle cx="56" cy="-98" r="13.5" fill="#f5f5f7" stroke="#d0d0d6" stroke-width="1.5"/>
+        <ellipse cx="64" cy="-95" rx="6.5" ry="5" fill="#ffffff"/>
+        <ellipse cx="70" cy="-96" rx="2.2" ry="1.8" fill="#ffb6c1"/>
+        <circle cx="60" cy="-101" r="2.4" fill="#1c1c22"/>
+        <circle cx="60.8" cy="-101.8" r=".8" fill="#ffffff"/>
+        <path d="M 67,-94 l 6,-1 M 67,-92 l 6,1" stroke="#b9b9c2" stroke-width="1.1" fill="none"/>
+        <g id="rr-earL" transform="translate(53,-110)">
+          <ellipse cx="0" cy="-22" rx="5.5" ry="22" fill="#f5f5f7" stroke="#d0d0d6" stroke-width="1.4" transform="rotate(-8)"/>
+          <ellipse cx="0" cy="-22" rx="2.9" ry="16" fill="#ffcdd6" transform="rotate(-8)"/>
+        </g>
+        <g id="rr-earR" transform="translate(60,-112)">
+          <ellipse cx="0" cy="-19" rx="5" ry="19" fill="#efeff2" stroke="#cfcfd4" stroke-width="1.4" transform="rotate(10)"/>
+          <ellipse cx="0" cy="-19" rx="2.6" ry="14" fill="#ffc8d2" transform="rotate(10)"/>
+        </g>
+      </g>
+    </g>
+  </g>
+
+  <g id="racer-turtle">
+    <ellipse cx="39" cy="3" rx="52" ry="7" fill="rgba(0,0,0,.35)"/>
+    <g id="turtle-streak" opacity="0">
+      <line x1="-12" y1="-48" x2="-40" y2="-48" stroke="#ffd166" stroke-width="2.5" stroke-linecap="round" opacity=".45"/>
+      <line x1="-10" y1="-34" x2="-32" y2="-34" stroke="#ffffff" stroke-width="2" stroke-linecap="round" opacity=".3"/>
+    </g>
+    <g id="turtle-lean">
+      <g transform="translate(0,-24)">
+        <circle r="24" class="tire"/><circle r="19.5" class="rim"/>
+        <g id="tr-spokes">
+          <line x1="-19.5" y1="0" x2="19.5" y2="0" class="spoke"/>
+          <line x1="-19.5" y1="0" x2="19.5" y2="0" class="spoke" transform="rotate(45)"/>
+          <line x1="-19.5" y1="0" x2="19.5" y2="0" class="spoke" transform="rotate(90)"/>
+          <line x1="-19.5" y1="0" x2="19.5" y2="0" class="spoke" transform="rotate(135)"/>
+        </g>
+        <circle r="3.2" class="hub"/>
+      </g>
+      <g transform="translate(78,-24)">
+        <circle r="24" class="tire"/><circle r="19.5" class="rim"/>
+        <g id="tf-spokes">
+          <line x1="-19.5" y1="0" x2="19.5" y2="0" class="spoke"/>
+          <line x1="-19.5" y1="0" x2="19.5" y2="0" class="spoke" transform="rotate(45)"/>
+          <line x1="-19.5" y1="0" x2="19.5" y2="0" class="spoke" transform="rotate(90)"/>
+          <line x1="-19.5" y1="0" x2="19.5" y2="0" class="spoke" transform="rotate(135)"/>
+        </g>
+        <circle r="3.2" class="hub"/>
+      </g>
+      <path d="M 0,-24 L 30,-21" fill="none" stroke="#b23a2e" stroke-width="5" stroke-linecap="round"/>
+      <line x1="26" y1="-20" x2="26" y2="-13" stroke="#6b7280" stroke-width="3" stroke-linecap="round"/>
+      <line x1="42" y1="-20" x2="42" y2="-13" stroke="#6b7280" stroke-width="3" stroke-linecap="round"/>
+      <rect x="24" y="-44" width="26" height="15" rx="4" fill="#262a31" stroke="#0e1014" stroke-width="1.5"/>
+      <path d="M 27,-38 L 47,-38 M 27,-34 L 47,-34 M 27,-30 L 47,-30" stroke="#454b55" stroke-width="1.5"/>
+      <path d="M 32,-38 L 36,-26 L 46,-24" fill="none" stroke="#555c66" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="48" cy="-24" r="3" fill="#8a8f98"/>
+      <path d="M 40,-56 Q 56,-64 70,-60 Q 66,-50 60,-47 L 44,-47 Q 38,-49 40,-56 Z" fill="#b23a2e" stroke="#7e241c" stroke-width="1.6"/>
+      <path d="M 12,-48 L 48,-46 L 46,-40 L 14,-42 Z" fill="#2c313a" stroke="#111318" stroke-width="1.5"/>
+      <circle cx="-2" cy="-36" r="2.5" fill="#e05555"/>
+      <path d="M 68,-52 L 78,-24" fill="none" stroke="#d8d8dc" stroke-width="5" stroke-linecap="round"/>
+      <path d="M 64,-32 A 20 20 0 0 1 92,-32" fill="none" stroke="#b23a2e" stroke-width="4.5"/>
+      <circle cx="81" cy="-30" r="5" fill="#ffe9a8" stroke="#d9b45f" stroke-width="1"/>
+      <circle cx="81" cy="-30" r="9" fill="#ffe9a8" opacity=".22"/>
+      <path d="M 64,-54 Q 70,-62 78,-60" fill="none" stroke="#39414d" stroke-width="4" stroke-linecap="round"/>
+      <circle cx="79" cy="-60" r="3" fill="#111318"/>
+      <g id="turtle-head">
+        <path d="M 50,-58 Q 60,-64 68,-66" fill="none" stroke="#7ea06f" stroke-width="9" stroke-linecap="round"/>
+        <circle cx="70" cy="-68" r="11" fill="#7ea06f" stroke="#5c7f52" stroke-width="1.5"/>
+        <path d="M 66,-64 Q 68,-63 69,-62 M 63,-64 Q 65,-63 66,-62" fill="none" stroke="#5c7f52" stroke-width="1.2"/>
+        <circle cx="73" cy="-70" r="2.2" fill="#1c1c22"/>
+        <path d="M 74,-62 Q 77,-60 79,-62" fill="none" stroke="#5c7f52" stroke-width="1.5"/>
+        <path d="M 59,-68 A 12.5 12.5 0 0 1 84,-68 Z" fill="#eef2f8" stroke="#b8c4d4" stroke-width="1.5"/>
+        <path d="M 60.5,-70 Q 71.5,-61 82.5,-70" fill="none" stroke="#31445f" stroke-width="3.5"/>
+        <path d="M 63,-64 Q 71,-58 79,-64" fill="none" stroke="#31445f" stroke-width="2"/>
+        <circle cx="71.5" cy="-77" r="1.6" fill="#ffd166"/>
+      </g>
+      <path d="M 44,-72 Q 58,-68 76,-60" fill="none" stroke="#7ea06f" stroke-width="6" stroke-linecap="round"/>
+      <circle cx="77" cy="-59" r="4" fill="#7ea06f" stroke="#5c7f52" stroke-width="1.2"/>
+      <path d="M 0,-56 A 27 17 0 0 1 54,-56 Z" fill="#5f8a5a" stroke="#3f5c3c" stroke-width="2.5"/>
+      <path d="M 12,-61 L 18,-67 L 25,-61 L 18,-55 Z" fill="#4d7448"/>
+      <path d="M 30,-61 L 36,-66 L 42,-61 L 36,-55 Z" fill="#4d7448"/>
+      <path d="M 21,-68 L 27,-72 L 33,-68 L 27,-63 Z" fill="#54804e"/>
+      <path d="M 0,-56 Q 27,-62 54,-56" fill="none" stroke="#3f5c3c" stroke-width="4"/>
+      <path d="M 16,-56 L 27,-17" fill="none" stroke="#7ea06f" stroke-width="6" stroke-linecap="round"/>
+      <path d="M 30,-56 L 42,-17" fill="none" stroke="#6d9863" stroke-width="6" stroke-linecap="round"/>
+      <ellipse cx="27" cy="-16" rx="4" ry="3" fill="#5c7f52"/>
+      <ellipse cx="42" cy="-16" rx="4" ry="3" fill="#5c7f52"/>
+    </g>
+  </g>
+
+  <g id="racer-eagle">
+    <ellipse cx="40" cy="3" rx="58" ry="7" fill="rgba(0,0,0,.35)"/>
+    <g id="eagle-streak" opacity="0">
+      <line x1="-14" y1="-56" x2="-46" y2="-56" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" opacity=".5"/>
+      <line x1="-12" y1="-40" x2="-38" y2="-40" stroke="#ffffff" stroke-width="2" stroke-linecap="round" opacity=".35"/>
+      <circle cx="-52" cy="-48" r="2.5" fill="#ffffff" opacity=".3"/>
+    </g>
+    <g id="eagle-lean">
+      <g transform="translate(-8,-24)">
+        <circle r="26" class="tire"/><circle r="21" class="rim"/>
+        <g id="er-spokes2">
+          <line x1="-21" y1="0" x2="21" y2="0" class="spoke" opacity=".7"/>
+          <line x1="-21" y1="0" x2="21" y2="0" class="spoke" opacity=".7" transform="rotate(45)"/>
+          <line x1="-21" y1="0" x2="21" y2="0" class="spoke" opacity=".7" transform="rotate(90)"/>
+          <line x1="-21" y1="0" x2="21" y2="0" class="spoke" opacity=".7" transform="rotate(135)"/>
+        </g>
+        <circle r="3.5" class="hub" opacity=".7"/>
+      </g>
+      <g transform="translate(4,-26)">
+        <circle r="26" class="tire"/><circle r="21" class="rim"/>
+        <g id="er-spokes">
+          <line x1="-21" y1="0" x2="21" y2="0" class="spoke"/>
+          <line x1="-21" y1="0" x2="21" y2="0" class="spoke" transform="rotate(45)"/>
+          <line x1="-21" y1="0" x2="21" y2="0" class="spoke" transform="rotate(90)"/>
+          <line x1="-21" y1="0" x2="21" y2="0" class="spoke" transform="rotate(135)"/>
+        </g>
+        <circle r="3.5" class="hub"/>
+      </g>
+      <g transform="translate(78,-26)">
+        <circle r="26" class="tire"/><circle r="21" class="rim"/>
+        <g id="ef-spokes">
+          <line x1="-21" y1="0" x2="21" y2="0" class="spoke"/>
+          <line x1="-21" y1="0" x2="21" y2="0" class="spoke" transform="rotate(45)"/>
+          <line x1="-21" y1="0" x2="21" y2="0" class="spoke" transform="rotate(90)"/>
+          <line x1="-21" y1="0" x2="21" y2="0" class="spoke" transform="rotate(135)"/>
+        </g>
+        <circle r="3.5" class="hub"/>
+      </g>
+      <path d="M 4,-26 L 38,-32 M 38,-32 L 22,-60 M 22,-60 L 66,-48 M 66,-48 L 38,-32 M 22,-60 L -8,-24" fill="none" stroke="#c0392b" stroke-width="4.5" stroke-linejoin="round" stroke-linecap="round"/>
+      <path d="M 66,-48 L 78,-26" fill="none" stroke="#c0392b" stroke-width="4.5" stroke-linecap="round"/>
+      <path d="M 4,-22 L 38,-28" fill="none" stroke="#777c86" stroke-width="2"/>
+      <circle cx="38" cy="-32" r="6.5" fill="#4b5563" stroke="#2b3038" stroke-width="1.5"/>
+      <ellipse cx="20" cy="-62" rx="10" ry="4" fill="#39414d" stroke="#22262d" stroke-width="1.5" transform="rotate(-6 20 -62)"/>
+      <path d="M 64,-52 Q 70,-58 78,-58" fill="none" stroke="#39414d" stroke-width="4" stroke-linecap="round"/>
+      <circle cx="79" cy="-58" r="3" fill="#111318"/>
+      <g id="ec-crank">
+        <line x1="38" y1="-32" x2="49" y2="-32" stroke="#39414d" stroke-width="4" stroke-linecap="round"/>
+        <rect x="46" y="-36.5" width="9" height="4.5" rx="2" fill="#8b93a1"/>
+        <ellipse cx="51" cy="-33.5" rx="6" ry="4" fill="#f6c445" stroke="#d9a825" stroke-width="1.3"/>
+        <line x1="38" y1="-32" x2="27" y2="-32" stroke="#39414d" stroke-width="4" stroke-linecap="round"/>
+        <rect x="21" y="-36.5" width="9" height="4.5" rx="2" fill="#8b93a1"/>
+        <ellipse cx="25" cy="-33.5" rx="6" ry="4" fill="#f6c445" stroke="#d9a825" stroke-width="1.3"/>
+      </g>
+      <path id="eg-leg1" d="M 24,-70 L 44,-48" fill="none" stroke="#6e4525" stroke-width="7" stroke-linecap="round"/>
+      <path id="eg-leg2" d="M 24,-70 L 30,-34" fill="none" stroke="#5c3a1f" stroke-width="7" stroke-linecap="round"/>
+      <g id="eg-wingF">
+        <path d="M 30,-86 C 12,-98 -10,-100 -22,-90 C -8,-86 2,-86 14,-84 C 24,-92 28,-90 30,-86 Z" fill="#4a2e19" stroke="#3a2314" stroke-width="1.5"/>
+      </g>
+      <g id="eagle-head">
+        <path d="M 38,-80 Q 44,-88 51,-91" fill="none" stroke="#f4f2ea" stroke-width="10" stroke-linecap="round"/>
+        <circle cx="53" cy="-92" r="12" fill="#f4f2ea" stroke="#d8d2c4" stroke-width="1.5"/>
+        <path d="M 48,-98 Q 53,-101 58,-99" fill="none" stroke="#e4e0d2" stroke-width="1.6"/>
+        <circle cx="57" cy="-94" r="2.4" fill="#1c1c22"/>
+        <circle cx="57.8" cy="-94.8" r=".8" fill="#ffffff"/>
+        <path d="M 61,-92 L 74,-95 L 62,-85 Z" fill="#f6c445" stroke="#d9a825" stroke-width="1.5" stroke-linejoin="round"/>
+        <circle cx="66" cy="-93" r="1" fill="#d9a825"/>
+      </g>
+      <ellipse cx="26" cy="-78" rx="21" ry="17" fill="#5d3a21" stroke="#4a2e19" stroke-width="1.5"/>
+      <ellipse cx="31" cy="-82" rx="12" ry="10" fill="#8a5a33" opacity=".9"/>
+      <path d="M 40,-84 Q 45,-80 43,-74" fill="none" stroke="#4a2e19" stroke-width="1.4"/>
+      <path d="M 8,-72 L -4,-74 L 6,-64 Z M 8,-70 L -6,-68 L 6,-62 Z" fill="#f4f2ea" stroke="#d8d2c4" stroke-width="1.2" stroke-linejoin="round"/>
+      <g id="eg-wingN">
+        <path d="M 30,-86 C 6,-104 -20,-106 -34,-94 C -16,-88 -2,-88 12,-86 C 22,-98 28,-92 30,-86 Z" fill="#6e4525" stroke="#4a2e19" stroke-width="1.5"/>
+        <path d="M 24,-94 L -20,-92 M 18,-92 L -24,-88 M 14,-88 L -28,-84" fill="none" stroke="#4a2e19" stroke-width="1.3" opacity=".6"/>
+      </g>
+      <line x1="66" y1="-52" x2="66" y2="-76" stroke="#d8d8dc" stroke-width="2"/>
+      <g id="eg-pennant">
+        <path d="M 66,-76 L 82,-72.5 L 66,-69 Z" fill="#ff4d4d" stroke="#cc2222" stroke-width="1"/>
+      </g>
+    </g>
+  </g>
+
+</g>
+
+<g transform="translate(1010,16)">
+  <rect x="0" y="0" width="374" height="150" rx="14" fill="rgba(8,14,34,.84)" stroke="#d9b45f" stroke-width="2"/>
+  <text x="187" y="34" text-anchor="middle" class="hudTitle">SATURN RING PRIX</text>
+  <text x="187" y="51" text-anchor="middle" class="hudSub">LIVE STANDINGS</text>
+  <line x1="14" x2="360" y1="60" y2="60" stroke="#3d4a6b" stroke-width="1"/>
+  <text x="22" y="78" class="hudHead">#</text>
+  <text x="50" y="78" class="hudHead">DRIVER</text>
+  <text x="252" y="78" text-anchor="end" class="hudHead">DIST</text>
+  <text x="350" y="78" text-anchor="end" class="hudHead">SPD</text>
+  <circle id="sw1" cx="38" cy="96" r="7" fill="#e8e8ee" stroke="none" stroke-width="2"/>
+  <text id="rk1" x="22" y="101" class="hudNum">#1</text>
+  <text id="nm1" x="50" y="100" fill="#e8e8ee" class="hudName">RABBIT</text>
+  <text id="ds1" x="252" y="100" text-anchor="end" class="hudVal">0 km</text>
+  <text id="sp1" x="350" y="100" text-anchor="end" class="hudVal">0</text>
+  <circle id="sw2" cx="38" cy="122" r="7" fill="#6d9a68" stroke="none" stroke-width="2"/>
+  <text id="rk2" x="22" y="127" class="hudNum">#2</text>
+  <text id="nm2" x="50" y="126" fill="#8fc98a" class="hudName">TURTLE</text>
+  <text id="ds2" x="252" y="126" text-anchor="end" class="hudVal">0 km</text>
+  <text id="sp2" x="350" y="126" text-anchor="end" class="hudVal">0</text>
+  <circle id="sw3" cx="38" cy="148" r="7" fill="#6e4525" stroke="none" stroke-width="2"/>
+  <text id="rk3" x="22" y="153" class="hudNum">#3</text>
+  <text id="nm3" x="50" y="152" fill="#e6b06a" class="hudName">EAGLE</text>
+  <text id="ds3" x="252" y="152" text-anchor="end" class="hudVal">0 km</text>
+  <text id="sp3" x="350" y="152" text-anchor="end" class="hudVal">0</text>
+</g>
+
+<text x="28" y="44" class="mainTitle">RING RACERS · SATURN GRAND PRIX</text>
+<text x="30" y="66" class="mainSub">three legends, one ring — who takes the crown?</text>
+<text id="clk" x="30" y="92" class="clock">TIME 00:00</text>
+
+<script>
+(function(){
+  'use strict';
+  var NS = 'http://www.w3.org/2000/svg';
+  var RAD = Math.PI / 180;
+  function byId(id){ return document.getElementById(id); }
+  function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+  function pad(n){ return (n < 10 ? '0' : '') + n; }
+
+  var trackY = function(x){ return 640 - x * (1400 - x) / 8166.6667; };
+  var trackDeg = function(x){ return Math.atan2(2 * x - 1400, 8166.6667) / RAD; };
+
+  (function makeStars(){
+    var g = byId('stars');
+    for (var i = 0; i < 85; i++) {
+      var c = document.createElementNS(NS, 'circle');
+      c.setAttribute('cx', (Math.random() * 1400).toFixed(1));
+      c.setAttribute('cy', (15 + Math.random() * 400).toFixed(1));
+      c.setAttribute('r', (0.7 + Math.random() * 1.9).toFixed(2));
+      c.setAttribute('fill', '#ffffff');
+      c.setAttribute('class', 'star');
+      c.style.animationDelay = (-Math.random() * 3).toFixed(2) + 's';
+      c.style.animationDuration = (2 + Math.random() * 3).toFixed(2) + 's';
+      g.appendChild(c);
+    }
+  })();
+
+  (function makeMarkers(){
+    var g = byId('markers');
+    var html = '';
+    for (var i = 0; i < 11; i++) {
+      var x = 110 + i * 126;
+      var ty = trackY(x);
+      var cone = (i % 2 === 0) ? '#ff5a4e' : '#f2f2f6';
+      html += '<g>' +
+        '<line x1="' + x + '" y1="' + (ty + 26).toFixed(1) + '" x2="' + x + '" y2="' + (ty + 40).toFixed(1) + '" stroke="' + cone + '" stroke-width="3"/>' +
+        '<path d="M ' + (x - 7) + ' ' + (ty + 40).toFixed(1) + ' L ' + (x + 7) + ' ' + (ty + 40).toFixed(1) + ' L ' + x + ' ' + (ty + 52).toFixed(1) + ' Z" fill="' + cone + '"/>' +
+        '<text x="' + x + '" y="' + (ty + 64).toFixed(1) + '" text-anchor="middle" font-size="10" font-weight="700" fill="#d8e6ff" font-family="Consolas,monospace">' + (i + 1) + '</text>' +
+        '<line x1="' + x + '" y1="' + (ty - 36).toFixed(1) + '" x2="' + x + '" y2="' + (ty - 42).toFixed(1) + '" stroke="#ffffff" stroke-width="2" opacity=".7"/>' +
+        '</g>';
+    }
+    g.innerHTML = html;
+  })();
+
+  var racers = [
+    { id: 'rabbit', x: 280, odo: 0, spd: 166, cur: 166, sAm: .15, sFr: .31, sPh: 1.7,
+      wAmp: 16, wFr: .85, wPh: .2, bobA: 2.2, bobFr: 3.1, pivot: 41,
+      wheelR: 26, pedalC: {x: 40, y: -34}, pedalR: 12, hip: {x: 24, y: -66} },
+    { id: 'turtle', x: 540, odo: 0, spd: 131, cur: 131, sAm: .12, sFr: .20, sPh: 4.2,
+      wAmp: 10, wFr: .5, wPh: 2.1, bobA: 1.3, bobFr: 1.9, pivot: 39,
+      wheelR: 24, pedalC: {x: 78, y: -24}, pedalR: 0 },
+    { id: 'eagle', x: 780, odo: 0, spd: 116, cur: 116, sAm: .20, sFr: .27, sPh: 3.1,
+      wAmp: 22, wFr: .62, wPh: 4.4, bobA: 2.6, bobFr: 3.6, pivot: 40,
+      wheelR: 26, pedalC: {x: 38, y: -32}, pedalR: 11, hip: {x: 24, y: -70} }
+  ];
+
+  racers.forEach(function(r){
+    var p = r.parts = {};
+    p.pos = byId('racer-' + r.id);
+    p.lean = byId(r.id + '-lean');
+    p.streak = byId(r.id + '-streak');
+    if (r.id === 'rabbit') {
+      p.spR = byId('rr-spokes'); p.spF = byId('rf-spokes'); p.crank = byId('rr-crank');
+      p.l1 = byId('rr-leg1'); p.l2 = byId('rr-leg2');
+      p.earL = byId('rr-earL'); p.earR = byId('rr-earR'); p.tail = byId('rr-tail');
+      p.head = byId('rabbit-head');
+    } else if (r.id === 'turtle') {
+      p.spR = byId('tr-spokes'); p.spF = byId('tf-spokes'); p.head = byId('turtle-head');
+    } else {
+      p.spR = byId('er-spokes'); p.spF = byId('ef-spokes'); p.spRF = byId('er-spokes2');
+      p.crank = byId('ec-crank'); p.l1 = byId('eg-leg1'); p.l2 = byId('eg-leg2');
+      p.wN = byId('eg-wingN'); p.wF = byId('eg-wingF'); p.pen = byId('eg-pennant');
+      p.head = byId('eagle-head');
+    }
+  });
+
+  function legPath(hip, foot, sign, scale){
+    var mx = (hip.x + foot.x) / 2, my = (hip.y + foot.y) / 2;
+    var dx = foot.x - hip.x, dy = foot.y - hip.y;
+    var len = Math.hypot(dx, dy) || 1;
+    var kx = mx + (-dy / len) * scale * sign;
+    var ky = my + (dx / len) * scale * sign;
+    return 'M ' + hip.x.toFixed(1) + ' ' + hip.y.toFixed(1) +
+           ' L ' + kx.toFixed(1) + ' ' + ky.toFixed(1) +
+           ' L ' + foot.x.toFixed(1) + ' ' + foot.y.toFixed(1);
+  }
+
+  function updateLegs(r){
+    var p = r.parts;
+    if (!p.crank) return;
+    var a = r.pedA || 0;
+    var c = r.pedalC, R = r.pedalR;
+    var f1 = {x: c.x + Math.cos(a) * R, y: c.y + Math.sin(a) * R};
+    var f2 = {x: c.x - Math.cos(a) * R, y: c.y - Math.sin(a) * R};
+    p.l1.setAttribute('d', legPath(r.hip, f1, 1, 9));
+    p.l2.setAttribute('d', legPath(r.hip, f2, -1, 9));
+  }
+
+  function updateHUD(){
+    var order = racers.slice().sort(function(a, b){ return b.odo - a.odo; });
+    var names = {rabbit: 'RABBIT', turtle: 'TURTLE', eagle: 'EAGLE'};
+    var fills = {rabbit: '#e8e8ee', turtle: '#8fc98a', eagle: '#e6b06a'};
+    for (var i = 0; i < 3; i++) {
+      var r = order[i], n = i + 1;
+      byId('rk' + n).textContent = '#' + n;
+      byId('nm' + n).textContent = names[r.id];
+      byId('nm' + n).setAttribute('fill', fills[r.id]);
+      byId('sw' + n).setAttribute('fill', fills[r.id]);
+      byId('sw' + n).setAttribute('stroke', n === 1 ? '#ffd166' : 'none');
+      byId('ds' + n).textContent = Math.round(r.odo / 62) + ' km';
+      byId('sp' + n).textContent = Math.round(r.cur / 2.2) + ' km/h';
+    }
+    var m = Math.floor(elapsed / 60), s = Math.floor(elapsed % 60);
+    byId('clk').textContent = 'TIME ' + pad(m) + ':' + pad(s);
+  }
+
+  var last = performance.now(), elapsed = 0, hudAt = 0;
+
+  function frame(now){
+    var dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    elapsed += dt;
+    var t = elapsed;
+
+    racers.forEach(function(r){
+      var p = r.parts;
+      var spd = r.cur = r.spd * (1 + r.sAm * Math.sin(t * 2 * Math.PI * r.sFr + r.sPh));
+      r.x += spd * dt;
+      r.odo += spd * dt;
+      if (r.x > 1480) { r.x -= 1560; r.odo += 1560; }
+
+      var weave = r.wAmp * Math.sin(t * 2 * Math.PI * r.wFr + r.wPh);
+      var weaveV = r.wAmp * 2 * Math.PI * r.wFr * Math.cos(t * 2 * Math.PI * r.wFr + r.wPh) / Math.max(spd, 1);
+      var lean = clamp(trackDeg(r.x) * 0.55 + (Math.atan(weaveV) / RAD) * 0.85, -13, 13);
+      var bob = Math.sin(t * 2 * Math.PI * r.bobFr + r.sPh) * r.bobA;
+      var ty = trackY(r.x);
+
+      r.wA = (r.wA || 0) + spd * dt / r.wheelR;
+      var wDeg = (r.wA * 180 / Math.PI) % 360;
+      var rot = 'rotate(' + wDeg.toFixed(2) + ')';
+      p.spR.setAttribute('transform', rot);
+      p.spF.setAttribute('transform', rot);
+      if (p.spRF) p.spRF.setAttribute('transform', rot);
+
+      if (p.crank) {
+        r.pedA = (r.pedA || 0) + spd * dt / 22;
+        var c = r.pedalC;
+        p.crank.setAttribute('transform', 'rotate(' + ((r.pedA * 180 / Math.PI) % 360).toFixed(2) + ' ' + c.x + ' ' + c.y + ')');
+        updateLegs(r);
+      }
+
+      p.pos.setAttribute('transform', 'translate(' + r.x.toFixed(1) + ' ' + (ty + bob + weave * 0.4).toFixed(1) + ')');
+      p.lean.setAttribute('transform', 'rotate(' + lean.toFixed(2) + ' ' + r.pivot + ' 2)');
+      p.streak.setAttribute('opacity', clamp((spd / 166) * 0.55, 0, 0.6).toFixed(2));
+
+      if (r.id === 'rabbit') {
+        var flap = Math.sin(t * 2 * Math.PI * 2.3) * 17;
+        p.earL.setAttribute('transform', 'rotate(' + (10 + flap).toFixed(1) + ')');
+        p.earR.setAttribute('transform', 'rotate(' + (-12 - flap).toFixed(1) + ')');
+        p.tail.setAttribute('transform', 'rotate(' + (Math.sin(t * 20) * 7).toFixed(1) + ')');
+        p.head.setAttribute('transform', 'rotate(' + (Math.sin(t * 9) * 3).toFixed(1) + ' 56 -98)');
+      } else if (r.id === 'turtle') {
+        p.head.setAttribute('transform', 'rotate(' + (-Math.sin(t * 9) * 3.5).toFixed(1) + ' 71 -68)');
+      } else {
+        var wA = Math.sin(t * 2 * Math.PI * 2.0) * 30;
+        p.wN.setAttribute('transform', 'rotate(' + wA.toFixed(1) + ' 30 -86)');
+        p.wF.setAttribute('transform', 'rotate(' + (-wA * 0.75).toFixed(1) + ' 30 -86)');
+        p.pen.setAttribute('transform', 'rotate(' + (Math.sin(t * 14) * 7).toFixed(1) + ')');
+        p.head.setAttribute('transform', 'rotate(' + (Math.sin(t * 8) * 3).toFixed(1) + ' 53 -92)');
+      }
+    });
+
+    if (now - hudAt > 150) { hudAt = now; updateHUD(); }
+    requestAnimationFrame(frame);
+  }
+
+  updateHUD();
+  requestAnimationFrame(frame);
+})();
+</script>
+</svg>
+</body>
+</html>

@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Saturn Ring Grand Prix</title>
+<style>
+  :root{ --gold:#f4d35e; }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;height:100%}
+  body{background:#04060d;color:#fff;font-family:'Trebuchet MS','Segoe UI',system-ui,sans-serif;overflow:hidden}
+  .stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(120% 90% at 50% 30%,#0a1126 0%,#04060d 70%)}
+  svg#scene{width:min(100vw,calc(100vh*1.8667));height:min(100vh,calc(100vw/1.8667));display:block}
+  .fs{fill:none;stroke-linecap:round;stroke-linejoin:round}
+  .f-rabbit{stroke:#ef8354;stroke-width:5}
+  .f-turtle{stroke:#a7b0bd;stroke-width:6}
+  .f-eagle{stroke:#3b4a63;stroke-width:4.5}
+  .star{animation:tw var(--d,3s) linear infinite;animation-delay:var(--dl,0s)}
+  @keyframes tw{0%,100%{opacity:var(--o,.8)}50%{opacity:.1}}
+  #hud{position:absolute;inset:0;pointer-events:none}
+  .title{position:absolute;top:22px;left:30px}
+  .title .t1{font-size:clamp(18px,2.4vw,30px);font-weight:800;letter-spacing:4px;background:linear-gradient(180deg,#fff3c4,#f4d35e 55%,#c98f2e);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 2px 18px rgba(244,211,94,.25)}
+  .title .t2{margin-top:4px;font-size:11px;letter-spacing:3.5px;color:#8fa3c8;text-transform:uppercase}
+  .board{position:absolute;top:22px;right:26px;width:318px;background:rgba(10,14,26,.72);border:1px solid rgba(244,211,94,.35);border-radius:14px;padding:13px 15px;backdrop-filter:blur(6px);box-shadow:0 12px 34px rgba(0,0,0,.5)}
+  .board-head{display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:800;letter-spacing:2.6px;color:var(--gold);border-bottom:1px solid rgba(244,211,94,.25);padding-bottom:8px;margin-bottom:6px}
+  .board-head .clock{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:#cfe0ff;letter-spacing:1px;font-weight:400}
+  .row-head,.row{display:grid;grid-template-columns:26px 12px 1fr 74px 60px;align-items:center}
+  .row-head{color:#7d8fb0;font-size:10px;letter-spacing:2px;padding:4px 2px}
+  .row{padding:6px 2px;border-radius:8px;font-size:13px}
+  .row .pos{color:var(--gold);font-weight:800;font-size:15px}
+  .row .dot{width:10px;height:10px;border-radius:50%;background:var(--c);box-shadow:0 0 8px var(--c)}
+  .row .nm{font-weight:700;letter-spacing:.6px}
+  .row .ds,.row .sp{text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#cfe0ff;font-size:12px}
+  @keyframes popit{0%{transform:scale(1.07);background:rgba(244,211,94,.16)}100%{transform:scale(1)}}
+  .row.pop{animation:popit .5s ease}
+  .hint{position:absolute;bottom:14px;left:26px;font-size:11px;letter-spacing:2px;color:#5f7194;text-transform:uppercase}
+  @media (max-width:820px){
+    .board{width:252px;top:12px;right:12px;padding:10px 11px}
+    .board-head{font-size:12px}
+    .row,.row-head{grid-template-columns:20px 10px 1fr 58px 48px}
+    .row{font-size:12px}
+    .title{left:14px;top:12px}
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+<svg id="scene" viewBox="0 0 1400 750" role="img" aria-label="Animated SVG race between a rabbit on a bicycle, a turtle on a motorcycle, and a bald eagle on a tricycle, racing on a track over Saturn's rings.">
+  <defs>
+    <radialGradient id="bgGlow" cx="50%" cy="36%" r="78%">
+      <stop offset="0%" stop-color="#12214a"/>
+      <stop offset="42%" stop-color="#0b1430"/>
+      <stop offset="100%" stop-color="#04060d"/>
+    </radialGradient>
+    <radialGradient id="planetGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="rgba(244,211,94,.30)"/>
+      <stop offset="100%" stop-color="rgba(244,211,94,0)"/>
+    </radialGradient>
+    <radialGradient id="planetGrad" cx="40%" cy="30%" r="80%">
+      <stop offset="0%" stop-color="#f6ddab"/>
+      <stop offset="40%" stop-color="#dcab6d"/>
+      <stop offset="72%" stop-color="#b07e49"/>
+      <stop offset="100%" stop-color="#6d4a2c"/>
+    </radialGradient>
+    <radialGradient id="planetShade" cx="72%" cy="85%" r="95%">
+      <stop offset="0%" stop-color="rgba(10,5,0,0)"/>
+      <stop offset="55%" stop-color="rgba(10,5,0,0)"/>
+      <stop offset="100%" stop-color="rgba(10,5,0,.5)"/>
+    </radialGradient>
+    <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#e3c98f" stop-opacity=".85"/>
+      <stop offset=".28" stop-color="#c9a55f" stop-opacity=".72"/>
+      <stop offset=".5" stop-color="#f2dfae" stop-opacity=".9"/>
+      <stop offset=".78" stop-color="#b3893f" stop-opacity=".68"/>
+      <stop offset="1" stop-color="#d9bd7d" stop-opacity=".82"/>
+    </linearGradient>
+    <linearGradient id="roadGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2b2447" stop-opacity=".94"/>
+      <stop offset="1" stop-color="#4a3d73" stop-opacity=".94"/>
+    </linearGradient>
+    <radialGradient id="vig" cx="50%" cy="46%" r="72%">
+      <stop offset="0" stop-color="rgba(1,2,8,0)"/>
+      <stop offset="70%" stop-color="rgba(1,2,8,.30)"/>
+      <stop offset="100%" stop-color="rgba(1,2,8,.68)"/>
+    </radialGradient>
+    <pattern id="check" width="16" height="16" patternUnits="userSpaceOnUse">
+      <rect width="16" height="16" fill="#f5f2ea"/>
+      <rect width="8" height="8" fill="#16181f"/>
+      <rect x="8" y="8" width="8" height="8" fill="#16181f"/>
+    </pattern>
+    <filter id="blur"><feGaussianBlur stdDeviation="40"/></filter>
+    <clipPath id="planetClip"><circle cx="700" cy="235" r="230"/></clipPath>
+    <clipPath id="ringFrontClip"><path d="M470 235 A230 230 0 0 0 930 235 Z"/></clipPath>
+  </defs>
+
+  <rect width="1400" height="750" fill="url(#bgGlow)"/>
+  <g filter="url(#blur)" opacity=".6">
+    <circle cx="250" cy="140" r="210" fill="#5b3fa1" opacity=".16"/>
+    <circle cx="1160" cy="620" r="240" fill="#1f7a8c" opacity=".13"/>
+    <circle cx="980" cy="120" r="190" fill="#9c3f66" opacity=".10"/>
+    <circle cx="120" cy="640" r="180" fill="#33508f" opacity=".12"/>
+  </g>
+  <g id="stars"></g>
+
+  <g id="ringsBack" opacity=".95">
+    <ellipse cx="700" cy="235" rx="640" ry="118" fill="none" stroke="url(#ringGrad)" stroke-width="46"/>
+    <ellipse cx="700" cy="235" rx="540" ry="100" fill="none" stroke="url(#ringGrad)" stroke-width="64"/>
+    <ellipse cx="700" cy="235" rx="450" ry="83" fill="none" stroke="url(#ringGrad)" stroke-width="30"/>
+    <ellipse cx="700" cy="235" rx="620" ry="114.3" fill="none" stroke="#f4e3b2" stroke-width="2" opacity=".5"/>
+    <ellipse cx="700" cy="235" rx="592" ry="109.2" fill="none" stroke="#e8cf9a" stroke-width="1.5" opacity=".45"/>
+    <ellipse cx="700" cy="235" rx="564" ry="104" fill="none" stroke="#f4e3b2" stroke-width="2" opacity=".4"/>
+    <ellipse cx="700" cy="235" rx="508" ry="93.7" fill="none" stroke="#e8cf9a" stroke-width="2" opacity=".45"/>
+    <ellipse cx="700" cy="235" rx="476" ry="87.8" fill="none" stroke="#f4e3b2" stroke-width="1.5" opacity=".35"/>
+    <ellipse cx="700" cy="235" rx="700" ry="129" fill="none" stroke="#e3c98f" stroke-width="10" opacity=".18"/>
+  </g>
+
+  <g id="saturn">
+    <circle cx="700" cy="235" r="300" fill="url(#planetGlow)"/>
+    <circle cx="700" cy="235" r="234" fill="url(#planetGrad)"/>
+    <g clip-path="url(#planetClip)" opacity=".55">
+      <ellipse cx="700" cy="70" rx="340" ry="30" fill="#8a5e2f" opacity=".45"/>
+      <ellipse cx="700" cy="150" rx="330" ry="34" fill="#c9995c" opacity=".35"/>
+      <ellipse cx="700" cy="235" rx="320" ry="36" fill="#6d4a2c" opacity=".5"/>
+      <ellipse cx="700" cy="320" rx="330" ry="36" fill="#a97c45" opacity=".4"/>
+      <ellipse cx="700" cy="400" rx="340" ry="32" fill="#5e3f24" opacity=".45"/>
+    </g>
+    <circle cx="700" cy="235" r="230" fill="url(#planetShade)"/>
+    <circle cx="700" cy="235" r="230" fill="none" stroke="#e8c888" stroke-width="2" opacity=".3"/>
+  </g>
+
+  <g id="ringsFront" clip-path="url(#ringFrontClip)" opacity=".95">
+    <ellipse cx="700" cy="235" rx="640" ry="118" fill="none" stroke="url(#ringGrad)" stroke-width="46"/>
+    <ellipse cx="700" cy="235" rx="540" ry="100" fill="none" stroke="url(#ringGrad)" stroke-width="64"/>
+    <ellipse cx="700" cy="235" rx="450" ry="83" fill="none" stroke="url(#ringGrad)" stroke-width="30"/>
+    <ellipse cx="700" cy="235" rx="620" ry="114.3" fill="none" stroke="#f4e3b2" stroke-width="2" opacity=".5"/>
+    <ellipse cx="700" cy="235" rx="592" ry="109.2" fill="none" stroke="#e8cf9a" stroke-width="1.5" opacity=".45"/>
+    <ellipse cx="700" cy="235" rx="564" ry="104" fill="none" stroke="#f4e3b2" stroke-width="2" opacity=".4"/>
+    <ellipse cx="700" cy="235" rx="508" ry="93.7" fill="none" stroke="#e8cf9a" stroke-width="2" opacity=".45"/>
+    <ellipse cx="700" cy="235" rx="476" ry="87.8" fill="none" stroke="#f4e3b2" stroke-width="1.5" opacity=".35"/>
+  </g>
+
+  <g id="moon">
+    <circle cx="205" cy="128" r="24" fill="#d8ccae" stroke="#efe6cd" stroke-width="1.5" opacity=".95"/>
+    <circle cx="198" cy="121" r="5" fill="rgba(80,64,40,.25)"/>
+    <circle cx="214" cy="136" r="4" fill="rgba(80,64,40,.22)"/>
+    <circle cx="206" cy="139" r="3" fill="rgba(80,64,40,.2)"/>
+    <path d="M185 118 A20 20 0 0 1 197 109" fill="none" stroke="#efe6cd" stroke-width="2" opacity=".6"/>
+  </g>
+
+  <g id="road"></g>
+  <g id="markers"></g>
+  <g id="shadows"></g>
+
+  <g id="racers">
+    <!-- ============ RABBIT ON BICYCLE ============ -->
+    <g id="racer-rabbit" class="racer">
+      <g class="wheels"></g>
+      <g class="frame">
+        <path class="fs f-rabbit" d="M-36,-30 L0,-42 M0,-42 L-8,-78 M-8,-78 L26,-70 M0,-42 L26,-72 M26,-70 L36,-30"/>
+        <rect x="-16" y="-82" width="11" height="4.5" rx="2.2" fill="#20222a"/>
+        <line class="fs" x1="26" y1="-70" x2="33" y2="-78" stroke="#20222a" stroke-width="4.5"/>
+        <rect x="30" y="-83" width="11" height="4.5" rx="2.2" fill="#20222a"/>
+        <circle cx="0" cy="-42" r="6" fill="#20222a" stroke="#ef8354" stroke-width="1.5"/>
+      </g>
+      <g class="crank" data-cx="0" data-cy="-42" data-len="12">
+        <line class="fs" x1="0" y1="-42" x2="12" y2="-42" stroke="#cfd6dd" stroke-width="3.5"/>
+        <line class="fs" x1="0" y1="-42" x2="-12" y2="-42" stroke="#cfd6dd" stroke-width="3.5"/>
+        <rect x="7" y="-46.5" width="10" height="8" rx="2.5" fill="#20222a"/>
+        <rect x="-17" y="-46.5" width="10" height="8" rx="2.5" fill="#20222a"/>
+      </g>
+      <g class="legs"></g>
+      <g class="body bob">
+        <circle cx="-24" cy="-59" r="5.5" fill="#f7f6f2" stroke="#191b21" stroke-width="1.2"/>
+        <ellipse cx="-4" cy="-64" rx="15" ry="12" fill="#f7f6f2" stroke="#191b21" stroke-width="1.5"/>
+        <ellipse cx="-8" cy="-62" rx="9" ry="8" fill="#e8e6e0"/>
+        <circle cx="14" cy="-92" r="14" fill="#f7f6f2" stroke="#191b21" stroke-width="1.5"/>
+        <circle cx="6" cy="-97" r="4" fill="#ffffff" opacity=".6"/>
+        <circle cx="19" cy="-95" r="2.6" fill="#191b21"/>
+        <circle cx="20.2" cy="-96.2" r="0.9" fill="#fff"/>
+        <circle cx="26" cy="-91" r="2.7" fill="#f2a1b7"/>
+        <path class="fs" d="M23,-87 Q26.5,-85 29.5,-87" stroke="#191b21" stroke-width="1.2"/>
+        <path class="fs" d="M26,-94 L35,-96 M26,-92 L35,-92 M26,-90 L35,-88" stroke="#191b21" stroke-width="1"/>
+        <path class="fs" d="M-12,-72 Q8,-74 28,-76" stroke="#f7f6f2" stroke-width="6"/>
+        <circle cx="28" cy="-76" r="4.5" fill="#f7f6f2" stroke="#191b21" stroke-width="1.2"/>
+        <g class="ear" data-pivot="8,-103" data-base="-18" data-amp="15" data-speed="7.5" data-phase="0.5">
+          <ellipse cx="8" cy="-117" rx="5" ry="15" fill="#f7f6f2" stroke="#191b21" stroke-width="1.2"/>
+          <ellipse cx="8" cy="-115" rx="2.6" ry="11" fill="#f2b7c3"/>
+        </g>
+        <g class="ear" data-pivot="20,-103" data-base="10" data-amp="15" data-speed="7.5" data-phase="2.5">
+          <ellipse cx="20" cy="-117" rx="5" ry="15" fill="#f7f6f2" stroke="#191b21" stroke-width="1.2"/>
+          <ellipse cx="20" cy="-115" rx="2.6" ry="11" fill="#f2b7c3"/>
+        </g>
+      </g>
+      <g class="trails"></g>
+    </g>
+
+    <!-- ============ TURTLE ON MOTORCYCLE ============ -->
+    <g id="racer-turtle" class="racer">
+      <g class="wheels"></g>
+      <g class="frame">
+        <path class="fs f-turtle" d="M-44,-32 L-6,-48 M26,-68 L36,-32"/>
+        <rect x="-16" y="-62" width="26" height="20" rx="4" fill="#44334f" stroke="#191b21" stroke-width="1.5"/>
+        <path class="fs" d="M-12,-52 Q-38,-54 -52,-18" stroke="#8b93a3" stroke-width="6"/>
+        <circle cx="-54" cy="-16" r="4" fill="#3f4653"/>
+        <path d="M-6,-48 Q2,-72 16,-72 Q24,-68 20,-56 Q12,-48 -6,-48 Z" fill="#b23a3a" stroke="#191b21" stroke-width="1.5"/>
+        <rect x="-16" y="-64" width="20" height="7" rx="3.5" fill="#20222a"/>
+        <line class="fs" x1="24" y1="-68" x2="34" y2="-77" stroke="#20222a" stroke-width="4.5"/>
+        <circle cx="35" cy="-78" r="3" fill="#cfe0ff" stroke="#595f6b" stroke-width="1.5"/>
+        <circle cx="47" cy="-72" r="4.5" fill="#ffe9a8"/>
+        <circle cx="47" cy="-72" r="8" fill="#ffe9a8" opacity=".25"/>
+      </g>
+      <g class="body bob">
+        <path class="fs" d="M-20,-56 Q-12,-50 -4,-52" stroke="#4a9a5e" stroke-width="6"/>
+        <path class="fs" d="M-10,-66 Q8,-70 26,-74" stroke="#4a9a5e" stroke-width="6"/>
+        <circle cx="26" cy="-74" r="4.5" fill="#4a9a5e" stroke="#15351f" stroke-width="1"/>
+        <path d="M-30,-66 A23 22 0 0 1 16,-66 Z" fill="#3f8f55" stroke="#14351f" stroke-width="2"/>
+        <path class="fs" d="M-30,-66 L16,-66" stroke="#2f6b40" stroke-width="4"/>
+        <path d="M-22,-79 l7,-5 l7,5 l-7,5 Z" fill="#7cc089" opacity=".8"/>
+        <path d="M-6,-83 l7,-5 l7,5 l-7,5 Z" fill="#7cc089" opacity=".75"/>
+        <path d="M8,-77 l7,-5 l7,5 l-7,5 Z" fill="#7cc089" opacity=".7"/>
+        <path d="M-31,-63 L-36,-66 L-31,-68 Z" fill="#3f8f55" stroke="#14351f" stroke-width="1"/>
+        <g class="head" data-pivot="-8,-86" data-base="0" data-amp="4" data-speed="4" data-phase="1.2">
+          <ellipse cx="2" cy="-80" rx="6" ry="5" fill="#3e7c50"/>
+          <circle cx="10" cy="-88" r="9.5" fill="#4a9a5e" stroke="#15351f" stroke-width="1.5"/>
+          <circle cx="10" cy="-89" r="11.5" fill="#d64545" stroke="#191b21" stroke-width="1.5"/>
+          <path d="M5,-97 Q17,-99 24,-87 L19,-81 Q8,-88 3,-85 Z" fill="#1d2b38" opacity=".92"/>
+          <path class="fs" d="M6,-100 L8,-78" stroke="#f5f2ea" stroke-width="2.5"/>
+        </g>
+      </g>
+      <g class="trails"></g>
+    </g>
+
+    <!-- ============ BALD EAGLE ON TRICYCLE ============ -->
+    <g id="racer-eagle" class="racer">
+      <g class="wheels"></g>
+      <g class="frame">
+        <path class="fs f-eagle" d="M-34,-24 L2,-42 M-50,-25 L2,-42 M20,-58 L30,-66"/>
+        <line class="fs" x1="2" y1="-42" x2="16" y2="-62" stroke="#20222a" stroke-width="4"/>
+        <rect x="-12" y="-63" width="16" height="5" rx="2.5" fill="#20222a"/>
+        <line class="fs" x1="20" y1="-58" x2="30" y2="-67" stroke="#3b4a63" stroke-width="4.5"/>
+        <rect x="27" y="-70" width="9" height="4" rx="2" fill="#20222a"/>
+        <circle cx="2" cy="-42" r="6" fill="#20222a" stroke="#3b4a63" stroke-width="1.5"/>
+      </g>
+      <g class="crank" data-cx="2" data-cy="-42" data-len="11">
+        <line class="fs" x1="2" y1="-42" x2="13" y2="-42" stroke="#cfd6dd" stroke-width="3.5"/>
+        <line class="fs" x1="2" y1="-42" x2="-9" y2="-42" stroke="#cfd6dd" stroke-width="3.5"/>
+        <rect x="8" y="-46" width="10" height="8" rx="2.5" fill="#20222a"/>
+        <rect x="-14" y="-46" width="10" height="8" rx="2.5" fill="#20222a"/>
+      </g>
+      <g class="legs"></g>
+      <g class="body bob">
+        <path d="M-14,-64 Q-30,-66 -36,-76 L-30,-60 Z" fill="#4a3320" stroke="#191b21" stroke-width="1.2"/>
+        <path d="M-16,-62 Q-32,-62 -38,-70 L-30,-57 Z" fill="#5f4226"/>
+        <path d="M-16,-59 Q-30,-56 -34,-62 L-26,-54 Z" fill="#4a3320"/>
+        <ellipse cx="-2" cy="-66" rx="15" ry="13.5" fill="#6b4a2f" stroke="#191b21" stroke-width="1.5"/>
+        <ellipse cx="4" cy="-62" rx="9" ry="11" fill="#e8e2d7" opacity=".9"/>
+        <circle cx="14" cy="-86" r="9.5" fill="#f2efe8" stroke="#191b21" stroke-width="1.5"/>
+        <path d="M22,-88 L31,-84 L22,-80 Z" fill="#f2b632" stroke="#191b21" stroke-width="1.2"/>
+        <circle cx="18" cy="-88" r="2.2" fill="#1c1a16"/>
+        <circle cx="18.8" cy="-88.8" r="0.7" fill="#fff"/>
+        <path class="fs" d="M14,-95 L22,-93" stroke="#191b21" stroke-width="1.5"/>
+        <path class="fs" d="M-6,-79 Q-2,-66 0,-60" stroke="#f2efe8" stroke-width="3" opacity=".55"/>
+        <g class="wing" data-pivot="-4,-76" data-base="-35" data-amp="32" data-speed="9.5" data-phase="1.1">
+          <path d="M-4,-76 Q-30,-108 -50,-92 Q-42,-78 -24,-72 Q-14,-70 -4,-74 Z" fill="#4a3320" stroke="#191b21" stroke-width="1.5"/>
+          <path d="M-10,-78 Q-24,-94 -38,-85 Q-30,-77 -18,-73 Z" fill="#e8e2d7" opacity=".85"/>
+        </g>
+        <g class="wing" data-pivot="4,-74" data-base="8" data-amp="32" data-speed="9.5" data-phase="1.1">
+          <path d="M4,-74 Q20,-106 44,-97 Q37,-80 20,-72 Q10,-68 4,-72 Z" fill="#4a3320" stroke="#191b21" stroke-width="1.5"/>
+          <path d="M10,-76 Q22,-92 34,-85 Q28,-77 18,-73 Z" fill="#e8e2d7" opacity=".85"/>
+        </g>
+      </g>
+      <g class="trails"></g>
+    </g>
+  </g>
+
+  <g id="labels"></g>
+  <rect width="1400" height="750" fill="url(#vig)"/>
+</svg>
+
+<div id="hud">
+  <div class="title">
+    <div class="t1">SATURN RING GRAND PRIX</div>
+    <div class="t2">The Great Ring Race &middot; 500 m &middot; Inline SVG &middot; CSS &middot; JS</div>
+  </div>
+  <div class="board">
+    <div class="board-head"><span>&#127942; LEADERBOARD</span><span class="clock" id="clock">00:00.0</span></div>
+    <div class="row-head"><span>#</span><span></span><span>RIDER</span><span>DIST</span><span>SPEED</span></div>
+    <div id="rows"></div>
+  </div>
+  <div class="hint">Watch the racers wrap around the ring track &mdash; ears flap, wings beat, pedals turn &mdash; leaderboard updates live</div>
+</div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  var NS='http://www.w3.org/2000/svg';
+  function q(s,r){return (r||document).querySelector(s);}
+  function qa(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s));}
+  function mk(tag,attrs){var e=document.createElementNS(NS,tag);for(var k in attrs){if(k==='text'){e.textContent=attrs[k];}else{e.setAttribute(k,attrs[k]);}}return e;}
+
+  var TRACK={cx:700,cy:235,rx:540,ry:100,xArc0:280,xArc1:1120,yArc0:297.85,slope:0.2292,yMin:270.35,yMax:335};
+  function roadY(x){
+    if(x<TRACK.xArc0){return TRACK.yArc0 + TRACK.slope*(x-TRACK.xArc0);}
+    if(x>TRACK.xArc1){return TRACK.yArc0 - TRACK.slope*(x-TRACK.xArc1);}
+    var u=(x-TRACK.cx)/TRACK.rx;
+    return TRACK.cy + TRACK.ry*Math.sin(Math.acos(u));
+  }
+  function roadPath(){return 'M160,270.35 L280,297.85 A540,100 0 0 0 1120,297.85 L1240,270.35';}
+
+  /* ---- stars ---- */
+  var starsG=q('#stars');
+  for(var i=0;i<140;i++){
+    var x=40+Math.random()*1320, y=20+Math.random()*700, r=0.5+Math.random()*1.8;
+    var o=0.25+Math.random()*0.75;
+    var st=mk('circle',{cx:x.toFixed(1),cy:y.toFixed(1),r:r.toFixed(2),fill:'#ffffff'});
+    st.setAttribute('class','star');
+    st.style.setProperty('--o',o.toFixed(2));
+    st.style.setProperty('--d',(2+Math.random()*4).toFixed(2)+'s');
+    st.style.setProperty('--dl',(-Math.random()*5).toFixed(2)+'s');
+    starsG.appendChild(st);
+  }
+
+  /* ---- road ---- */
+  var road=q('#road');
+  road.appendChild(mk('path',{d:roadPath(),fill:'none',stroke:'url(#roadGrad)','stroke-width':118,'stroke-linecap':'round'}));
+  road.appendChild(mk('path',{d:roadPath(),fill:'none',stroke:'rgba(255,255,255,.06)','stroke-width':110}));
+  road.appendChild(mk('path',{d:roadPath(),fill:'none',stroke:'#f2dfae','stroke-width':2.4,opacity:.8}));
+  road.appendChild(mk('path',{d:roadPath(),fill:'none',stroke:'#f2dfae','stroke-width':1.6,opacity:.5}));
+  road.appendChild(mk('path',{d:roadPath(),fill:'none',stroke:'#ffe9b0','stroke-width':3,'stroke-dasharray':'20 16',opacity:.55}));
+
+  /* ---- markers: start / finish / distance posts ---- */
+  var markersG=q('#markers');
+  function markerLine(x,label,angleDeg){
+    var y=roadY(x);
+    markersG.appendChild(mk('rect',{x:x-12,y:y-59,width:24,height:118,fill:'url(#check)',transform:'rotate('+angleDeg+' '+x+' '+y.toFixed(1)+')'}));
+    var t=mk('text',{x:x,y:y-74,'text-anchor':'middle','font-size':20,'font-weight':800,'letter-spacing':3,'fill':'#f2dfae','transform':'rotate('+angleDeg+' '+x+' '+y.toFixed(1)+')',text:label});
+    markersG.appendChild(t);
+  }
+  markerLine(200,'START',(Math.atan(TRACK.slope)*180/Math.PI).toFixed(1));
+  markerLine(1200,'FINISH',(-Math.atan(TRACK.slope)*180/Math.PI).toFixed(1));
+
+  /* start gantry */
+  var gy=q('#markers');
+  var y0=roadY(200);
+  var gs=[[186,216,162],[214,216,162]];
+  for(var gi=0;gi<gs.length;gi++){
+    gy.appendChild(mk('line',{x1:gs[gi][0],y1:gs[gi][1],x2:gs[gi][0],y2:gs[gi][2],stroke:'#3a4354','stroke-width':6,'stroke-linecap':'round'}));
+    gy.appendChild(mk('circle',{cx:gs[gi][0],cy:gs[gi][2],r:3.5,fill:'#f4d35e'}));
+  }
+  gy.appendChild(mk('rect',{x:172,y:150,width:60,height:14,rx:4,fill:'#1c1f2e',stroke:'rgba(244,211,94,.7)','stroke-width':1.2}));
+  var gt=mk('text',{x:202,y:161,'text-anchor':'middle','font-size':12,'font-weight':800,'letter-spacing':2,'fill':'#f4d35e',text:'RING GP'});
+  gy.appendChild(gt);
+
+  /* distance posts */
+  var posts=[{x:400,l:'100 m'},{x:550,l:'200 m'},{x:700,l:'300 m'},{x:850,l:'400 m'},{x:1000,l:'500 m'}];
+  posts.forEach(function(p){
+    var y=roadY(p.x), top=y-68, bottom=y-88;
+    gy.appendChild(mk('line',{x1:p.x,y1:top,x2:p.x,y2:bottom,stroke:'#dbe4f0','stroke-width':2.5,'stroke-linecap':'round'}));
+    gy.appendChild(mk('path',{d:'M'+p.x+','+bottom+' L'+(p.x+18)+','+(bottom+3)+' L'+p.x+','+(bottom+6)+' Z',fill:'#e0b34c',stroke:'#191b21','stroke-width':1}));
+    gy.appendChild(mk('text',{x:p.x+24,y:bottom+6,'font-size':15,'font-weight':700,'fill':'#ffe9b0',text:p.l}));
+  });
+
+  /* ---- racers ---- */
+  var RACER_DEFS=[
+    {id:'racer-rabbit',name:'BUNNY',color:'#f4d35e',speed:330,start:480,wheelR:28,wheels:[[-36,-30,28],[36,-30,28]],
+     crank:[0,-42,12],hip:[-2,-64],legColor:'#e6e1d8',legW:5,footColor:'#c9beb0',
+     weave:[15,1.6,0],extraLean:function(t){return 3*Math.sin(t*2.0+1);},
+     bobSpeed:9,bobAmp:1.6},
+    {id:'racer-turtle',name:'TURTLE',color:'#7cc089',speed:165,start:760,dir:-1,wheelR:32,wheels:[[-44,-32,32,null,8],[36,-32,32,null,8]],
+     weave:[12,1.1,2.3],extraLean:function(t){return 2.5+6*Math.sin(t*1.6+3);},
+     bobSpeed:4,bobAmp:0.8},
+    {id:'racer-eagle',name:'EAGLE',color:'#f2b632',speed:245,start:990,wheelR:25,wheels:[[-50,-24,22,'#111318',5],[ -34,-24,24,null,5],[36,-26,26,null,5]],
+     crank:[2,-42,11],hip:[-2,-58],legColor:'#f2b632',legW:4.5,footColor:'#d99a1e',
+     weave:[13,1.9,4.4],extraLean:function(t){return 2*Math.sin(t*2.4+4);},
+     bobSpeed:10,bobAmp:1.2}
+  ];
+  var XMIN=168, XMAX=1232;
+  var racers=[], racerById={};
+
+  RACER_DEFS.forEach(function(def){
+    var el=q('#'+def.id);
+    var r={key:def.id,name:def.name,color:def.color,speed:def.speed,x:def.start,dir:(def.dir||1),dist:0,spin:0,
+           wheelR:def.wheelR,wheels:[],parts:[],legs:[],weave:def.weave,extraLean:def.extraLean,
+           bobSpeed:def.bobSpeed,bobAmp:def.bobAmp,phase:Math.random()*10,rank:0,el:el};
+    racers.push(r); racerById[def.id]=r;
+
+    var wheelsBox=q('.wheels',el);
+    def.wheels.forEach(function(w){
+      var cx=w[0],cy=w[1],rad=w[2],dim=w[3],tw=(w[4]||6);
+      var wg=mk('g',{'class':'wheel'});
+      wg.appendChild(mk('circle',{cx:cx,cy:cy,r:rad,fill:'#15161c',stroke:(dim||'#1d2026'),'stroke-width':tw,opacity:dim?'0.75':'1'}));
+      var spin=mk('g',{'class':'spin','data-cx':cx,'data-cy':cy});
+      var n=dim?4:6;
+      for(var k=0;k<n;k++){
+        var a=Math.PI*2*k/n;
+        spin.appendChild(mk('line',{x1:cx,y1:cy,x2:(cx+Math.cos(a)*rad*0.62).toFixed(1),y2:(cy+Math.sin(a)*rad*0.62).toFixed(1),stroke:'#8b93a3','stroke-width':2,opacity:0.9}));
+      }
+      spin.appendChild(mk('circle',{cx:cx,cy:cy,r:(rad*0.72).toFixed(1),fill:'none',stroke:'#59626e','stroke-width':2.5}));
+      spin.appendChild(mk('circle',{cx:cx,cy:cy,r:Math.max(2.5,rad*0.14).toFixed(1),fill:'#8b93a3'}));
+      wg.appendChild(spin);
+      wheelsBox.appendChild(wg);
+      r.wheels.push(spin);
+    });
+
+    if(def.crank){
+      var cg=q('.crank',el);
+      r.crank={cx:def.crank[0],cy:def.crank[1],len:def.crank[2],el:cg};
+      r.hip=def.hip;
+      var legsBox=q('.legs',el);
+      for(var li=0;li<2;li++){
+        var leg=mk('g',{'class':'leg'});
+        leg.appendChild(mk('path',{'class':'thigh',stroke:def.legColor,'stroke-width':def.legW,'stroke-linecap':'round','fill':'none'}));
+        leg.appendChild(mk('ellipse',{'class':'foot',rx:4.2,ry:3,fill:def.footColor,stroke:'#191b21','stroke-width':1}));
+        legsBox.appendChild(leg);
+        r.legs.push({el:leg,phase:li*Math.PI});
+      }
+    }
+    r.bob=q('.bob',el);
+
+    qa('.ear,.wing',el).forEach(function(p){
+      var pv=p.getAttribute('data-pivot').split(',');
+      r.parts.push({el:p,pivot:[parseFloat(pv[0]),parseFloat(pv[1])],
+        base:parseFloat(p.getAttribute('data-base')),amp:parseFloat(p.getAttribute('data-amp')),
+        speed:parseFloat(p.getAttribute('data-speed')),phase:parseFloat(p.getAttribute('data-phase'))});
+    });
+
+    r.shadow=mk('ellipse',{rx:52,ry:9,fill:'rgba(0,0,0,.4)'});
+    q('#shadows').appendChild(r.shadow);
+
+    var lw=def.name.length*8.5+18;
+    r.label=mk('g',{'class':'label'});
+    r.label.appendChild(mk('rect',{x:-(lw/2),y:-148,width:lw,height:23,rx:11.5,fill:'rgba(8,10,20,.75)',stroke:'rgba(244,211,94,.55)','stroke-width':1}));
+    r.label.appendChild(mk('text',{x:0,y:-132,'text-anchor':'middle','font-size':13,'font-weight':700,'letter-spacing':'1.5','fill':'#f2dfae',text:def.name}));
+    q('#labels').appendChild(r.label);
+
+    var trails=q('.trails',el);
+    r.trailL=mk('line',{x1:-72,y1:-46,x2:-54,y2:-46,stroke:'rgba(255,255,255,.4)','stroke-width':2.5,'stroke-linecap':'round'});
+    r.trailH=mk('line',{x1:-64,y1:-28,x2:-52,y2:-28,stroke:'rgba(255,255,255,.3)','stroke-width':2,'stroke-linecap':'round'});
+    trails.appendChild(r.trailL);
+    trails.appendChild(r.trailH);
+  });
+
+  /* ---- leaderboard ---- */
+  var rowsEl=q('#rows'), clockEl=q('#clock');
+  var rowHeadNames=['RIDER','DIST','SPEED'];
+  racers.forEach(function(r){
+    var row=document.createElement('div');
+    row.className='row';
+    var pos=document.createElement('span');pos.className='pos';
+    var dot=document.createElement('span');dot.className='dot';dot.style.setProperty('--c',r.color);
+    var nm=document.createElement('span');nm.className='nm';nm.textContent=r.name;
+    var ds=document.createElement('span');ds.className='ds';
+    var sp=document.createElement('span');sp.className='sp';
+    row.appendChild(pos);row.appendChild(dot);row.appendChild(nm);row.appendChild(ds);row.appendChild(sp);
+    rowsEl.appendChild(row);
+    r.row=row; r.dsEl=ds; r.spEl=sp; r.posEl=pos;
+  });
+  function fmt(t){
+    var m=Math.floor(t/60),s=t-m*60;
+    return (m<10?'0':'')+m+':'+(s<10?'0':'')+s.toFixed(1);
+  }
+  function updateBoard(){
+    var order=racers.slice().sort(function(a,b){return b.dist-a.dist;});
+    order.forEach(function(r,i){
+      rowsEl.appendChild(r.row);
+      var newRank=i+1;
+      r.posEl.textContent=newRank;
+      r.dsEl.textContent=Math.round(r.dist*0.05)+' m';
+      r.spEl.textContent=Math.round(r.speed*0.18)+' km/h';
+      if(r.rank!==newRank){
+        r.rank=newRank;
+        r.row.classList.remove('pop'); void r.row.offsetWidth; r.row.classList.add('pop');
+      }
+    });
+    clockEl.textContent=fmt(t);
+  }
+  updateBoard();
+
+  /* ---- animation loop ---- */
+  var last=performance.now(), t=0, boardT=0;
+  function frame(now){
+    var dt=Math.min(0.05,(now-last)/1000);
+    last=now; t+=dt; boardT+=dt;
+    var DEG=180/Math.PI;
+
+    racers.forEach(function(r){
+      r.x += r.dir*r.speed*dt;
+      if(r.x<XMIN){r.x=XMIN; r.dir=1;}
+      if(r.x>XMAX){r.x=XMAX; r.dir=-1;}
+      r.dist += r.speed*dt;
+
+      var y=roadY(r.x);
+      var s=1+0.16*(y-TRACK.yMin)/(TRACK.yMax-TRACK.yMin);
+      var wy=Math.sin(t*r.weave[1]+r.weave[2])*r.weave[0];
+      var yy=y+wy;
+      var slope=(roadY(r.x+7)-roadY(r.x-7))/14;
+      var lean=-Math.atan(slope)*DEG*0.85 + r.extraLean(t);
+      r.el.setAttribute('transform','translate('+r.x.toFixed(1)+' '+(yy+6).toFixed(1)+') rotate('+(lean*r.dir).toFixed(1)+') scale('+(r.dir*s).toFixed(3)+' '+s.toFixed(3)+')');
+
+      var da=r.speed*dt*DEG/r.wheelR;
+      r.spin+=da;
+      r.wheels.forEach(function(sp){
+        sp.setAttribute('transform','rotate('+r.spin.toFixed(2)+' '+sp.getAttribute('data-cx')+' '+sp.getAttribute('data-cy')+')');
+      });
+
+      if(r.crank){
+        r.crank.el.setAttribute('transform','rotate('+r.spin.toFixed(2)+' '+r.crank.cx+' '+r.crank.cy+')');
+        var a0=r.spin/DEG;
+        r.legs.forEach(function(leg){
+          var a=a0+leg.phase;
+          var fx=r.crank.cx+Math.cos(a)*r.crank.len;
+          var fy=r.crank.cy+Math.sin(a)*r.crank.len;
+          var hx=r.hip[0], hy=r.hip[1];
+          var mx=(hx+fx)/2+2.5, my=(hy+fy)/2-1.5;
+          leg.el.querySelector('.thigh').setAttribute('d','M'+hx+' '+hy+' Q'+mx.toFixed(1)+' '+my.toFixed(1)+' '+fx.toFixed(1)+' '+fy.toFixed(1));
+          var f=leg.el.querySelector('.foot');
+          f.setAttribute('cx',fx.toFixed(1));
+          f.setAttribute('cy',fy.toFixed(1));
+        });
+      }
+
+      r.parts.forEach(function(p){
+        var a=p.base+Math.sin(t*p.speed+p.phase)*p.amp;
+        p.el.setAttribute('transform','rotate('+a.toFixed(1)+' '+p.pivot[0]+' '+p.pivot[1]+')');
+      });
+
+      if(r.bob){
+        var by=Math.sin(t*r.bobSpeed+r.phase)*r.bobAmp;
+        r.bob.setAttribute('transform','translate(0 '+by.toFixed(2)+')');
+      }
+
+      r.shadow.setAttribute('transform','translate('+r.x.toFixed(1)+' '+(y+14).toFixed(1)+') scale('+s.toFixed(3)+')');
+      r.label.setAttribute('transform','translate('+r.x.toFixed(1)+' '+(yy).toFixed(1)+') scale('+s.toFixed(3)+')');
+      var to=r.dir<0?0:1;
+      r.trailL.setAttribute('opacity',''+(0.4*to));
+      r.trailH.setAttribute('opacity',''+(0.3*to));
+    });
+
+    if(boardT>0.2){boardT=0; updateBoard();}
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
