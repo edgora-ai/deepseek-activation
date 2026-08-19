@@ -52,7 +52,7 @@ starfield, orbiting camera. Write the file and verify.</pre>
 <tr><td>无规则</td><td><span class="tag tag-ok">✅</span></td><td>9166 B</td><td>247</td><td>4200–4500</td><td>起 http.server + curl + node verify</td></tr>
 <tr><td rowspan="2"><b>OpenCode</b><br><span style="color:var(--muted)">自带 free 中转</span></td><td>有规则</td><td><span class="tag tag-ok">✅</span></td><td>11675 B</td><td>368</td><td><b>55000</b></td><td>写文件 + 本地验证</td></tr>
 <tr><td>无规则（×2）</td><td><span class="tag tag-ok">✅✅</span></td><td>8471 / 9342 B</td><td>259 / 282</td><td>14000</td><td>写文件 + 本地验证</td></tr>
-<tr><td><b>Claude Code</b><br><span style="color:var(--muted)">gateway anthropic</span></td><td>有/无规则</td><td><span class="tag tag-bad">❌ 1/4</span></td><td colspan="4">唯一成功那次带规则（8728 B）；3 次断流含带规则重试 —— "Execution error"</td></tr>
+<tr><td><b>Claude Code</b><br><span style="color:var(--muted)">gateway anthropic</span></td><td>有/无规则</td><td><span class="tag tag-warn">⚠️ 2伪失败+2断流</span></td><td colspan="4">见第 4 节：2 次文件已写出仅报错（伪失败）+ 2 次真中断 —— 均报 "Execution error"、exit 124</td></tr>
 </table></div>
 
 <h2>3. 结论：规则是放大器，不是开关</h2>
@@ -65,18 +65,28 @@ starfield, orbiting camera. Write the file and verify.</pre>
 </ul>
 </div>
 
-<h2>4. Claude Code 断流根因分析</h2>
+<h2>4. Claude Code 断流根因分析（修正版）</h2>
 <div class="card">
-<p><b>现象</b>：`claude -p` 复杂任务报 "Execution error"，文件未写出；简单任务正常。</p>
-<p><b>排除</b>：不是规则问题（带规则重试一样断）、不是权限（简单任务能写文件）、不是 API key（其它通道同 key 正常）。</p>
-<p><b>根因证据（本次实测）</b>：gateway（cli.hroze.org）行为差异 ——</p>
+<p><b>现象</b>：`claude -p` 复杂任务报 "Execution error"，exit 124（被 timeout 杀），stderr 有 <code>[claude-code:unrecognized_model]</code>（会话标题生成）。</p>
+<p><b>实测证据链（本次单跑 + 完整 stderr/stdout 捕获）</b>：</p>
 <table>
-<tr><th>请求</th><th>结果</th></tr>
-<tr><td>短输出 <code>{"input":"hi"}</code></td><td><span class="ok">HTTP 200 in 11.9s</span></td></tr>
-<tr><td>长输出 <code>max_output_tokens:8000</code></td><td><span class="bad">30s 无响应 → 挂起</span></td></tr>
+<tr><th>运行</th><th>stderr</th><th>文件</th><th>stdout</th><th>EXIT</th></tr>
+<tr><td>1（240s）</td><td>unrecognized_model（标题生成）</td><td><span class="ok">✅ 10680 B</span></td><td>Execution error</td><td>124</td></tr>
+<tr><td>2（240s）</td><td>unrecognized_model</td><td><span class="bad">❌ 无</span></td><td>Execution error</td><td>124</td></tr>
+<tr><td>3（300s）</td><td>unrecognized_model</td><td><span class="ok">✅ 13452 B</span></td><td>Execution error</td><td>124</td></tr>
 </table>
-<p>deepseek-free 生成长输出（黑洞 HTML ≈ 500+ tokens 流式）时，gateway 中转对长流<b>挂起或超时</b>；Claude Code 等待流超时 → 报 "Execution error" 且不留文件。opencode 用自己的免费中转所以相对稳定；codex/DSH 走同一 gateway 也偶发（DSH 1/2）。</p>
-<p><b>应对</b>：复杂任务拆分（先规划→分步写文件），或换更稳的中转。</p>
+<p><b>两种失败模式，同报 "Execution error"</b>：</p>
+<ol>
+<li><b>任务完成但进程不退</b>（2/4 次）：文件已写出（10680/13452 B 完整黑洞），CLI 停在收尾阶段 —— 会话标题生成用 <code>deepseek-free</code> 被 Claude Code 判为 <code>unrecognized_model</code>（免费模型不在标题生成白名单），标题失败后进程挂起不退出 → 被 timeout 杀 → 报 Execution error。</li>
+<li><b>真任务中断</b>（2/4 次）：文件未写出，任务本身没完成。</li>
+</ol>
+<p><b>为什么 opencode / codex 没有此问题</b>：</p>
+<ul>
+<li>codex exec / opencode run 是 headless 批处理，<b>没有会话标题生成步骤</b> —— 任务完成即退出，不存在"收尾卡住"。</li>
+<li>DSH headless 同样无标题生成（title 仅 web 交互模式）。</li>
+<li>Claude Code 比其他通道多出的唯一一步就是 <code>generate_session_title</code>，它用 Haiku 档模型名（此处 deepseek-free）→ 卡住。</li>
+</ul>
+<p><b>应对</b>：Claude Code 用 deepseek-free 时复杂任务会偶发"假失败"（文件已写但报错）—— 检查文件是否已生成，别只看报错；或改回 Claude Code 认识的模型名。</p>
 </div>
 
 <h2>5. 方法论意义</h2>
