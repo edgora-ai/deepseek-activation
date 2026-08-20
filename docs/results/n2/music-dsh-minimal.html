@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dsh-min · Music Visualizer</title>
+<style>
+  :root {
+    --accent: #38e8ff;
+    --panel: rgba(10, 14, 26, 0.72);
+    --panel-border: rgba(120, 160, 255, 0.16);
+    --text: #e8eefc;
+    --text-dim: #8b96b5;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: radial-gradient(1200px 700px at 50% -10%, #0d1330 0%, #070a16 55%, #04050b 100%);
+    color: var(--text);
+    font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  #viz {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    display: block;
+  }
+
+  #hud {
+    position: fixed;
+    top: 14px;
+    left: 18px;
+    right: 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    pointer-events: none;
+    z-index: 5;
+  }
+  .brand {
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    font-weight: 600;
+  }
+  .brand b { color: var(--text); }
+  #hud-theme { color: var(--accent); }
+  .status {
+    font-size: 12.5px;
+    color: var(--text-dim);
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    padding: 6px 12px;
+    border-radius: 999px;
+    opacity: 0;
+    transition: opacity 0.25s;
+    max-width: 60vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .status:not(:empty) { opacity: 1; }
+  .status.error { color: #ff9dab; border-color: rgba(255, 120, 140, 0.35); }
+
+  #controls {
+    position: fixed;
+    left: 50%;
+    bottom: 18px;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: calc(100vw - 24px);
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius);
+    padding: 8px 12px;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.45);
+    z-index: 6;
+  }
+  .group { display: flex; align-items: center; gap: 6px; }
+  .divider { width: 1px; height: 22px; background: var(--panel-border); }
+  .ctl {
+    appearance: none;
+    border: 1px solid var(--panel-border);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text);
+    font: 600 13px system-ui, sans-serif;
+    padding: 7px 12px;
+    border-radius: 9px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.05s;
+    white-space: nowrap;
+  }
+  .ctl:hover { background: rgba(255, 255, 255, 0.10); border-color: rgba(150, 190, 255, 0.35); }
+  .ctl:active { transform: translateY(1px); }
+  .ctl.primary {
+    background: linear-gradient(135deg, #1f8fff, #38e8ff);
+    border-color: transparent;
+    color: #04121f;
+  }
+  .ctl.primary:hover { filter: brightness(1.08); }
+  .ctl.theme.active,
+  .ctl.active {
+    background: rgba(56, 232, 255, 0.16);
+    border-color: rgba(56, 232, 255, 0.6);
+    color: #bff4ff;
+    box-shadow: inset 0 0 10px rgba(56, 232, 255, 0.25);
+  }
+  .np {
+    font-size: 12px;
+    color: var(--text-dim);
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="viz" aria-label="Music visualizer canvas"></canvas>
+
+<header id="hud" aria-hidden="true">
+  <div class="brand"><b>dsh-min</b> · <span id="hud-theme">bars</span></div>
+  <div id="status" class="status" role="status"></div>
+</header>
+
+<div id="controls" role="toolbar" aria-label="Visualizer controls">
+  <div class="group">
+    <button id="btn-play" class="ctl primary" title="Play / pause (Space)">▶ Play</button>
+    <button id="btn-file" class="ctl" title="Open an audio file">📂 Open file</button>
+    <input type="file" id="file" accept="audio/*" hidden>
+    <button id="btn-mic" class="ctl" title="Analyze microphone input">🎙️ Mic</button>
+  </div>
+  <div class="divider"></div>
+  <div class="group" id="themes">
+    <button class="ctl theme active" data-theme="bars" title="Spectrum bars">Bars</button>
+    <button class="ctl theme" data-theme="rings" title="Radial rings">Rings</button>
+    <button class="ctl theme" data-theme="particles" title="Particle field">Particles</button>
+  </div>
+  <div class="divider"></div>
+  <div class="group">
+    <button id="btn-palette" class="ctl" title="Cycle color palette">🎨 <span id="palette-name">Neon</span></button>
+  </div>
+  <div id="now-playing" class="np" title="Loaded source">no source</div>
+</div>
+
+<audio id="audio" preload="auto"></audio>
+
+<script>
+(() => {
+  'use strict';
+
+  const $ = (id) => document.getElementById(id);
+
+  const canvas = $('viz');
+  const ctx2d = canvas.getContext('2d');
+  const audioEl = $('audio');
+  const btnPlay = $('btn-play');
+  const btnFile = $('btn-file');
+  const fileInput = $('file');
+  const btnMic = $('btn-mic');
+  const themeBtns = Array.from(document.querySelectorAll('.theme'));
+  const btnPalette = $('btn-palette');
+  const paletteName = $('palette-name');
+  const hudTheme = $('hud-theme');
+  const statusEl = $('status');
+  const nowPlaying = $('now-playing');
+
+  // ---------- palettes & helpers ----------
+  const PALETTES = [
+    { name: 'Neon',    h0: 188, h1: 300 },
+    { name: 'Sunset',  h0: 6,   h1: 52  },
+    { name: 'Emerald', h0: 96,  h1: 172 },
+    { name: 'Tide',    h0: 205, h1: 168 },
+    { name: 'Rose',    h0: 332, h1: 262 },
+  ];
+  let palIdx = 0;
+  const palette = () => PALETTES[palIdx];
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+
+  // ---------- audio graph ----------
+  const AC = window.AudioContext || window.webkitAudioContext;
+  let audioCtx = null;
+  let analyser = null;
+  let gainNode = null;
+  let mediaSrc = null;    // MediaElementSource for <audio>, created once
+  let micStream = null;   // active microphone stream
+  let sourceNode = null;  // node currently feeding the analyser
+  let micMode = false;
+  let playing = false;
+
+  function ensureAudio() {
+    if (!AC) {
+      setStatus('Web Audio API is not supported by this browser.', true);
+      return null;
+    }
+    if (!audioCtx) {
+      audioCtx = new AC();
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 2048;
+      analyser.smoothingTimeConstant = 0.8;
+      analyser.minDecibels = -90;
+      analyser.maxDecibels = -28;
+      gainNode = audioCtx.createGain();
+      analyser.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }
+
+  // Route one source into the analyser. Mic is analysed but kept silent
+  // (gain 0) so it cannot feed back through the speakers.
+  function setSource(node, isMic) {
+    if (sourceNode) {
+      try { sourceNode.disconnect(); } catch (e) { /* already disconnected */ }
+    }
+    sourceNode = node;
+    micMode = isMic;
+    if (sourceNode) sourceNode.connect(analyser);
+    if (gainNode) gainNode.gain.setTargetAtTime(isMic ? 0 : 1, audioCtx.currentTime, 0.05);
+  }
+
+  // ---------- source handling ----------
+  function loadFile(file) {
+    if (!file) return;
+    ensureAudio();
+    stopMic();
+    if (audioEl.src) URL.revokeObjectURL(audioEl.src);
+    audioEl.src = URL.createObjectURL(file);
+    fileInput.value = '';
+    if (!mediaSrc) mediaSrc = audioCtx.createMediaElementSource(audioEl);
+    setSource(mediaSrc, false);
+    nowPlaying.textContent = file.name;
+    setStatus('');
+    playAudio();
+  }
+
+  function playAudio() {
+    if (!audioEl.src) { setStatus('Pick an audio file or enable the microphone first.', true); return; }
+    ensureAudio();
+    audioEl.play().then(() => {
+      playing = true;
+      btnPlay.textContent = '⏸ Pause';
+    }).catch((err) => {
+      playing = false;
+      btnPlay.textContent = '▶ Play';
+      setStatus('Playback failed: ' + (err && err.name ? err.name : err), true);
+    });
+  }
+
+  function togglePlay() {
+    if (micMode) { setStatus('Microphone mode is live; stop the mic to use Play.', true); return; }
+    if (playing) {
+      audioEl.pause();
+      playing = false;
+      btnPlay.textContent = '▶ Play';
+    } else {
+      playAudio();
+    }
+  }
+
+  async function startMic() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setStatus('Microphone capture is not supported in this browser.', true);
+      return;
+    }
+    try {
+      ensureAudio();
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micStream = stream;
+      audioEl.pause();
+      playing = false;
+      btnPlay.textContent = '▶ Play';
+      setSource(audioCtx.createMediaStreamSource(stream), true);
+      btnMic.classList.add('active');
+      nowPlaying.textContent = 'Microphone';
+      setStatus('');
+    } catch (err) {
+      setStatus('Microphone unavailable: ' + (err && err.name ? err.name : 'denied'), true);
+    }
+  }
+
+  function stopMic() {
+    if (micStream) {
+      micStream.getTracks().forEach((t) => t.stop());
+      micStream = null;
+    }
+    btnMic.classList.remove('active');
+    if (micMode && sourceNode) {
+      try { sourceNode.disconnect(); } catch (e) { /* already disconnected */ }
+      sourceNode = null;
+    }
+    micMode = false;
+    if (audioEl.src && mediaSrc) setSource(mediaSrc, false);
+  }
+
+  // ---------- state helpers ----------
+  let statusTimer = null;
+  function setStatus(msg, isError) {
+    statusEl.textContent = msg;
+    statusEl.classList.toggle('error', !!isError);
+    clearTimeout(statusTimer);
+    if (msg) statusTimer = setTimeout(() => { statusEl.textContent = ''; }, 5000);
+  }
+
+  function setTheme(name) {
+    theme = name;
+    hudTheme.textContent = name;
+    themeBtns.forEach((b) => b.classList.toggle('active', b.dataset.theme === name));
+  }
+
+  // ---------- canvas sizing ----------
+  let dpr = 1, W = 0, H = 0;
+  function resize() {
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = Math.max(1, Math.round(W * dpr));
+    canvas.height = Math.max(1, Math.round(H * dpr));
+    ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // ---------- analysis buffers & band mapping ----------
+  let theme = 'bars';
+  let freqData = new Uint8Array(0);
+  let waveData = new Uint8Array(0);
+  const BARS = 72;
+  const RING_BARS = 96;
+
+  function ensureBuffers() {
+    if (freqData.length !== analyser.frequencyBinCount) {
+      freqData = new Uint8Array(analyser.frequencyBinCount);
+    }
+    if (waveData.length !== analyser.fftSize) {
+      waveData = new Uint8Array(analyser.fftSize);
+    }
+  }
+
+  // Log-spaced band averages: low frequencies get several narrow bars,
+  // high frequencies share wider ranges, so the whole spectrum renders evenly.
+  function bandLevels(count) {
+    const N = analyser.frequencyBinCount;
+    const nyquist = audioCtx.sampleRate / 2;
+    const binHz = nyquist / N;
+    const fMin = 24;
+    const fMax = Math.min(nyquist, 18000) * 0.98;
+    const out = new Array(count);
+    for (let i = 0; i < count; i++) {
+      const f0 = fMin * Math.pow(fMax / fMin, i / count);
+      const f1 = fMin * Math.pow(fMax / fMin, (i + 1) / count);
+      const k0 = Math.floor(f0 / binHz);
+      const k1 = Math.max(k0 + 1, Math.min(N - 1, Math.ceil(f1 / binHz)));
+      let sum = 0;
+      for (let k = k0; k <= k1; k++) sum += freqData[k];
+      out[i] = sum / (k1 - k0 + 1);
+    }
+    return out;
+  }
+
+  // ---------- drawing ----------
+  function drawWave(x0, y0, w, amp, color, width) {
+    const n = waveData.length;
+    const step = n / w;
+    ctx2d.beginPath();
+    ctx2d.lineJoin = 'round';
+    for (let x = 0; x <= w; x++) {
+      const v = waveData[Math.floor(x * step)] / 128 - 1;
+      const y = y0 + v * amp;
+      if (x === 0) ctx2d.moveTo(x0, y);
+      else ctx2d.lineTo(x0 + x, y);
+    }
+    ctx2d.strokeStyle = color;
+    ctx2d.lineWidth = width || 2;
+    ctx2d.stroke();
+  }
+
+  function drawBars(pal, bass) {
+    const levels = bandLevels(BARS);
+    const maxH = H * 0.58;
+    const baseY = H * 0.70;
+    const bw = W / BARS;
+
+    // waveform line floats behind the bars
+    drawWave(0, baseY - maxH * 0.5, W, maxH * 0.26, 'rgba(255,255,255,0.35)', 1.5);
+
+    for (let i = 0; i < BARS; i++) {
+      const v = clamp01(levels[i] / 255);
+      const vS = Math.pow(v, 1.25);
+      const bh = Math.max(1.5, vS * maxH);
+      const x = i * bw;
+      const hue = lerp(pal.h0, pal.h1, i / BARS);
+      ctx2d.fillStyle = 'hsla(' + hue + ', 92%, ' + (40 + vS * 32) + '%, 0.95)';
+      ctx2d.fillRect(x + bw * 0.08, baseY - bh, bw * 0.84, bh);
+      ctx2d.fillStyle = 'hsla(' + hue + ', 100%, 72%, ' + (0.35 + vS * 0.5) + ')';
+      ctx2d.fillRect(x + bw * 0.08, Math.max(baseY - bh - 3, 0), bw * 0.84, 3);
+    }
+
+    const grad = ctx2d.createLinearGradient(0, baseY, 0, baseY + 24);
+    grad.addColorStop(0, 'hsla(' + pal.h0 + ', 90%, 60%, 0.35)');
+    grad.addColorStop(1, 'transparent');
+    ctx2d.fillStyle = grad;
+    ctx2d.fillRect(0, baseY, W, 24);
+  }
+
+  function drawRings(pal, bass) {
+    const levels = bandLevels(RING_BARS);
+    const cx = W / 2, cy = H / 2;
+    const maxR = Math.min(W, H) * 0.36;
+    const r0 = Math.min(W, H) * 0.14;
+
+    ctx2d.lineCap = 'round';
+    ctx2d.strokeStyle = 'rgba(140,160,255,0.08)';
+    ctx2d.lineWidth = 1;
+    for (let rr = 1; rr <= 3; rr++) {
+      ctx2d.beginPath();
+      ctx2d.arc(cx, cy, r0 + (maxR - r0) * rr / 3, 0, Math.PI * 2);
+      ctx2d.stroke();
+    }
+
+    for (let i = 0; i < RING_BARS; i++) {
+      const v = clamp01(levels[i] / 255);
+      const vS = Math.pow(v, 1.2);
+      const a = (i / RING_BARS) * Math.PI * 2 - Math.PI / 2;
+      const hue = lerp(pal.h0, pal.h1, i / RING_BARS);
+      ctx2d.strokeStyle = 'hsla(' + hue + ', 95%, ' + (46 + vS * 26) + '%, ' + (0.35 + vS * 0.65) + ')';
+      ctx2d.lineWidth = 1.5 + vS * 3.5;
+      const r1 = r0 + vS * maxR;
+      ctx2d.beginPath();
+      ctx2d.moveTo(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0);
+      ctx2d.lineTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1);
+      ctx2d.stroke();
+    }
+
+    const cg = ctx2d.createRadialGradient(cx, cy, 0, cx, cy, r0 * 1.6);
+    cg.addColorStop(0, 'hsla(' + pal.h0 + ', 95%, 60%, ' + (0.20 + bass * 0.45) + ')');
+    cg.addColorStop(1, 'transparent');
+    ctx2d.fillStyle = cg;
+    ctx2d.beginPath();
+    ctx2d.arc(cx, cy, r0 * 1.6, 0, Math.PI * 2);
+    ctx2d.fill();
+
+    // waveform drawn as a vibrating inner ring
+    const n = waveData.length;
+    const rw = r0 * 0.55;
+    ctx2d.beginPath();
+    for (let i = 0; i <= n; i += 2) {
+      const a = (i / n) * Math.PI * 2 - Math.PI / 2;
+      const v = waveData[i] / 128 - 1;
+      const r = rw + v * 12;
+      const x = cx + Math.cos(a) * r;
+      const y = cy + Math.sin(a) * r;
+      if (i === 0) ctx2d.moveTo(x, y);
+      else ctx2d.lineTo(x, y);
+    }
+    ctx2d.closePath();
+    ctx2d.strokeStyle = 'hsla(' + pal.h1 + ', 90%, 70%, 0.55)';
+    ctx2d.lineWidth = 1.5;
+    ctx2d.stroke();
+  }
+
+  const PARTICLES = 150;
+  const particles = [];
+  for (let i = 0; i < PARTICLES; i++) {
+    particles.push({
+      x: Math.random(),
+      y: Math.random(),
+      vy: 0,
+      band: Math.floor(Math.random() * BARS),
+      size: 1 + Math.random() * 2.5,
+      hue: Math.random(),
+      ph: Math.random() * Math.PI * 2,
+    });
+  }
+
+  function drawParticles(t, pal) {
+    const levels = bandLevels(BARS);
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      const v = clamp01(levels[p.band] / 255);
+      const target = 0.5 + v * 3.2;
+      p.vy += (target - p.vy) * 0.06;
+      p.y -= (p.vy + 0.25) / H;
+      p.x += Math.sin(t * 0.001 + p.ph) * 0.0006;
+      if (p.y < -0.05) { p.y = 1.05; p.x = Math.random(); p.vy = 0; }
+      const hue = lerp(pal.h0, pal.h1, p.hue);
+      const r = p.size + v * 7;
+      ctx2d.beginPath();
+      ctx2d.arc(p.x * W, p.y * H, r, 0, Math.PI * 2);
+      ctx2d.fillStyle = 'hsla(' + hue + ', 95%, ' + (52 + v * 28) + '%, ' + (0.30 + v * 0.6) + ')';
+      ctx2d.fill();
+    }
+    drawWave(0, H * 0.90, W, H * 0.05, 'hsla(' + pal.h0 + ', 90%, 65%, 0.35)', 1.5);
+  }
+
+  function drawIdle(t, pal) {
+    const N = 48;
+    const bw = W / N;
+    for (let i = 0; i < N; i++) {
+      const hh = (0.08 + 0.5 * Math.abs(Math.sin(i * 0.7 + t * 0.0004))) * H * 0.3;
+      const x = i * bw;
+      const hue = lerp(pal.h0, pal.h1, i / N);
+      ctx2d.fillStyle = 'hsla(' + hue + ', 80%, 55%, 0.10)';
+      ctx2d.fillRect(x + bw * 0.1, H * 0.72 - hh, bw * 0.8, hh);
+    }
+    ctx2d.fillStyle = 'rgba(232,238,252,0.55)';
+    ctx2d.font = '600 15px system-ui, sans-serif';
+    ctx2d.textAlign = 'center';
+    ctx2d.fillText('Pick an audio file or enable the microphone', W / 2, H * 0.52);
+  }
+
+  // ---------- main loop ----------
+  let frameCount = 0;
+  let lastPeak = 0;
+
+  function frame(t) {
+    if (ctx2d) {
+      frameCount++;
+      ctx2d.clearRect(0, 0, W, H);
+      const pal = palette();
+      if (!audioCtx || !analyser) {
+        drawIdle(t, pal);
+      } else {
+        ensureBuffers();
+        analyser.getByteFrequencyData(freqData);
+        analyser.getByteTimeDomainData(waveData);
+        lastPeak = 0;
+        for (let i = 0; i < freqData.length; i++) {
+          if (freqData[i] > lastPeak) lastPeak = freqData[i];
+        }
+        const bass = (freqData[0] + freqData[1] + freqData[2]) / 3 / 255;
+        if (theme === 'bars') drawBars(pal, bass);
+        else if (theme === 'rings') drawRings(pal, bass);
+        else drawParticles(t, pal);
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // ---------- events ----------
+  btnPlay.addEventListener('click', togglePlay);
+  btnFile.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', () => loadFile(fileInput.files[0]));
+  btnMic.addEventListener('click', () => (micStream ? stopMic() : startMic()));
+  themeBtns.forEach((b) => b.addEventListener('click', () => setTheme(b.dataset.theme)));
+  btnPalette.addEventListener('click', () => {
+    palIdx = (palIdx + 1) % PALETTES.length;
+    paletteName.textContent = PALETTES[palIdx].name;
+  });
+
+  audioEl.addEventListener('ended', () => {
+    playing = false;
+    btnPlay.textContent = '▶ Play';
+  });
+  audioEl.addEventListener('pause', () => {
+    if (!micMode) {
+      playing = false;
+      btnPlay.textContent = '▶ Play';
+    }
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' && e.target === document.body) {
+      e.preventDefault();
+      togglePlay();
+    }
+  });
+
+  window.addEventListener('error', (e) => setStatus('Error: ' + (e.message || 'unknown'), true));
+  window.addEventListener('unhandledrejection', (e) => {
+    setStatus('Error: ' + (e.reason && e.reason.message ? e.reason.message : 'promise rejected'), true);
+  });
+
+  // Debug/verification handle — also handy for console-driven tweaks.
+  window.__viz = {
+    get ready() { return !!(audioCtx && analyser); },
+    get mode() { return micMode ? 'mic' : audioEl.src ? 'file' : 'idle'; },
+    get themeName() { return theme; },
+    get frames() { return frameCount; },
+    get peak() { return lastPeak; },
+    get playing() { return playing; },
+    togglePlay: togglePlay,
+    setTheme: setTheme,
+  };
+
+  resize();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

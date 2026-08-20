@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sales Pulse — Interactive Sales Dashboard</title>
+<style>
+  :root{
+    --bg:#0b1220;
+    --panel:#111a2e;
+    --panel-2:#16213a;
+    --border:#23304d;
+    --text:#e6edf7;
+    --muted:#8fa3c0;
+    --accent:#38bdf8;
+    --accent-2:#818cf8;
+    --up:#34d399;
+    --down:#f87171;
+    --chip:#1b2946;
+    --shadow:0 10px 30px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--text)}
+  body{
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    font-size:15px;line-height:1.5;
+    background:
+      radial-gradient(1000px 500px at 85% -10%, rgba(56,189,248,.08), transparent 60%),
+      radial-gradient(800px 400px at -10% 0%, rgba(129,140,248,.08), transparent 60%),
+      var(--bg);
+    min-height:100vh;
+  }
+  #app{max-width:1280px;margin:0 auto;padding:22px 22px 40px}
+
+  /* ---------- header ---------- */
+  header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:20px}
+  .brand{display:flex;align-items:center;gap:14px}
+  .logo{
+    width:46px;height:46px;border-radius:13px;flex:none;
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));
+    display:grid;place-items:center;box-shadow:0 6px 18px rgba(56,189,248,.35);
+  }
+  .logo svg{width:24px;height:24px}
+  .brand h1{font-size:22px;font-weight:700;letter-spacing:.2px}
+  .brand h1 span{background:linear-gradient(90deg,var(--accent),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .brand p{color:var(--muted);font-size:13px;margin-top:2px}
+  .hint{font-size:12px;color:var(--muted);margin-top:6px}
+  .hint b{color:var(--text);font-weight:600}
+  #refreshBtn{
+    display:inline-flex;align-items:center;gap:8px;
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));
+    color:#06121f;border:none;border-radius:11px;padding:11px 18px;
+    font-size:14px;font-weight:700;cursor:pointer;
+    box-shadow:0 6px 18px rgba(56,189,248,.3);transition:transform .12s ease, box-shadow .12s ease;
+  }
+  #refreshBtn:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgba(56,189,248,.45)}
+  #refreshBtn:active{transform:translateY(0) scale(.98)}
+  #refreshBtn .ic{width:16px;height:16px}
+  #refreshBtn.spinning .ic{animation:spin .6s linear}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* ---------- filters ---------- */
+  .filters{
+    display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap;
+    background:var(--panel);border:1px solid var(--border);border-radius:14px;
+    padding:14px 18px;margin-bottom:18px;
+  }
+  .filter{display:flex;flex-direction:column;gap:6px}
+  .filter label{font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted)}
+  .filter select{
+    appearance:none;-webkit-appearance:none;
+    background:var(--chip) url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="6"><path d="M1 1l4 4 4-4" stroke="%238fa3c0" fill="none" stroke-width="1.6" stroke-linecap="round"/></svg>') no-repeat right 12px center;
+    border:1px solid var(--border);border-radius:9px;color:var(--text);
+    font-size:14px;font-weight:600;padding:9px 34px 9px 12px;cursor:pointer;min-width:150px;
+  }
+  .filter select:hover{border-color:#35508a}
+  .range-group{flex:1;min-width:260px}
+  .range-top{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:10px}
+  .range-top b{color:var(--text);font-weight:600}
+  .range{position:relative;height:26px}
+  .range-track{
+    position:absolute;left:7px;right:7px;top:50%;height:6px;transform:translateY(-50%);
+    border-radius:999px;background:#2b3958;
+  }
+  .range input[type=range]{
+    position:absolute;inset:0;width:100%;height:26px;margin:0;
+    -webkit-appearance:none;appearance:none;background:transparent;pointer-events:none;
+  }
+  .range input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;appearance:none;pointer-events:auto;
+    width:17px;height:17px;border-radius:50%;
+    background:#fff;border:3px solid var(--accent);
+    box-shadow:0 2px 8px rgba(0,0,0,.5);cursor:grab;
+  }
+  .range input[type=range]::-moz-range-thumb{
+    pointer-events:auto;width:13px;height:13px;border-radius:50%;
+    background:#fff;border:3px solid var(--accent);
+    box-shadow:0 2px 8px rgba(0,0,0,.5);cursor:grab;
+  }
+  .range input[type=range]:focus{outline:none}
+  .range #rangeLo{z-index:2}
+  .range #rangeHi{z-index:3}
+  .range input[type=range]:focus-visible{z-index:4}
+
+  /* ---------- KPI cards ---------- */
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:14px;margin-bottom:18px}
+  .kpi{
+    background:var(--panel);border:1px solid var(--border);border-radius:14px;
+    padding:16px 18px;position:relative;overflow:hidden;animation:fadeUp .5s ease both;
+  }
+  .kpi::before{content:"";position:absolute;inset:0 auto 0 0;width:4px;background:var(--k,var(--accent));opacity:.9}
+  .kpi-top{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .kpi-ic{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:color-mix(in srgb, var(--k,var(--accent)) 18%, transparent)}
+  .kpi-ic svg{width:15px;height:15px;stroke:var(--k,var(--accent))}
+  .kpi-lab{font-size:12px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted)}
+  .kpi-delta{margin-left:auto;font-size:12px;font-weight:700;padding:3px 8px;border-radius:999px}
+  .kpi-delta.up{color:var(--up);background:rgba(52,211,153,.12)}
+  .kpi-delta.down{color:var(--down);background:rgba(248,113,113,.12)}
+  .kpi-delta.flat{color:var(--muted);background:rgba(143,163,192,.12)}
+  .kpi-val{font-size:26px;font-weight:800;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
+  .kpi-sub{font-size:11.5px;color:var(--muted);margin-top:4px}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+  /* ---------- charts ---------- */
+  .charts{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
+  .card{
+    background:var(--panel);border:1px solid var(--border);border-radius:14px;
+    padding:18px 18px 14px;animation:fadeUp .5s ease both;
+  }
+  .charts .card:nth-child(2){animation-delay:.05s}
+  .charts .card:nth-child(3){animation-delay:.1s}
+  .charts .card:nth-child(4){animation-delay:.15s}
+  .line-card{grid-column:span 7}
+  .bar-card{grid-column:span 5}
+  .donut-card{grid-column:span 5}
+  .scatter-card{grid-column:span 7}
+  .card-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+  .card-head h2{font-size:15px;font-weight:700}
+  .card-head .sub{font-size:12px;color:var(--muted)}
+  .card-foot{font-size:11px;color:var(--muted);margin-top:8px;text-align:right}
+  .chart-box{width:100%}
+  .chart-box svg{display:block;width:100%;height:auto}
+  .empty{display:none;padding:40px 10px;text-align:center;color:var(--muted);font-size:13px}
+
+  .gridline{stroke:#1d2940;stroke-width:1}
+  .axis-label{fill:var(--muted);font-size:11px}
+  .tick{fill:var(--muted);font-size:10.5px;font-variant-numeric:tabular-nums}
+  .bar{cursor:pointer;transition:opacity .2s ease}
+  .bar:hover{filter:brightness(1.25)}
+  .slice{cursor:pointer;transition:opacity .2s ease}
+  .slice:hover{filter:brightness(1.2)}
+  .pt{cursor:pointer}
+  .line-pt{cursor:pointer}
+  .legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px}
+  .legend .lg-item{
+    display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);
+    cursor:pointer;padding:3px 9px;border:1px solid var(--border);border-radius:999px;
+    transition:all .15s ease;background:var(--chip);user-select:none;
+  }
+  .legend .lg-item:hover{border-color:#35508a}
+  .legend .lg-item.dim{opacity:.35}
+  .legend .lg-item .dot{width:9px;height:9px;border-radius:50%;flex:none}
+  .metric-chips{display:inline-flex;background:var(--chip);border:1px solid var(--border);border-radius:9px;padding:2px;margin-left:auto}
+  .metric-chips button{
+    background:transparent;border:none;color:var(--muted);font-size:12px;font-weight:700;
+    padding:4px 10px;border-radius:7px;cursor:pointer;text-transform:capitalize;
+  }
+  .metric-chips button.active{background:var(--accent);color:#06121f}
+
+  footer{color:var(--muted);font-size:12px;margin-top:20px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+
+  /* ---------- tooltip ---------- */
+  .tip{
+    position:fixed;z-index:60;pointer-events:none;display:none;
+    background:rgba(10,16,30,.96);border:1px solid #31405f;border-radius:9px;
+    padding:8px 11px;font-size:12px;line-height:1.5;max-width:270px;
+    box-shadow:0 10px 28px rgba(0,0,0,.5);
+  }
+  .tip .t-title{font-weight:700;margin-bottom:2px}
+  .tip .row{display:flex;justify-content:space-between;gap:14px}
+  .tip .row b{font-variant-numeric:tabular-nums}
+  .tip .swatch{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px}
+
+  @media (max-width:1120px){
+    .line-card,.scatter-card,.bar-card,.donut-card{grid-column:span 6}
+  }
+  @media (max-width:760px){
+    .line-card,.scatter-card,.bar-card,.donut-card{grid-column:span 12}
+    .kpis{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <div class="brand">
+      <div class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#06121f" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 17l5-6 4 3 6-8"/>
+          <path d="M14 6h4v4"/>
+        </svg>
+      </div>
+      <div>
+        <h1>Sales <span>Pulse</span></h1>
+        <p>6-month retail performance · pure SVG, no libraries</p>
+      </div>
+    </div>
+    <div>
+      <div class="hint"><b>Hover</b> any chart for details · <b>Click</b> bars, points or slices to highlight · <b>Refresh</b> re-randomizes the dataset</div>
+      <button id="refreshBtn" title="Regenerate the sample dataset">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12a9 9 0 1 1-2.64-6.36"/>
+          <path d="M21 3v6h-6"/>
+        </svg>
+        Refresh data
+      </button>
+    </div>
+  </header>
+
+  <section class="filters" aria-label="Filters">
+    <div class="filter">
+      <label for="regionSel">Region</label>
+      <select id="regionSel">
+        <option value="All">All regions</option>
+        <option>North</option>
+        <option>South</option>
+        <option>East</option>
+        <option>West</option>
+      </select>
+    </div>
+    <div class="filter">
+      <label for="catSel">Category</label>
+      <select id="catSel">
+        <option value="All">All categories</option>
+        <option>Electronics</option>
+        <option>Apparel</option>
+        <option>Home</option>
+        <option>Sports</option>
+      </select>
+    </div>
+    <div class="range-group">
+      <div class="range-top"><span>Period</span><span id="rangeLabels">—</span></div>
+      <div class="range">
+        <div class="range-track" id="rangeTrack"></div>
+        <input type="range" id="rangeLo" min="0" max="179" value="0" aria-label="Period start">
+        <input type="range" id="rangeHi" min="0" max="179" value="179" aria-label="Period end">
+      </div>
+    </div>
+  </section>
+
+  <section class="kpis" id="kpis" aria-label="Key metrics"></section>
+
+  <section class="charts">
+
+    <article class="card line-card">
+      <div class="card-head">
+        <h2>Revenue trend</h2>
+        <span class="sub" id="lineSub">weekly · by category</span>
+        <div class="metric-chips" role="group" aria-label="Line chart metric">
+          <button type="button" data-metric="revenue" class="active">Revenue</button>
+          <button type="button" data-metric="units">Units</button>
+          <button type="button" data-metric="orders">Orders</button>
+        </div>
+      </div>
+      <div class="chart-box" id="lineBox"></div>
+      <div class="legend" id="lineLegend"></div>
+      <div class="card-foot">Click a point or legend chip to highlight that category</div>
+    </article>
+
+    <article class="card bar-card">
+      <div class="card-head">
+        <h2>Category comparison</h2>
+        <span class="sub" id="barSub">revenue by category</span>
+      </div>
+      <div class="chart-box" id="barBox"></div>
+      <div class="card-foot">Click a bar to highlight across charts</div>
+    </article>
+
+    <article class="card donut-card">
+      <div class="card-head">
+        <h2>Regional share</h2>
+        <span class="sub" id="donutSub">revenue share by region</span>
+      </div>
+      <div class="chart-box" id="donutBox"></div>
+      <div class="legend" id="donutLegend"></div>
+      <div class="card-foot">Click a slice to highlight</div>
+    </article>
+
+    <article class="card scatter-card">
+      <div class="card-head">
+        <h2>Spend vs. revenue</h2>
+        <span class="sub" id="scatterSub">weekly ad spend × revenue</span>
+      </div>
+      <div class="chart-box" id="scatterBox"></div>
+      <div class="card-foot">Click a point to highlight its category</div>
+    </article>
+
+  </section>
+
+  <footer>
+    <span id="footLeft">Sample data · purely random, generated locally</span>
+    <span id="footRight"></span>
+  </footer>
+</div>
+<div class="tip" id="tip" role="status"></div>
+
+<script>
+'use strict';
+/* ============================================================
+   Sales Pulse dashboard — pure HTML/CSS/JS, inline SVG charts.
+   Charts: line (6-month trend), bar (category compare),
+   donut (regional share), scatter (spend vs revenue).
+   ============================================================ */
+
+/* ---------------- constants ---------------- */
+const REGIONS = ['North', 'South', 'East', 'West'];
+const CATS    = ['Electronics', 'Apparel', 'Home', 'Sports'];
+const DAYS    = 180; // six months of daily records
+
+const REGION_BASE = { North: 1.05, South: 0.85, East: 0.95, West: 0.62 };
+const CAT_META = {
+  Electronics: { price: 420, base: 95,  margin: 0.33 },
+  Apparel:     { price: 85,  base: 240, margin: 0.46 },
+  Home:        { price: 150, base: 140, margin: 0.40 },
+  Sports:      { price: 120, base: 165, margin: 0.36 }
+};
+const CAT_COLOR = { Electronics: '#38bdf8', Apparel: '#f472b6', Home: '#34d399', Sports: '#fbbf24' };
+const REG_COLOR = { North: '#818cf8', South: '#fbbf24', East: '#34d399', West: '#f472b6' };
+const METRIC_LABEL = { revenue: 'Revenue', units: 'Units', orders: 'Orders' };
+
+/* ---------------- state ---------------- */
+const $ = (id) => document.getElementById(id);
+let rows = [];                 // generated daily records
+let seed = 0;
+let startDate = new Date();    // first day of the generated window
+let metric = 'revenue';        // line chart metric
+let highlight = null;          // {type:'category', value} global click-highlight
+let donutFocus = null;         // region highlighted in the donut (local)
+
+/* ---------------- small helpers ---------------- */
+function mulberry32(a){
+  return function(){
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const fmtMoney = (v) => {
+  v = Math.round(v);
+  if (v >= 1e6) return '$' + (v / 1e6).toFixed(2) + 'M';
+  if (v >= 1e5) return '$' + (v / 1e3).toFixed(0) + 'K';
+  return '$' + v.toLocaleString('en-US');
+};
+const fmtK = (v) => (v >= 1e6 ? (v / 1e6).toFixed(2) + 'M' : v >= 1e3 ? (v / 1e3).toFixed(1) + 'K' : Math.round(v).toString());
+const fmtInt = (v) => Math.round(v).toLocaleString('en-US');
+const pct = (v) => (v * 100).toFixed(1) + '%';
+
+/* ---------------- data generation ---------------- */
+function genData(s){
+  const rnd = mulberry32(s);
+  startDate = new Date();
+  startDate.setHours(0, 0, 0, 0);
+  startDate.setDate(startDate.getDate() - (DAYS - 1));
+  const out = [];
+  for (let i = 0; i < DAYS; i++){
+    const date = new Date(startDate);
+    date.setDate(startDate.getDate() + i);
+    const dow = date.getDay();
+    const weekly = dow === 0 ? 1.10 : dow >= 5 ? 1.22 : 0.96;      // weekend lift
+    const season = 1 + 0.30 * (i / DAYS) + 0.10 * Math.sin(i / 13); // growth + wave
+    for (const region of REGIONS){
+      const rb = REGION_BASE[region];
+      for (const cat of CATS){
+        const m = CAT_META[cat];
+        const spike = (i + region.length + cat.length) % 23 === 0 ? 1.6 : 1; // promo spikes
+        const units   = m.base * rb * weekly * season * spike * (0.82 + rnd() * 0.36);
+        const revenue = units * m.price * (0.92 + rnd() * 0.16);
+        const orders  = units * (0.55 + rnd() * 0.25);
+        const spend   = revenue * (0.06 + rnd() * 0.07);           // ad spend ≈ 6–13% of revenue
+        const profit  = revenue * m.margin - spend * 0.35;
+        out.push({ d: i, region, cat, units, revenue, orders, spend, profit });
+      }
+    }
+  }
+  return out;
+}
+
+/* ---------------- filters ---------------- */
+function currentFilter(){
+  return { region: $('regionSel').value, cat: $('catSel').value, from: +$('rangeLo').value, to: +$('rangeHi').value };
+}
+function filteredRows(){
+  const f = currentFilter();
+  return rows.filter(r =>
+    r.d >= f.from && r.d <= f.to &&
+    (f.region === 'All' || r.region === f.region) &&
+    (f.cat === 'All' || r.cat === f.cat)
+  );
+}
+function dayToDate(i){
+  const d = new Date(startDate);
+  d.setDate(startDate.getDate() + i);
+  return d;
+}
+function dateLabel(i){
+  return dayToDate(i).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+/* ---------------- tooltip ---------------- */
+const tip = $('tip');
+function showTip(html, x, y){
+  tip.innerHTML = html;
+  tip.style.display = 'block';
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  let left = x + 14, top = y + 14;
+  if (left + w > window.innerWidth - 8) left = x - w - 14;
+  if (top + h > window.innerHeight - 8) top = y - h - 14;
+  tip.style.left = left + 'px';
+  tip.style.top  = top + 'px';
+}
+function hideTip(){ tip.style.display = 'none'; }
+
+/* ---------------- shared SVG plumbing ---------------- */
+const SVGNS = 'http://www.w3.org/2000/svg';
+function svgEl(tag, attrs){
+  const e = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+}
+function clearBox(id){ const b = $(id); while (b.firstChild) b.removeChild(b.firstChild); return b; }
+function newChart(id, w, h){
+  const box = clearBox(id);
+  const svg = svgEl('svg', { viewBox: '0 0 ' + w + ' ' + h, role: 'img', 'aria-label': id, preserveAspectRatio: 'none' });
+  box.appendChild(svg);
+  return svg;
+}
+function gridLines(svg, plot, ticks){
+  for (const t of ticks){
+    const y = plot.top + plot.h * (1 - (t.v - 0) / (plot.maxV || 1)); // linear from 0
+    svg.appendChild(svgEl('line', { x1: plot.left, y1: y, x2: plot.left + plot.w, y2: y, class: 'gridline' }));
+    const txt = svgEl('text', { x: plot.left - 8, y: y + 3.5, class: 'tick', 'text-anchor': 'end' });
+    txt.textContent = fmtK(t.v);
+    svg.appendChild(txt);
+  }
+}
+function niceTicks(maxV){
+  const rough = maxV / 4;
+  const mag = Math.pow(10, Math.floor(Math.log10(rough)));
+  const norm = rough / mag;
+  const step = (norm >= 5 ? 5 : norm >= 2 ? 2 : 1) * mag;
+  const out = [];
+  for (let v = step; v < maxV * 1.0001; v += step) out.push({ v });
+  return out;
+}
+function smoothPath(pts){
+  if (!pts.length) return '';
+  if (pts.length < 2) return 'M ' + pts[0].x + ' ' + pts[0].y;
+  let d = 'M ' + pts[0].x + ' ' + pts[0].y;
+  for (let i = 1; i < pts.length; i++){
+    const p0 = pts[i - 1], p1 = pts[i];
+    const mx = (p0.x + p1.x) / 2;
+    d += ' C ' + mx + ' ' + p0.y + ', ' + mx + ' ' + p1.y + ', ' + p1.x + ' ' + p1.y;
+  }
+  return d;
+}
+function weekCount(f){
+  return Math.max(1, Math.ceil((f.to - f.from + 1) / 7));
+}
+function weekLabel(f, w){
+  return dateLabel(Math.min(f.to, f.from + w * 7));
+}
+
+/* ============================================================
+   LINE CHART — 6-month trend, weekly buckets.
+   Series = categories when "All", otherwise the single category.
+   ============================================================ */
+function renderLine(){
+  const f = currentFilter();
+  const fr = filteredRows();
+  const W = weekCount(f);
+  const names = f.cat === 'All' ? CATS : [f.cat];
+  const series = names.map(name => {
+    const arr = new Array(W).fill(0);
+    for (const r of fr){
+      if (r.cat !== name) continue;
+      const w = Math.min(W - 1, Math.floor((r.d - f.from) / 7));
+      arr[w] += r[metric];
+    }
+    return { name, arr };
+  });
+  const svg = newChart('lineBox', 820, 300);
+  const plot = { left: 50, top: 14, w: 820 - 66, h: 300 - 46 };
+  const maxV = Math.max(1, ...series.flatMap(s => s.arr)) * 1.12;
+  plot.maxV = maxV;
+  gridLines(svg, plot, niceTicks(maxV));
+  const xs = W === 1 ? [plot.left + plot.w / 2] : Array.from({ length: W }, (_, w) => plot.left + (w + 0.5) / W * plot.w);
+  const yOf = (v) => plot.top + plot.h * (1 - v / maxV);
+  const showArea = series.length === 1;
+
+  series.forEach((s, si) => {
+    const dim = highlight && highlight.type === 'category' && highlight.value !== s.name;
+    const pts = s.arr.map((v, w) => ({ x: xs[w], y: yOf(v), v, w }));
+    const color = CAT_COLOR[s.name];
+    const line = svgEl('path', {
+      d: smoothPath(pts), fill: 'none', stroke: color,
+      'stroke-width': (highlight && highlight.value === s.name) ? 3.5 : 2.2,
+      'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+      opacity: dim ? 0.18 : 1
+    });
+    svg.appendChild(line);
+    if (showArea && si === 0){
+      const areaPts = [{ x: pts[0].x, y: plot.top + plot.h }, ...pts, { x: pts[pts.length - 1].x, y: plot.top + plot.h }];
+      const area = svgEl('path', {
+        d: smoothPath(areaPts), fill: 'url(#lineGrad)', stroke: 'none', opacity: 0.35
+      });
+      const defs = svgEl('defs', {});
+      defs.appendChild(svgEl('linearGradient', { id: 'lineGrad', x1: 0, y1: 0, x2: 0, y2: 1 }));
+      const stop1 = svgEl('stop', { offset: '0%', 'stop-color': color, 'stop-opacity': 0.5 });
+      const stop2 = svgEl('stop', { offset: '100%', 'stop-color': color, 'stop-opacity': 0 });
+      defs.querySelector('linearGradient').appendChild(stop1);
+      defs.querySelector('linearGradient').appendChild(stop2);
+      svg.insertBefore(defs, svg.firstChild);
+      svg.insertBefore(area, line);
+    }
+    if (W <= 40){
+      pts.forEach((p, w) => {
+        const hit = svgEl('circle', {
+          cx: p.x, cy: p.y, r: 14, fill: 'transparent', class: 'line-pt',
+          opacity: dim ? 0.15 : 1
+        });
+        hit.addEventListener('mousemove', (e) => {
+          const rows = series.map(s2 => '<div class="row"><span><span class="swatch" style="background:' + CAT_COLOR[s2.name] + '"></span>' + s2.name + '</span><b>' + fmtMoney(s2.arr[w]) + '</b></div>').join('');
+          showTip('<div class="t-title">Week of ' + weekLabel(f, w) + '</div>' + rows, e.clientX, e.clientY);
+        });
+        hit.addEventListener('mouseleave', hideTip);
+        hit.addEventListener('click', () => setHighlight('category', s.name));
+        svg.appendChild(hit);
+        if (!dim){
+          svg.appendChild(svgEl('circle', {
+            cx: p.x, cy: p.y, r: highlight && highlight.value === s.name ? 5 : 3.4, fill: color,
+            stroke: '#0b1220', 'stroke-width': 1.2
+          }));
+        }
+      });
+    }
+  });
+
+  for (let w = 0; w < W && W <= 40; w++){
+    const t = svgEl('text', { x: xs[w] + 36, y: plot.top + plot.h + 17, class: 'tick', 'text-anchor': 'middle', transform: 'rotate(-32 ' + xs[w] + ' ' + (plot.top + plot.h + 17) + ')' });
+    t.textContent = W > 14 && w % Math.ceil(W / 10) !== 0 ? '' : weekLabel(f, w);
+    if (t.textContent) svg.appendChild(t);
+  }
+  if (W > 40){
+    const t = svgEl('text', { x: plot.left + plot.w / 2, y: plot.top + plot.h + 20, class: 'axis-label', 'text-anchor': 'middle' });
+    t.textContent = 'Daily (' + dateLabel(f.from) + ' – ' + dateLabel(f.to) + ')';
+    svg.appendChild(t);
+  }
+  $('lineSub').textContent = 'weekly · ' + METRIC_LABEL[metric].toLowerCase() + (names.length > 1 ? ' · by category' : '');
+  const leg = $('lineLegend');
+  leg.innerHTML = '';
+  names.forEach(name => {
+    const item = document.createElement('span');
+    item.className = 'lg-item' + (highlight && highlight.value === name ? '' : highlight ? ' dim' : '');
+    item.innerHTML = '<span class="dot" style="background:' + CAT_COLOR[name] + '"></span>' + name;
+    item.addEventListener('click', () => setHighlight('category', name));
+    leg.appendChild(item);
+  });
+}
+
+/* ============================================================
+   BAR CHART — revenue by category within the filtered data.
+   ============================================================ */
+function renderBar(){
+  const fr = filteredRows();
+  const vals = CATS.map(cat => {
+    let v = 0, u = 0;
+    for (const r of fr) if (r.cat === cat){ v += r.revenue; u += r.units; }
+    return { name: cat, v, u };
+  });
+  const total = vals.reduce((a, b) => a + b.v, 0);
+  const svg = newChart('barBox', 820, 300);
+  const plot = { left: 60, top: 16, w: 820 - 74, h: 300 - 60 };
+  const maxV = Math.max(1, ...vals.map(v => v.v)) * 1.15;
+  plot.maxV = maxV;
+  gridLines(svg, plot, niceTicks(maxV));
+  const slot = plot.w / vals.length;
+  const bw = slot * 0.58;
+  vals.forEach((b, i) => {
+    const cx = plot.left + slot * i + slot / 2;
+    const h = b.v / maxV * plot.h;
+    const y = plot.top + plot.h - h;
+    const dim = highlight && highlight.value !== b.name;
+    const rect = svgEl('rect', {
+      x: cx - bw / 2, y: Math.max(0, y), width: bw, height: Math.max(h, b.v > 0 ? 2 : 1),
+      rx: 7, fill: CAT_COLOR[b.name], class: 'bar',
+      opacity: dim ? 0.18 : 1
+    });
+    rect.addEventListener('mousemove', (e) => showTip(
+      '<div class="t-title">' + b.name + '</div>' +
+      '<div class="row"><span>Revenue</span><b>' + fmtMoney(b.v) + '</b></div>' +
+      '<div class="row"><span>Share</span><b>' + (total ? pct(b.v / total) : '0%') + '</b></div>' +
+      '<div class="row"><span>Units</span><b>' + fmtInt(b.u) + '</b></div>', e.clientX, e.clientY));
+    rect.addEventListener('mouseleave', hideTip);
+    rect.addEventListener('click', () => setHighlight('category', b.name));
+    svg.appendChild(rect);
+    if (h > 26){
+      const t = svgEl('text', { x: cx, y: y - 8, class: 'tick', 'text-anchor': 'middle', fill: CAT_COLOR[b.name] });
+      t.textContent = fmtK(b.v);
+      svg.appendChild(t);
+    }
+    const lab = svgEl('text', { x: cx, y: plot.top + plot.h + 22, class: 'axis-label', 'text-anchor': 'middle' });
+    lab.textContent = b.name;
+    svg.appendChild(lab);
+  });
+  $('barSub').textContent = 'revenue by category' + (currentFilter().region !== 'All' ? ' · ' + currentFilter().region : '');
+}
+
+/* ============================================================
+   DONUT — revenue share by region.
+   ============================================================ */
+function renderDonut(){
+  const fr = filteredRows();
+  const vals = REGIONS.map(region => {
+    let v = 0;
+    for (const r of fr) if (r.region === region) v += r.revenue;
+    return { name: region, v };
+  });
+  const total = vals.reduce((a, b) => a + b.v, 0);
+  const slices = vals.filter(v => v.v > 0);
+  if (donutFocus && !slices.some(s => s.name === donutFocus)) donutFocus = null;
+  const svg = newChart('donutBox', 500, 300);
+  let cx = 130, cy = 150, r = 105; // donut left, legend drawn in HTML below
+  if (total === 0){
+    const t = svgEl('text', { x: 250, y: 150, class: 'axis-label', 'text-anchor': 'middle' });
+    t.textContent = 'No data for current filters';
+    svg.appendChild(t);
+  } else if (slices.length === 1){
+    const s = slices[0];
+    const dim = donutFocus && donutFocus !== s.name;
+    svg.appendChild(svgEl('circle', { cx, cy, r, fill: REG_COLOR[s.name], opacity: dim ? 0.2 : 1, class: 'slice', stroke: '#0b1220', 'stroke-width': 2 }));
+  } else {
+    const PAD = 0.03;
+    let a = -Math.PI / 2;
+    slices.forEach(s => {
+      const frac = s.v / total;
+      const a1 = a + frac * Math.PI * 2 - PAD;
+      const sel = donutFocus === s.name;
+      const dim = donutFocus && !sel;
+      const d = arcPath(cx, cy, r, a, Math.max(a, a1));
+      const path = svgEl('path', { d, fill: REG_COLOR[s.name], class: 'slice', opacity: dim ? 0.18 : 1, stroke: '#111a2e', 'stroke-width': 2, stroke: sel ? '#e6edf7' : '#111a2e' });
+      path.addEventListener('mousemove', (e) => showTip(
+        '<div class="t-title">' + s.name + ' region</div>' +
+        '<div class="row"><span>Revenue</span><b>' + fmtMoney(s.v) + '</b></div>' +
+        '<div class="row"><span>Share</span><b>' + pct(frac) + '</b></div>', e.clientX, e.clientY));
+      path.addEventListener('mouseleave', hideTip);
+      path.addEventListener('click', () => { donutFocus = donutFocus === s.name ? null : s.name; renderDonut(); });
+      svg.appendChild(path);
+      a = a + frac * Math.PI * 2;
+    });
+  }
+  const tot = svgEl('text', { x: cx, y: cy - 2, class: 'tick', 'text-anchor': 'middle', 'font-size': 20, 'font-weight': 800, fill: '#e6edf7' });
+  tot.textContent = fmtK(total);
+  const totL = svgEl('text', { x: cx, y: cy + 16, class: 'axis-label', 'text-anchor': 'middle' });
+  totL.textContent = 'total revenue';
+  svg.appendChild(tot); svg.appendChild(totL);
+  svg.appendChild(svgEl('text', { x: cx, y: cy + 34, class: 'axis-label', 'text-anchor': 'middle' }));
+  const leg = $('donutLegend');
+  leg.innerHTML = '';
+  vals.forEach(v => {
+    const item = document.createElement('span');
+    item.className = 'lg-item' + (donutFocus === v.name ? '' : donutFocus ? ' dim' : '');
+    item.innerHTML = '<span class="dot" style="background:' + REG_COLOR[v.name] + '"></span>' + v.name +
+      ' · <b>' + fmtK(v.v) + '</b> · ' + (total ? pct(v.v / total) : '0%');
+    item.addEventListener('click', () => { donutFocus = donutFocus === v.name ? null : v.name; renderDonut(); });
+    leg.appendChild(item);
+  });
+}
+
+function arcPath(cx, cy, r, a0, a1){
+  if (a1 - a0 <= 0.001) return '';
+  const large = (a1 - a0) > Math.PI ? 1 : 0;
+  const x0 = cx + r * Math.cos(a0), y0 = cy + r * Math.sin(a0);
+  const x1 = cx + r * Math.cos(a1), y1 = cy + r * Math.sin(a1);
+  return 'M ' + cx + ' ' + cy + ' L ' + x0 + ' ' + y0 +
+         ' A ' + r + ' ' + r + ' 0 ' + large + ' 1 ' + x1 + ' ' + y1 + ' Z';
+}
+
+/* ============================================================
+   SCATTER — weekly ad spend (x) vs revenue (y), colored by category.
+   ============================================================ */
+function renderScatter(){
+  const f = currentFilter();
+  const fr = filteredRows();
+  const W = weekCount(f);
+  const names = f.cat === 'All' ? CATS : [f.cat];
+  const points = [];
+  let maxO = 1;
+  names.forEach(name => {
+    for (let w = 0; w < W; w++){
+      let x = 0, y = 0, o = 0;
+      for (const r of fr){
+        if (r.cat !== name) continue;
+        const wi = Math.min(W - 1, Math.floor((r.d - f.from) / 7));
+        if (wi !== w) continue;
+        x += r.spend; y += r.revenue; o += r.orders;
+      }
+      if (x > 0 || y > 0) points.push({ cat: name, w, x, y, o });
+      maxO = Math.max(maxO, o);
+    }
+  });
+  const svg = newChart('scatterBox', 820, 320);
+  const pad = { l: 60, r: 20, t: 18, b: 42 };
+  const plot = { left: pad.l, top: pad.t, w: 820 - pad.l - pad.r, h: 320 - pad.t - pad.b };
+  const maxX = Math.max(1, ...points.map(p => p.x)) * 1.1;
+  const maxY = Math.max(1, ...points.map(p => p.y)) * 1.1;
+  plot.maxV = maxY;
+  gridLines(svg, plot, niceTicks(maxY));
+  niceTicks(maxX).forEach(t => {
+    const x = plot.left + t.v / maxX * plot.w;
+    svg.appendChild(svgEl('line', { x1: x, y1: plot.top, x2: x, y2: plot.top + plot.h, class: 'gridline' }));
+    const txt = svgEl('text', { x, y: plot.top + plot.h + 16, class: 'tick', 'text-anchor': 'middle' });
+    txt.textContent = fmtK(t.v);
+    svg.appendChild(txt);
+  });
+  svg.appendChild(svgEl('text', { x: plot.left + plot.w / 2, y: 312, class: 'axis-label', 'text-anchor': 'middle' })).textContent = 'Weekly ad spend';
+  svg.appendChild(svgEl('text', { x: 14, y: plot.top + plot.h / 2, class: 'axis-label', 'text-anchor': 'middle', transform: 'rotate(-90 14 ' + (plot.top + plot.h / 2) + ')' })).textContent = 'Weekly revenue';
+
+  // trend line (least squares over all points)
+  const reg = linreg(points);
+  if (reg && points.length >= 3){
+    const x0 = plot.left, x1 = plot.left + plot.w;
+    const y0 = plot.top + plot.h * (1 - Math.max(0, (reg.a + reg.b * 0) ) / maxY);
+    const y1 = plot.top + plot.h * (1 - Math.max(0, (reg.a + reg.b * maxX * 1.1 * 0.9)) / maxY);
+    svg.appendChild(svgEl('line', { x1: x0, y1: y0, x2: x1, y2: y1, stroke: '#8fa3c0', 'stroke-width': 1.6, 'stroke-dasharray': '5 4', opacity: 0.75 }));
+    $('scatterSub').textContent = 'weekly ad spend × revenue · r = ' + reg.r.toFixed(2);
+  } else {
+    $('scatterSub').textContent = 'weekly ad spend × revenue';
+  }
+
+  points.forEach(p => {
+    const dim = highlight && highlight.value !== p.cat;
+    const rr = 3.4 + 4.6 * Math.sqrt(p.o / maxO);
+    const c = svgEl('circle', {
+      cx: plot.left + p.x / maxX * plot.w,
+      cy: plot.top + plot.h * (1 - p.y / maxY),
+      r: rr, fill: CAT_COLOR[p.cat], class: 'pt',
+      opacity: dim ? 0.14 : 0.9,
+      stroke: highlight && highlight.value === p.cat ? '#e6edf7' : 'none',
+      'stroke-width': 1.5
+    });
+    c.addEventListener('mousemove', (e) => showTip(
+      '<div class="t-title"><span class="swatch" style="background:' + CAT_COLOR[p.cat] + '"></span>' + p.cat + ' · week of ' + weekLabel(f, p.w) + '</div>' +
+      '<div class="row"><span>Spend</span><b>' + fmtMoney(p.x) + '</b></div>' +
+      '<div class="row"><span>Revenue</span><b>' + fmtMoney(p.y) + '</b></div>' +
+      '<div class="row"><span>Orders</span><b>' + fmtInt(p.o) + '</b></div>', e.clientX, e.clientY));
+    c.addEventListener('mouseleave', hideTip);
+    c.addEventListener('click', () => setHighlight('category', p.cat));
+    svg.appendChild(c);
+  });
+}
+function linreg(pts){
+  const n = pts.length;
+  if (n < 2) return null;
+  let sx = 0, sy = 0, sxx = 0, sxy = 0, syy = 0;
+  for (const p of pts){
+    sx += p.x; sy += p.y; sxx += p.x * p.x; sxy += p.x * p.y; syy += p.y * p.y;
+  }
+  const den = n * sxx - sx * sx;
+  if (Math.abs(den) < 1e-9) return null;
+  const b = (n * sxy - sx * sy) / den;
+  const a = (sy - b * sx) / n;
+  const rDen = Math.sqrt((n * sxx - sx * sx) * (n * syy - sy * sy));
+  const r = rDen < 1e-9 ? 0 : (n * sxy - sx * sy) / rDen;
+  return { a, b, r };
+}
+
+/* ============================================================
+   KPI CARDS
+   ============================================================ */
+function renderKPIs(){
+  const f = currentFilter();
+  const fr = filteredRows();
+  const mid = f.from + Math.floor((f.to - f.from) / 2);
+  function sums(rows){
+    const s = { revenue: 0, units: 0, orders: 0, profit: 0 };
+    for (const r of rows){ s.revenue += r.revenue; s.units += r.units; s.orders += r.orders; s.profit += r.profit; }
+    return s;
+  }
+  const now = sums(fr);
+  const first = sums(fr.filter(r => r.d <= mid));
+  const second = sums(fr.filter(r => r.d > mid));
+  const delta = (v) => {
+    if (!first[v] || !second[v]) return { cls: 'flat', txt: '–' };
+    const d = (second[v] - first[v]) / first[v] * 100;
+    return { cls: d >= 0 ? 'up' : 'down', txt: (d >= 0 ? '▲ ' : '▼ ') + Math.abs(d).toFixed(1) + '%' };
+  };
+  const icons = {
+    revenue: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.5c.6 1 1.9 1.6 3.5 1.6 1.9 0 3.2-1 3.2-2.4 0-3.2-6.4-1.4-6.4-4.6 0-1.4 1.3-2.4 3.2-2.4 1.6 0 2.9.6 3.5 1.6"/><path d="M12 6v12"/></svg>',
+    units: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7l8-4 8 4-8 4-8-4z"/><path d="M4 7v10l8 4 8-4V7"/><path d="M12 11v10"/></svg>',
+    aov: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.6"/><circle cx="17" cy="20" r="1.6"/><path d="M3 4h2l2.4 11.4a1.6 1.6 0 0 0 1.6 1.3h7.4a1.6 1.6 0 0 0 1.6-1.3L20 8H6"/></svg>',
+    profit: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-6 4 3 6-8"/><path d="M14 6h4v4"/></svg>'
+  };
+  const cards = [
+    { key: 'revenue', label: 'Total revenue', val: fmtMoney(now.revenue), color: '#38bdf8' },
+    { key: 'units',   label: 'Units sold',    val: fmtInt(now.units),     color: '#34d399' },
+    { key: 'aov',     label: 'Avg order value', val: fmtMoney(now.orders ? now.revenue / now.orders : 0), color: '#f472b6' },
+    { key: 'profit',  label: 'Net profit',    val: fmtMoney(now.profit),  color: '#fbbf24' }
+  ];
+  const box = $('kpis');
+  box.innerHTML = '';
+  cards.forEach(c => {
+    const d = delta(c.key === 'aov' ? null : c.key);
+    const dUpd = c.key === 'aov' ? deltaForAOV(first, second) : d;
+    const el = document.createElement('div');
+    el.className = 'kpi';
+    el.style.setProperty('--k', c.color);
+    el.innerHTML =
+      '<div class="kpi-top"><span class="kpi-ic">' + icons[c.key] + '</span>' +
+      '<span class="kpi-lab">' + c.label + '</span>' +
+      '<span class="kpi-delta ' + dUpd.cls + '">' + dUpd.txt + '</span></div>' +
+      '<div class="kpi-val">' + c.val + '</div>' +
+      '<div class="kpi-sub">vs. prior half of selected period</div>';
+    box.appendChild(el);
+  });
+}
+function deltaForAOV(first, second){
+  const a = first.orders ? first.revenue / first.orders : 0;
+  const b = second.orders ? second.revenue / second.orders : 0;
+  if (!a) return { cls: 'flat', txt: '–' };
+  const d = (b - a) / a * 100;
+  return { cls: d >= 0 ? 'up' : 'down', txt: (d >= 0 ? '▲ ' : '▼ ') + Math.abs(d).toFixed(1) + '%' };
+}
+
+/* ---------------- interactions ---------------- */
+function setHighlight(type, value){
+  if (highlight && highlight.type === type && highlight.value === value) highlight = null;
+  else highlight = { type, value };
+  renderBar(); renderLine(); renderScatter();
+}
+function updateRangeUI(){
+  const f = currentFilter();
+  const loPct = f.from / 179 * 100, hiPct = f.to / 179 * 100;
+  $('rangeTrack').style.background =
+    'linear-gradient(to right, #2b3958 0%, #2b3958 ' + loPct + '%, ' +
+    '#38bdf8 ' + loPct + '%, #38bdf8 ' + hiPct + '%, #2b3958 ' + hiPct + '%)';
+  $('rangeLabels').textContent = dateLabel(f.from) + ' – ' + dateLabel(f.to);
+}
+function renderAll(){
+  updateRangeUI();
+  renderKPIs();
+  renderLine();
+  renderBar();
+  renderDonut();
+  renderScatter();
+}
+let debounceTimer = null;
+function debouncedResize(){
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(renderAll, 150);
+}
+
+/* ---------------- events ---------------- */
+document.addEventListener('DOMContentLoaded', () => {
+  $('refreshBtn').addEventListener('click', () => {
+    const btn = $('refreshBtn');
+    btn.classList.add('spinning');
+    setTimeout(() => btn.classList.remove('spinning'), 650);
+    seed = Math.floor(Math.random() * 0x7fffffff);
+    rows = genData(seed);
+    highlight = null; donutFocus = null;
+    renderAll();
+    $('footRight').textContent = 'seed ' + seed + ' · window ' + dateLabel(0) + ' – ' + dateLabel(179);
+  });
+  document.querySelectorAll('.metric-chips button').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('.metric-chips button').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      metric = b.dataset.metric;
+      renderLine();
+    });
+  });
+  $('regionSel').addEventListener('change', () => { highlight = null; donutFocus = null; renderAll(); });
+  $('catSel').addEventListener('change', () => { highlight = null; donutFocus = null; renderAll(); });
+  const clamp = (e) => {
+    const lo = +$('rangeLo').value, hi = +$('rangeHi').value;
+    if (e.target.id === 'rangeLo' && lo >= hi) $('rangeLo').value = Math.max(0, hi - 7);
+    if (e.target.id === 'rangeHi' && hi <= lo) $('rangeHi').value = Math.min(179, lo + 7);
+    renderAll();
+  };
+  $('rangeLo').addEventListener('input', clamp);
+  $('rangeHi').addEventListener('input', clamp);
+  window.addEventListener('resize', debouncedResize);
+
+  seed = 0xC0FFEE;
+  rows = genData(seed);
+  renderAll();
+  $('footRight').textContent = 'seed ' + seed + ' · window ' + dateLabel(0) + ' – ' + dateLabel(179);
+});
+</script>
+</body>
+</html>

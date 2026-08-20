@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SPACE STRIKE — dsh-rs</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    background: radial-gradient(ellipse at 50% 30%, #0b1230 0%, #05070f 70%, #02030a 100%);
+    color: #cfe8ff;
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    overflow: hidden;
+  }
+  #wrap {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+  header {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    width: 900px;
+    max-width: 95vw;
+  }
+  h1 {
+    font-size: 20px;
+    letter-spacing: 4px;
+    background: linear-gradient(90deg, #7fd4ff, #b388ff);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-shadow: 0 0 18px rgba(127,212,255,.35);
+  }
+  #hud {
+    margin-left: auto;
+    display: flex;
+    gap: 14px;
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+    background: rgba(10, 18, 44, .65);
+    border: 1px solid rgba(127, 212, 255, .25);
+    border-radius: 8px;
+    padding: 6px 14px;
+  }
+  #hud b { color: #ffd166; }
+  #hud .lives b { color: #ff6b81; }
+  #hud .level b { color: #7bd88f; }
+  #stage {
+    position: relative;
+    width: 900px;
+    height: 600px;
+    max-width: 95vw;
+    border: 1px solid rgba(127, 212, 255, .3);
+    border-radius: 10px;
+    box-shadow: 0 0 40px rgba(80, 140, 255, .18), inset 0 0 60px rgba(0,0,0,.5);
+    background: #03040c;
+    overflow: hidden;
+  }
+  canvas { display: block; width: 100%; height: 100%; }
+  #ui {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    text-align: center;
+    background: rgba(3, 6, 18, .55);
+    backdrop-filter: blur(2px);
+    transition: opacity .25s;
+  }
+  #ui.hidden { opacity: 0; pointer-events: none; }
+  #ui h2 { font-size: 42px; letter-spacing: 8px; color: #ffd166; text-shadow: 0 0 24px rgba(255,209,102,.5); }
+  #sub { font-size: 15px; color: #9db8d8; max-width: 520px; line-height: 1.6; }
+  #sub kbd {
+    background: rgba(127,212,255,.12);
+    border: 1px solid rgba(127,212,255,.35);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: inherit;
+    font-size: 13px;
+  }
+  .btnrow { display: flex; gap: 12px; }
+  button {
+    font: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: #04101f;
+    background: linear-gradient(180deg, #8fe0ff, #3fa7e8);
+    border: none;
+    border-radius: 8px;
+    padding: 10px 26px;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(60, 160, 240, .35);
+    transition: transform .08s, filter .15s;
+  }
+  button:hover { filter: brightness(1.12); transform: translateY(-1px); }
+  button:active { transform: translateY(1px); }
+  button.secondary {
+    background: linear-gradient(180deg, #4a5578, #2c3550);
+    color: #cfe0ff;
+    box-shadow: 0 4px 14px rgba(40, 60, 120, .3);
+  }
+  #finalScore { font-size: 20px; color: #7fd4ff; }
+  footer { font-size: 12px; color: #55708f; letter-spacing: 2px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <header>
+    <h1>SPACE STRIKE</h1>
+    <div id="hud">
+      <span class="score">SCORE <b id="scoreVal">0</b></span>
+      <span class="lives">LIVES <b id="livesVal">3</b></span>
+      <span class="level">LEVEL <b id="levelVal">1</b></span>
+    </div>
+  </header>
+  <div id="stage">
+    <canvas id="game" width="900" height="600"></canvas>
+    <div id="ui">
+      <h2 id="titleText">SPACE STRIKE</h2>
+      <p id="sub">
+        WASD to move &middot; <kbd>SPACE</kbd> to shoot &middot; <kbd>P</kbd> pause<br>
+        <b>Scout</b> +10 &middot; <b>Dreadnought</b> +50 &middot; Asteroids break apart.
+        Catch <span style="color:#ffd166">x2</span> and <span style="color:#7bd88f">shield</span> drops.
+      </p>
+      <div id="finalScore" hidden></div>
+      <div class="btnrow">
+        <button id="startBtn">START</button>
+        <button id="pauseBtn" class="secondary">PAUSE</button>
+        <button id="restartBtn" class="secondary">RESTART</button>
+      </div>
+    </div>
+  </div>
+  <footer>dsh-rs &middot; canvas space shooter</footer>
+</div>
+
+<script>
+"use strict";
+(() => {
+  // ---------------------------------------------------------------- setup
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width, H = canvas.height;
+
+  const $ = (id) => document.getElementById(id);
+  const scoreVal = $("scoreVal"), livesVal = $("livesVal"), levelVal = $("levelVal");
+  const ui = $("ui"), titleText = $("titleText"), sub = $("sub"), finalScore = $("finalScore");
+  const startBtn = $("startBtn"), pauseBtn = $("pauseBtn"), restartBtn = $("restartBtn");
+
+  // ---------------------------------------------------------------- config
+  const CONFIG = {
+    playerAccel: 900,      // px/s^2
+    playerFriction: 2.2,   // exponential drag 1/s
+    maxSpeed: 380,
+    fireCooldown: 0.16,    // s
+    bulletSpeed: 640,
+    bulletLife: 1.4,
+    bulletDamage: 1,
+    twinDuration: 9,       // s, x2 power-up
+    shieldDuration: 9,     // s, shield power-up
+    invulnTime: 2.2,       // s after being hit
+    waveInterval: 6,       // s between waves at level 1
+    waveIntervalMin: 2.4,
+    bigScore: 50, smallScore: 10,
+    shakeMax: 14,
+  };
+
+  // ---------------------------------------------------------------- state
+  const state = {
+    mode: "menu",          // menu | playing | paused | gameover
+    score: 0,
+    lives: 3,
+    level: 1,
+    waveTimer: 3,          // s until next wave
+    invadersLeft: 0,       // enemies alive this wave (used for early next wave)
+    player: null,
+    bullets: [],
+    enemies: [],
+    asteroids: [],
+    powerups: [],
+    particles: [],
+    stars: [],
+    shake: 0,
+    twinUntil: 0,
+    shieldUntil: 0,
+    time: 0,
+    keys: new Set(),
+    pausedAt: 0,
+  };
+
+  // ---------------------------------------------------------------- helpers
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const chance = (p) => Math.random() < p;
+  const TAU = Math.PI * 2;
+
+  function dist2(a, b) {
+    const dx = a.x - b.x, dy = a.y - b.y;
+    return dx * dx + dy * dy;
+  }
+  function circlesHit(a, b) {
+    const r = a.radius + b.radius;
+    return dist2(a, b) <= r * r;
+  }
+  // shortest signed angular difference from a to b, in [-PI, PI]
+  function angleDelta(a, b) {
+    let d = b - a;
+    while (d > Math.PI) d -= TAU;
+    while (d < -Math.PI) d += TAU;
+    return d;
+  }
+
+  // ---------------------------------------------------------------- starfield
+  function makeStars() {
+    state.stars = [];
+    for (let i = 0; i < 120; i++) {
+      state.stars.push({
+        x: rand(0, W), y: rand(0, H),
+        z: rand(0.3, 1),          // parallax depth
+        tw: rand(0, TAU),         // twinkle phase
+      });
+    }
+  }
+
+  // ---------------------------------------------------------------- objects
+  function makePlayer() {
+    return {
+      x: W / 2, y: H - 90,
+      vx: 0, vy: 0,
+      radius: 14,
+      angle: -Math.PI / 2,
+      fireT: 0,                   // cooldown countdown
+      flash: 0,                   // hit flash timer
+    };
+  }
+
+  function spawnShip(type) {
+    const isBig = type === "big";
+    const lvl = state.level;
+    const side = Math.floor(rand(0, 2)) === 0 ? -1 : 1;      // enter left or right
+    const speedScale = 1 + (lvl - 1) * 0.09;
+    return {
+      type,
+      x: side < 0 ? -40 : W + 40,
+      y: rand(50, 200),
+      vx: side * rand(60, 100) * speedScale,
+      vy: 0,
+      angle: 0,
+      radius: isBig ? 26 : 13,
+      hp: isBig ? 6 : 1,
+      maxHp: isBig ? 6 : 1,
+      turnRate: isBig ? 1.6 : 2.6,        // rad/s homing turn rate
+      speed: (isBig ? rand(70, 95) : rand(130, 190)) * speedScale,
+      wiggle: rand(0, TAU),               // wobble phase
+      hitT: 0,
+      score: isBig ? CONFIG.bigScore : CONFIG.smallScore,
+    };
+  }
+
+  function spawnAsteroid(x, y, size) {
+    // size: "big" (radius ~38) | "med" (24) | "small" (13)
+    const lvl = state.level;
+    const cfg = {
+      big:   { r: 38, speed: rand(40, 70),  hp: 3 },
+      med:   { r: 24, speed: rand(60, 110), hp: 2 },
+      small: { r: 13, speed: rand(90, 150), hp: 1 },
+    }[size];
+    const a = rand(0, TAU);
+    return {
+      size, radius: cfg.r, hp: cfg.hp, maxHp: cfg.hp,
+      x: x ?? rand(30, W - 30),
+      y: y ?? rand(-60, -20),
+      vx: Math.cos(a) * cfg.speed * (1 + (lvl - 1) * 0.06),
+      vy: Math.sin(a) * cfg.speed * (1 + (lvl - 1) * 0.06),
+      rot: rand(0, TAU), rotSpeed: rand(-1.6, 1.6),
+      hitT: 0,
+      score: 5,
+    };
+  }
+
+  function spawnPowerup(x, y) {
+    return {
+      kind: chance(0.5) ? "twin" : "shield",
+      x, y,
+      vx: rand(-25, 25), vy: 70,
+      radius: 12,
+      t: 0,                       // bob anim
+      life: 10,
+    };
+  }
+
+  // ---------------------------------------------------------------- waves
+  function spawnWave() {
+    const lvl = state.level;
+    const big = Math.min(1 + Math.floor((lvl - 1) / 2), 3);     // dreadnoughts
+    const small = 3 + lvl + Math.floor(lvl / 2);
+    for (let i = 0; i < small; i++) state.enemies.push(spawnShip("small"));
+    for (let i = 0; i < big; i++) state.enemies.push(spawnShip("big"));
+    state.invadersLeft = small + big;
+  }
+
+  function startWaveTimer() {
+    const interval = Math.max(CONFIG.waveIntervalMin, CONFIG.waveInterval - (state.level - 1) * 0.55);
+    state.waveTimer = interval;
+  }
+
+  // ---------------------------------------------------------------- reset
+  function resetGame() {
+    state.score = 0;
+    state.lives = 3;
+    state.level = 1;
+    state.time = 0;
+    state.bullets = [];
+    state.enemies = [];
+    state.asteroids = [];
+    state.powerups = [];
+    state.particles = [];
+    state.shake = 0;
+    state.twinUntil = 0;
+    state.shieldUntil = 0;
+    state.player = makePlayer();
+    state.waveTimer = 3;
+    state.invadersLeft = 0;
+    makeStars();
+    spawnWave();                    // wave 1 immediately
+    syncHUD();
+  }
+
+  // ---------------------------------------------------------------- HUD / UI
+  function syncHUD() {
+    scoreVal.textContent = state.score;
+    livesVal.textContent = state.lives;
+    levelVal.textContent = state.level;
+  }
+
+  function showUI(title, subText, scoreText) {
+    titleText.textContent = title;
+    sub.hidden = !!subText;
+    if (subText) sub.innerHTML = subText;
+    finalScore.hidden = !scoreText;
+    if (scoreText) finalScore.textContent = scoreText;
+    ui.classList.remove("hidden");
+  }
+  function hideUI() { ui.classList.add("hidden"); }
+
+  function setMode(mode) {
+    state.mode = mode;
+    if (mode === "playing") {
+      hideUI();
+      pauseBtn.textContent = "PAUSE";
+    } else if (mode === "paused") {
+      pauseBtn.textContent = "RESUME";
+      ui.classList.remove("hidden");
+      titleText.textContent = "PAUSED";
+      sub.hidden = true;
+      finalScore.hidden = true;
+    } else if (mode === "menu") {
+      pauseBtn.textContent = "PAUSE";
+      showUI(
+        "SPACE STRIKE",
+        'WASD to move &middot; <kbd>SPACE</kbd> to shoot &middot; <kbd>P</kbd> pause<br>' +
+        '<b>Scout</b> +10 &middot; <b>Dreadnought</b> +50 &middot; Asteroids break apart.' +
+        ' Catch <span style="color:#ffd166">x2</span> and <span style="color:#7bd88f">shield</span> drops.',
+        null
+      );
+      pauseBtn.disabled = true;
+    } else if (mode === "gameover") {
+      pauseBtn.textContent = "PAUSE";
+      pauseBtn.disabled = true;
+      showUI("GAME OVER", null, `Final score: ${state.score} &middot; reached level ${state.level}`);
+      finalScore.innerHTML = `Final score: ${state.score} &middot; reached level ${state.level}`;
+    }
+    if (mode === "playing") pauseBtn.disabled = false;
+  }
+
+  // ---------------------------------------------------------------- input
+  function handleKey(e, down) {
+    const k = e.key.toLowerCase();
+    if ([" ", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(k)) e.preventDefault();
+    if (k === "p") {
+      if (down && state.mode === "playing") setMode("paused");
+      else if (down && state.mode === "paused") startGame(false);
+      return;
+    }
+    if (["w", "a", "s", "d", " "].includes(k)) {
+      if (down) state.keys.add(k); else state.keys.delete(k);
+    }
+  }
+  window.addEventListener("keydown", (e) => handleKey(e, true));
+  window.addEventListener("keyup", (e) => handleKey(e, false));
+  window.addEventListener("blur", () => {
+    state.keys.clear();
+    if (state.mode === "playing") setMode("paused");
+  });
+
+  function startGame(reset = true) {
+    if (reset) resetGame();
+    setMode("playing");
+  }
+
+  startBtn.addEventListener("click", () => {
+    if (state.mode === "menu" || state.mode === "gameover") startGame(true);
+    else if (state.mode === "paused") startGame(false);
+  });
+  pauseBtn.addEventListener("click", () => {
+    if (state.mode === "playing") setMode("paused");
+    else if (state.mode === "paused") startGame(false);
+  });
+  restartBtn.addEventListener("click", () => startGame(true));
+
+  // ---------------------------------------------------------------- shooting
+  function shoot() {
+    const p = state.player;
+    const speed = CONFIG.bulletSpeed;
+    const twin = state.time < state.twinUntil;
+    const mk = (dx, dy) => ({
+      x: p.x + dx, y: p.y + dy,
+      vx: speed * Math.cos(p.angle) + dx * 6,
+      vy: speed * Math.sin(p.angle) + dy * 6,
+      radius: 4,
+      life: CONFIG.bulletLife,
+      damage: CONFIG.bulletDamage,
+    });
+    if (twin) {
+      const nx = Math.cos(p.angle + Math.PI / 2), ny = Math.sin(p.angle + Math.PI / 2);
+      state.bullets.push(mk(nx * 12, ny * 12), mk(-nx * 12, -ny * 12));
+    } else {
+      state.bullets.push(mk(0, 0));
+    }
+    p.fireT = CONFIG.fireCooldown;
+    spawnMuzzle(p.x + Math.cos(p.angle) * 22, p.y + Math.sin(p.angle) * 22, twin ? 6 : 3);
+  }
+
+  // ---------------------------------------------------------------- particles
+  function spawnExplosion(x, y, opts = {}) {
+    const n = opts.count ?? 26;
+    const colors = opts.colors ?? ["#ffd166", "#ff9f43", "#ff6b6b", "#fff3c4"];
+    for (let i = 0; i < n; i++) {
+      const a = rand(0, TAU), sp = rand(30, opts.speed ?? 260);
+      state.particles.push({
+        x, y,
+        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - rand(0, 60),
+        life: rand(0.35, opts.life ?? 0.9),
+        t: 0,
+        size: rand(1.5, opts.size ?? 4.5),
+        color: colors[Math.floor(rand(0, colors.length))],
+        drag: opts.drag ?? 2.6,
+        gravity: opts.gravity ?? 140,
+      });
+    }
+  }
+  function spawnMuzzle(x, y, n) {
+    for (let i = 0; i < n; i++) {
+      const a = state.player.angle + rand(-0.25, 0.25);
+      const sp = rand(180, 320);
+      state.particles.push({
+        x, y,
+        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        life: rand(0.08, 0.18), t: 0,
+        size: rand(1, 2.6),
+        color: chance(0.6) ? "#8fe0ff" : "#c9a5ff",
+        drag: 4, gravity: 0,
+      });
+    }
+  }
+  function addShake(amt) {
+    state.shake = Math.min(CONFIG.shakeMax, state.shake + amt);
+  }
+
+  // ---------------------------------------------------------------- collision
+  function damageEnemy(e, dmg) {
+    e.hp -= dmg;
+    e.hitT = 0.08;
+    addShake(2);
+    spawnExplosion(e.x, e.y, { count: 8, speed: 140, size: 2.5, life: 0.4 });
+    if (e.hp <= 0) killEnemy(e);
+  }
+
+  function killEnemy(e) {
+    e.dead = true;
+    state.invadersLeft--;
+    state.score += e.score;
+    syncHUD();
+    addShake(e.type === "big" ? 10 : 5);
+    spawnExplosion(e.x, e.y, {
+      count: e.type === "big" ? 60 : 30,
+      speed: e.type === "big" ? 320 : 230,
+      size: e.type === "big" ? 5 : 3.6,
+      life: e.type === "big" ? 1.2 : 0.9,
+      colors: e.type === "big"
+        ? ["#ff6b81", "#ff4757", "#ffd166", "#ff9f43"]
+        : ["#7fd4ff", "#c9a5ff", "#ffffff", "#ffd166"],
+    });
+    if (chance(0.22)) state.powerups.push(spawnPowerup(e.x, e.y));
+    if (state.invadersLeft <= 0 && state.mode === "playing") {
+      state.level++;
+      state.invadersLeft = 0; // wave marker: next wave spawns via timer; level shown now
+      syncHUD();
+    }
+  }
+
+  function breakAsteroid(a) {
+    a.dead = true;
+    state.score += a.score;
+    syncHUD();
+    addShake(a.size === "big" ? 7 : 3);
+    spawnExplosion(a.x, a.y, {
+      count: a.size === "big" ? 34 : a.size === "med" ? 20 : 12,
+      speed: 200, size: 3.4, life: 0.7,
+      colors: ["#a08c6b", "#c9b28a", "#8a7760", "#e8d5ad"],
+    });
+    if (a.size === "big") {
+      state.asteroids.push(spawnAsteroid(a.x + 8, a.y - 6, "med"));
+      state.asteroids.push(spawnAsteroid(a.x - 8, a.y + 6, "med"));
+    } else if (a.size === "med") {
+      state.asteroids.push(spawnAsteroid(a.x + 6, a.y - 4, "small"));
+      state.asteroids.push(spawnAsteroid(a.x - 6, a.y + 4, "small"));
+    }
+  }
+
+  function hitPlayer() {
+    const p = state.player;
+    if (state.time < p.invulnUntil) return;
+    if (state.time < state.shieldUntil) {
+      // shield absorbs the hit
+      state.shieldUntil = 0;
+      addShake(8);
+      spawnExplosion(p.x, p.y, {
+        count: 40, speed: 300, life: 0.8, size: 4,
+        colors: ["#7bd88f", "#3ddc84", "#d9ffe9"],
+      });
+      return;
+    }
+    state.lives--;
+    p.invulnUntil = state.time + CONFIG.invulnTime;
+    p.flash = 0.25;
+    addShake(16);
+    spawnExplosion(p.x, p.y, { count: 50, speed: 300, life: 1, size: 5 });
+    syncHUD();
+    if (state.lives <= 0) {
+      state.player.dead = true;
+      addShake(CONFIG.shakeMax);
+      spawnExplosion(p.x, p.y, { count: 110, speed: 420, life: 1.4, size: 6 });
+      setMode("gameover");
+    }
+  }
+
+  // ---------------------------------------------------------------- update
+  function updatePlayer(dt) {
+    const p = state.player;
+    if (p.dead) return;
+    let ax = 0, ay = 0;
+    if (state.keys.has("a")) ax -= 1;
+    if (state.keys.has("d")) ax += 1;
+    if (state.keys.has("w")) ay -= 1;
+    if (state.keys.has("s")) ay += 1;
+    const mag = Math.hypot(ax, ay);
+    if (mag > 0) {
+      ax /= mag; ay /= mag;
+      p.vx += ax * CONFIG.playerAccel * dt;
+      p.vy += ay * CONFIG.playerAccel * dt;
+    }
+    // inertia: velocity persists, exponential drag
+    const drag = Math.exp(-CONFIG.playerFriction * dt);
+    p.vx *= drag; p.vy *= drag;
+    const sp = Math.hypot(p.vx, p.vy);
+    if (sp > CONFIG.maxSpeed) {
+      p.vx *= CONFIG.maxSpeed / sp;
+      p.vy *= CONFIG.maxSpeed / sp;
+    }
+    p.x = clamp(p.x + p.vx * dt, p.radius, W - p.radius);
+    p.y = clamp(p.y + p.vy * dt, p.radius, H - p.radius);
+    if (p.vx !== 0 || p.vy !== 0) p.angle = Math.atan2(p.vy, p.vx);
+
+    // shooting
+    p.fireT = Math.max(0, p.fireT - dt);
+    if (state.keys.has(" ") && p.fireT <= 0) shoot();
+    p.flash = Math.max(0, p.flash - dt);
+  }
+
+  function updateEnemy(e, dt) {
+    if (e.dead) return;
+    const p = state.player;
+    // homing-ish: steer toward player with a wobble, capped turn rate
+    const want = Math.atan2(p.y - e.y, p.x - e.x);
+    const wob = Math.sin(state.time * 2.2 + e.wiggle) * 0.5;
+    e.angle += clamp(angleDelta(e.angle, want + wob), -e.turnRate * dt, e.turnRate * dt);
+    e.vx = Math.cos(e.angle) * e.speed;
+    e.vy = Math.sin(e.angle) * e.speed * 0.9;
+    e.x += e.vx * dt;
+    e.y += e.vy * dt;
+    e.hitT = Math.max(0, e.hitT - dt);
+    if (e.y > H + 60) { e.dead = true; state.invadersLeft = Math.max(0, state.invadersLeft - 1); }
+  }
+
+  function updateAsteroid(a, dt) {
+    if (a.dead) return;
+    a.x += a.vx * dt;
+    a.y += a.vy * dt;
+    a.rot += a.rotSpeed * dt;
+    a.hitT = Math.max(0, a.hitT - dt);
+    // drift off edges and reappear on the opposite side (wrap)
+    if (a.x < -60) a.x = W + 60;
+    if (a.x > W + 60) a.x = -60;
+    if (a.y > H + 60) a.y = -60;
+    if (a.y < -60) a.y = H + 60;
+  }
+
+  function updatePowerup(pu, dt) {
+    pu.t += dt;
+    pu.x += pu.vx * dt;
+    pu.y += pu.vy * dt;
+    pu.life -= dt;
+    if (pu.life <= 0 || pu.y > H + 30) pu.dead = true;
+  }
+
+  function updateParticles(dt) {
+    for (const pt of state.particles) {
+      pt.t += dt;
+      const drag = Math.exp(-pt.drag * dt);
+      pt.vx *= drag; pt.vy *= drag;
+      pt.vy += pt.gravity * dt;
+      pt.x += pt.vx * dt;
+      pt.y += pt.vy * dt;
+    }
+    state.particles = state.particles.filter((pt) => pt.t < pt.life);
+  }
+
+  function updateCollisions() {
+    const p = state.player;
+    const pAlive = !p.dead;
+
+    // bullets vs enemies / asteroids
+    for (const b of state.bullets) {
+      if (b.dead) continue;
+      for (const e of state.enemies) {
+        if (!e.dead && circlesHit(b, e)) {
+          b.dead = true;
+          damageEnemy(e, b.damage);
+          break;
+        }
+      }
+      if (b.dead) continue;
+      for (const a of state.asteroids) {
+        if (!a.dead && circlesHit(b, a)) {
+          b.dead = true;
+          a.hp -= b.damage;
+          a.hitT = 0.08;
+          spawnExplosion(b.x, b.y, { count: 6, speed: 120, size: 2, life: 0.35, gravity: 0 });
+          if (a.hp <= 0) breakAsteroid(a);
+          break;
+        }
+      }
+    }
+    state.bullets = state.bullets.filter((b) => !b.dead && b.life > 0);
+
+    // enemies + asteroids vs player
+    if (pAlive) {
+      for (const e of state.enemies) {
+        if (!e.dead && circlesHit(p, e)) {
+          e.dead = true;
+          state.invadersLeft = Math.max(0, state.invadersLeft - 1);
+          spawnExplosion(e.x, e.y, { count: 30, speed: 260, life: 0.9, size: 4 });
+          hitPlayer();
+          break;
+        }
+      }
+      for (const a of state.asteroids) {
+        if (!a.dead && circlesHit(p, a)) {
+          a.dead = true;
+          spawnExplosion(a.x, a.y, { count: 16, speed: 200, size: 3, life: 0.6, colors: ["#a08c6b", "#e8d5ad"] });
+          hitPlayer();
+          break;
+        }
+      }
+      // power-up pickup
+      for (const pu of state.powerups) {
+        if (!pu.dead && circlesHit(p, pu)) {
+          pu.dead = true;
+          if (pu.kind === "twin") {
+            state.twinUntil = state.time + CONFIG.twinDuration;
+            spawnExplosion(pu.x, pu.y, { count: 22, speed: 200, size: 3, life: 0.6, colors: ["#ffd166", "#fff3c4"] });
+          } else {
+            state.shieldUntil = state.time + CONFIG.shieldDuration;
+            spawnExplosion(pu.x, pu.y, { count: 22, speed: 200, size: 3, life: 0.6, colors: ["#7bd88f", "#d9ffe9"] });
+          }
+        }
+      }
+    }
+
+    state.enemies = state.enemies.filter((e) => !e.dead);
+    state.asteroids = state.asteroids.filter((a) => !a.dead);
+    state.powerups = state.powerups.filter((pu) => !pu.dead);
+  }
+
+  function updateWaves(dt) {
+    if (state.mode !== "playing") return;
+    state.waveTimer -= dt;
+    if (state.waveTimer <= 0) {
+      spawnWave();
+      startWaveTimer();
+    }
+    // ambient asteroid rain: more frequent on higher levels
+    if (chance(dt * (0.25 + state.level * 0.12))) {
+      state.asteroids.push(spawnAsteroid());
+    }
+  }
+
+  function update(dt) {
+    state.time += dt;
+    updateStars(dt);
+    updatePlayer(dt);
+    for (const e of state.enemies) updateEnemy(e, dt);
+    for (const a of state.asteroids) updateAsteroid(a, dt);
+    for (const pu of state.powerups) updatePowerup(pu, dt);
+    updateParticles(dt);
+
+    // bullets integrate
+    for (const b of state.bullets) {
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      b.life -= dt;
+      if (b.y < -30 || b.x < -30 || b.x > W + 30) b.dead = true;
+    }
+
+    updateCollisions();
+    updateWaves(dt);
+    state.shake = Math.max(0, state.shake - dt * 34);
+  }
+
+  // ---------------------------------------------------------------- render
+  function updateStars(dt) {
+    const p = state.player;
+    for (const s of state.stars) {
+      s.y += (26 + 90 * s.z + (p ? Math.abs(p.vy) * 0.06 : 0)) * dt * s.z;
+      s.tw += dt * 3;
+      if (s.y > H) { s.y = 0; s.x = rand(0, W); }
+    }
+  }
+
+  function drawStars() {
+    for (const s of state.stars) {
+      const a = 0.25 + 0.55 * (0.5 + 0.5 * Math.sin(s.tw));
+      ctx.globalAlpha = a * s.z;
+      ctx.fillStyle = "#cfe0ff";
+      const sz = s.z * 1.8;
+      ctx.fillRect(s.x, s.y, sz, sz);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawPlayer() {
+    const p = state.player;
+    if (!p || p.dead) return;
+    const blink = state.time < p.invulnUntil && Math.floor(state.time * 14) % 2 === 0;
+    if (blink) return;
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.angle);
+    // engine flame
+    const flame = 10 + Math.random() * 10 + Math.min(8, Math.hypot(p.vx, p.vy) * 0.02);
+    ctx.fillStyle = "rgba(140,220,255,.7)";
+    ctx.beginPath();
+    ctx.moveTo(-10, -4);
+    ctx.lineTo(-10 - flame, 0);
+    ctx.lineTo(-10, 4);
+    ctx.closePath();
+    ctx.fill();
+    // hull
+    ctx.fillStyle = p.flash > 0 ? "#ff6b6b" : "#5ad1ff";
+    ctx.strokeStyle = "#dff4ff";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(20, 0);
+    ctx.lineTo(-12, -12);
+    ctx.lineTo(-7, 0);
+    ctx.lineTo(-12, 12);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    // cockpit
+    ctx.fillStyle = "#0b2b4a";
+    ctx.beginPath();
+    ctx.arc(2, 0, 4.5, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+    // shield bubble
+    if (state.time < state.shieldUntil) {
+      const t = state.time - (state.shieldUntil - CONFIG.shieldDuration);
+      const pulse = 1 + 0.06 * Math.sin(t * 6);
+      ctx.save();
+      ctx.globalAlpha = 0.55;
+      ctx.strokeStyle = "#7bd88f";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, (p.radius + 8) * pulse, 0, TAU);
+      ctx.stroke();
+      ctx.globalAlpha = 0.12 + 0.08 * Math.sin(t * 6);
+      ctx.fillStyle = "#7bd88f";
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, (p.radius + 8) * pulse, 0, TAU);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  function drawEnemy(e) {
+    if (e.dead) return;
+    ctx.save();
+    ctx.translate(e.x, e.y);
+    ctx.rotate(e.angle);
+    if (e.type === "big") {
+      // dreadnought: wide angular hull
+      const hl = e.hitT > 0;
+      ctx.fillStyle = hl ? "#fff" : "#c44b5e";
+      ctx.strokeStyle = "#ffb3c1";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(30, 0);
+      ctx.lineTo(4, -18);
+      ctx.lineTo(-18, -12);
+      ctx.lineTo(-26, 0);
+      ctx.lineTo(-18, 12);
+      ctx.lineTo(4, 18);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = hl ? "#fff" : "#ffd166";
+      ctx.beginPath();
+      ctx.arc(-4, 0, 6, 0, TAU);
+      ctx.fill();
+      // hp pips
+      ctx.fillStyle = "rgba(255,255,255,.5)";
+      for (let i = 0; i < e.maxHp; i++) {
+        ctx.fillRect(-20 + i * 5, -24, 3, 3);
+      }
+    } else {
+      // scout: dart
+      const hl = e.hitT > 0;
+      ctx.fillStyle = hl ? "#fff" : "#9b59ff";
+      ctx.strokeStyle = "#d9c7ff";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(16, 0);
+      ctx.lineTo(-10, -9);
+      ctx.lineTo(-5, 0);
+      ctx.lineTo(-10, 9);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = hl ? "#fff" : "#ffd166";
+      ctx.beginPath();
+      ctx.arc(0, 0, 3, 0, TAU);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawAsteroid(a) {
+    if (a.dead) return;
+    ctx.save();
+    ctx.translate(a.x, a.y);
+    ctx.rotate(a.rot);
+    const hl = a.hitT > 0;
+    ctx.fillStyle = hl ? "#e8d5ad" : "#8a7760";
+    ctx.strokeStyle = hl ? "#fff" : "#4a3d2c";
+    ctx.lineWidth = 2;
+    // rocky polygon
+    ctx.beginPath();
+    const n = 9;
+    for (let i = 0; i < n; i++) {
+      const ang = (i / n) * TAU;
+      const rr = a.radius * rand(0.78, 1.05);
+      const x = Math.cos(ang) * rr, y = Math.sin(ang) * rr;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    // crater
+    ctx.fillStyle = "rgba(0,0,0,.25)";
+    ctx.beginPath();
+    ctx.arc(a.radius * 0.25, a.radius * 0.15, a.radius * 0.3, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawBullets() {
+    for (const b of state.bullets) {
+      ctx.save();
+      ctx.translate(b.x, b.y);
+      ctx.rotate(Math.atan2(b.vy, b.vx));
+      ctx.fillStyle = "#bff3ff";
+      ctx.shadowColor = "#4dc9ff";
+      ctx.shadowBlur = 12;
+      ctx.fillRect(-10, -2, 20, 4);
+      ctx.restore();
+    }
+    ctx.shadowBlur = 0;
+  }
+
+  function drawPowerups() {
+    for (const pu of state.powerups) {
+      const bob = Math.sin(pu.t * 5) * 3;
+      ctx.save();
+      ctx.translate(pu.x, pu.y + bob);
+      const twin = pu.kind === "twin";
+      ctx.fillStyle = twin ? "rgba(255,209,102,.16)" : "rgba(123,216,143,.16)";
+      ctx.beginPath();
+      ctx.arc(0, 0, 16, 0, TAU);
+      ctx.fill();
+      ctx.strokeStyle = twin ? "#ffd166" : "#7bd88f";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, 12, 0, TAU);
+      ctx.stroke();
+      if (twin) {
+        // two bullet glyphs
+        ctx.fillStyle = "#ffd166";
+        ctx.fillRect(-9, -2.5, 6, 5);
+        ctx.fillRect(3, -2.5, 6, 5);
+      } else {
+        // shield glyph
+        ctx.fillStyle = "#7bd88f";
+        ctx.beginPath();
+        ctx.moveTo(0, -9);
+        ctx.quadraticCurveTo(9, -4, 8, 3);
+        ctx.quadraticCurveTo(6, 8, 0, 10);
+        ctx.quadraticCurveTo(-6, 8, -8, 3);
+        ctx.quadraticCurveTo(-9, -4, 0, -9);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+
+  function drawParticles() {
+    for (const pt of state.particles) {
+      const fade = 1 - pt.t / pt.life;
+      ctx.globalAlpha = fade;
+      ctx.fillStyle = pt.color;
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, pt.size * (0.4 + 0.6 * fade), 0, TAU);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    // screen shake: random offset scaled by shake energy
+    ctx.save();
+    if (state.shake > 0.5) {
+      ctx.translate(rand(-state.shake, state.shake), rand(-state.shake, state.shake));
+    }
+    // twin timer vignette
+    if (state.time < state.twinUntil) {
+      ctx.fillStyle = "rgba(255,209,102,.05)";
+      ctx.fillRect(0, 0, W, H);
+    }
+    drawStars();
+    drawAsteroids();
+    drawEnemies();
+    drawPowerups();
+    drawPlayer();
+    drawBullets();
+    drawParticles();
+    ctx.restore();
+  }
+
+  function drawEnemies() { for (const e of state.enemies) drawEnemy(e); }
+  function drawAsteroids() { for (const a of state.asteroids) drawAsteroid(a); }
+
+  // ---------------------------------------------------------------- loop
+  let last = 0;
+  function frame(ts) {
+    const dt = Math.min(0.05, (ts - last) / 1000);
+    last = ts;
+    if (state.mode === "playing" || state.mode === "menu" || state.mode === "gameover") {
+      if (state.mode === "playing") update(dt);
+      else {
+        // animate background in menu / gameover too
+        state.time += dt * 0.5;
+        updateStars(dt);
+        updateParticles(dt);
+      }
+      draw();
+    } else if (state.mode === "paused") {
+      draw(); // frozen frame behind overlay
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // ---------------------------------------------------------------- boot
+  makeStars();
+  state.player = makePlayer();
+  setMode("menu");
+  resetGame();   // warm up wave 1 behind the menu
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

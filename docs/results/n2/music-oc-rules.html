@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Music Visualizer</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: #e6e6ff;
+    background: radial-gradient(1200px 800px at 20% 0%, #1b2350 0%, #10132b 45%, #05060f 100%);
+  }
+  #canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  .ui {
+    position: absolute;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: 16px;
+    background: rgba(12, 15, 34, 0.72);
+    border: 1px solid rgba(130, 140, 220, 0.25);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: calc(100vw - 24px);
+  }
+  button {
+    cursor: pointer;
+    border: 1px solid rgba(140, 150, 230, 0.4);
+    background: rgba(30, 36, 74, 0.6);
+    color: #e6e6ff;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 8px 14px;
+    border-radius: 10px;
+    transition: background 0.15s, border-color 0.15s, transform 0.1s;
+    white-space: nowrap;
+  }
+  button:hover { background: rgba(58, 68, 128, 0.8); }
+  button:active { transform: scale(0.96); }
+  button.active {
+    background: linear-gradient(135deg, #7a5cff, #3fb8ff);
+    border-color: transparent;
+    color: #fff;
+  }
+  #file-input { display: none; }
+  .sep { width: 1px; height: 24px; background: rgba(140, 150, 230, 0.25); }
+  #song-name {
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    opacity: 0.75;
+  }
+  #status {
+    position: absolute;
+    top: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 13px;
+    letter-spacing: 0.5px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: rgba(12, 15, 34, 0.6);
+    border: 1px solid rgba(130, 140, 220, 0.2);
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+  #status.show { opacity: 1; }
+  #title {
+    position: absolute;
+    top: 22px;
+    left: 24px;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    opacity: 0.5;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <div id="title">Audio Visualizer</div>
+  <div id="status">Ready</div>
+  <div class="ui">
+    <button id="play-btn">Play</button>
+    <button id="mic-btn">Mic</button>
+    <label for="file-input"><button type="button">File</button></label>
+    <input type="file" id="file-input" accept="audio/*">
+    <div class="sep"></div>
+    <button data-theme="0" class="active">Bars</button>
+    <button data-theme="1">Rings</button>
+    <button data-theme="2">Particles</button>
+    <div class="sep"></div>
+    <button id="palette-btn">Palette</button>
+    <div id="song-name"></div>
+  </div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const audio = new Audio();
+audio.crossOrigin = 'anonymous';
+
+const fileInput = document.getElementById('file-input');
+const playBtn = document.getElementById('play-btn');
+const micBtn = document.getElementById('mic-btn');
+const paletteBtn = document.getElementById('palette-btn');
+const songName = document.getElementById('song-name');
+const statusEl = document.getElementById('status');
+
+let audioCtx = null;
+let analyser = null;
+let freqData = null;
+let timeData = null;
+let fileSource = null;
+let micStream = null;
+let micSource = null;
+let activeInput = 'none';
+let themeIndex = 0;
+let paletteIndex = 0;
+let statusTimer = null;
+
+const palettes = [
+  ['#3fb8ff', '#7a5cff', '#ff4fd8', '#ffb84f'],
+  ['#ff6a6a', '#ff9a3d', '#ffd23d', '#ff5c8a'],
+  ['#4ade80', '#22d3ee', '#a3e635', '#34d399'],
+  ['#a78bfa', '#f472b6', '#38bdf8', '#e879f9']
+];
+
+function getPalette() { return palettes[paletteIndex % palettes.length]; }
+
+function showStatus(msg) {
+  statusEl.textContent = msg;
+  statusEl.classList.add('show');
+  clearTimeout(statusTimer);
+  statusTimer = setTimeout(() => statusEl.classList.remove('show'), 2200);
+}
+
+function setupGraph() {
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 2048;
+  analyser.smoothingTimeConstant = 0.82;
+  analyser.minDecibels = -90;
+  analyser.maxDecibels = -20;
+  freqData = new Uint8Array(analyser.frequencyBinCount);
+  timeData = new Uint8Array(analyser.frequencyBinCount);
+  analyser.connect(audioCtx.destination);
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function connectFileSource() {
+  if (!audioCtx) setupGraph();
+  if (!fileSource) {
+    fileSource = audioCtx.createMediaElementSource(audio);
+    fileSource.connect(analyser);
+  }
+}
+
+function ensureRunning() {
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function disconnectInput(input) {
+  if (input === 'mic') {
+    if (micSource) { micSource.disconnect(); micSource = null; }
+    if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+  } else if (input === 'file') {
+    if (fileSource) { fileSource.disconnect(); fileSource = null; }
+  }
+}
+
+function useFile() {
+  disconnectInput(activeInput);
+  activeInput = 'file';
+  connectFileSource();
+  ensureRunning();
+  showStatus('Playing file');
+}
+
+function useMic() {
+  if (!audioCtx) setupGraph();
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+    disconnectInput(activeInput);
+    activeInput = 'mic';
+    micStream = stream;
+    micSource = audioCtx.createMediaStreamSource(stream);
+    micSource.connect(analyser);
+    ensureRunning();
+    showStatus('Microphone live');
+  }).catch(err => {
+    showStatus('Mic unavailable: ' + err.message);
+  });
+}
+
+function updatePlayBtn() {
+  playBtn.textContent = audio.paused ? 'Play' : 'Pause';
+}
+
+playBtn.addEventListener('click', () => {
+  if (activeInput !== 'file' || !audio.src) {
+    showStatus('Choose a file first');
+    return;
+  }
+  ensureRunning();
+  if (audio.paused) { audio.play(); } else { audio.pause(); }
+  updatePlayBtn();
+});
+
+fileInput.addEventListener('change', () => {
+  const f = fileInput.files[0];
+  if (!f) return;
+  const url = URL.createObjectURL(f);
+  audio.src = url;
+  songName.textContent = f.name;
+  useFile();
+  audio.play().then(updatePlayBtn).catch(() => {});
+});
+
+micBtn.addEventListener('click', () => {
+  useMic();
+  micBtn.classList.toggle('active');
+  playBtn.classList.remove('active');
+});
+
+audio.addEventListener('play', updatePlayBtn);
+audio.addEventListener('pause', updatePlayBtn);
+audio.addEventListener('ended', () => { playBtn.textContent = 'Play'; });
+
+document.querySelectorAll('[data-theme]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    themeIndex = Number(btn.dataset.theme);
+    document.querySelectorAll('[data-theme]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
+
+paletteBtn.addEventListener('click', () => {
+  paletteIndex = (paletteIndex + 1) % palettes.length;
+  showStatus('Palette ' + (paletteIndex + 1));
+});
+
+let W = 0, H = 0, DPR = 1;
+function resize() {
+  DPR = window.devicePixelRatio || 1;
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = Math.floor(W * DPR);
+  canvas.height = Math.floor(H * DPR);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+window.addEventListener('resize', resize);
+resize();
+
+const BAR_COUNT = 72;
+const MIN_FREQ = 30;
+const MAX_FREQ = 16000;
+const BAND_RANGES = [];
+for (let i = 0; i < BAR_COUNT; i++) {
+  const f0 = MIN_FREQ * Math.pow(MAX_FREQ / MIN_FREQ, i / BAR_COUNT);
+  const f1 = MIN_FREQ * Math.pow(MAX_FREQ / MIN_FREQ, (i + 1) / BAR_COUNT);
+  BAND_RANGES.push([f0, f1]);
+}
+
+function bandValue(binCount, sampleRate, range) {
+  const [f0, f1] = range;
+  const i0 = Math.floor(f0 / (sampleRate / 2) * binCount);
+  const i1 = Math.max(i0 + 1, Math.ceil(f1 / (sampleRate / 2) * binCount));
+  let sum = 0;
+  for (let i = i0; i < i1 && i < binCount; i++) sum += freqData[i];
+  return sum / (i1 - i0) / 255;
+}
+
+function getLevels() {
+  const sr = audioCtx ? audioCtx.sampleRate : 44100;
+  const binCount = analyser ? analyser.frequencyBinCount : freqData.length;
+  const levels = new Array(BAR_COUNT);
+  for (let i = 0; i < BAR_COUNT; i++) {
+    levels[i] = bandValue(binCount, sr, BAND_RANGES[i]);
+  }
+  return levels;
+}
+
+function drawBars(t, levels, pal) {
+  const barW = W / (BAR_COUNT * 1.4);
+  const gap = W / BAR_COUNT - barW;
+  const baseline = H * 0.86;
+  const maxH = H * 0.72;
+  for (let i = 0; i < BAR_COUNT; i++) {
+    const v = levels[i];
+    const h = Math.pow(v, 1.3) * maxH;
+    const x = i * (barW + gap) + gap / 2;
+    const y = baseline - h;
+    const c = pal[i % pal.length];
+    ctx.globalAlpha = 0.35 + v * 0.65;
+    ctx.fillStyle = c;
+    ctx.shadowColor = c;
+    ctx.shadowBlur = 12 * (0.3 + v);
+    ctx.fillRect(x, y, barW, h);
+    ctx.shadowBlur = 0;
+  }
+  ctx.globalAlpha = 1;
+
+  if (analyser) {
+    analyser.getByteTimeDomainData(timeData);
+    ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    const step = timeData.length / W;
+    for (let x = 0; x < W; x++) {
+      const idx = Math.min(timeData.length - 1, Math.floor(x * step));
+      const y = (timeData[idx] / 255) * H * 0.22 + H * 0.1;
+      if (x === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+}
+
+function drawRings(t, levels, pal) {
+  const cx = W / 2, cy = H / 2;
+  const maxR = Math.min(W, H) * 0.42;
+  const n = 44;
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < n; i++) {
+    const v = levels[i % BAR_COUNT];
+    const r = (i / n) * maxR + v * (maxR / n) * 1.6;
+    const rot = t * 0.0004 * (i % 2 === 0 ? 1 : -1) + i * 0.15;
+    const c = pal[i % pal.length];
+    ctx.strokeStyle = c;
+    ctx.globalAlpha = 0.25 + v * 0.6;
+    ctx.lineWidth = 1.5 + v * 4;
+    ctx.shadowColor = c;
+    ctx.shadowBlur = 10 * v;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, rot, rot + Math.PI * (0.4 + v * 1.2));
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+  if (analyser) {
+    analyser.getByteTimeDomainData(timeData);
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    const step = timeData.length / (2 * Math.PI * maxR);
+    for (let a = 0; a < Math.PI * 2; a += 0.02) {
+      const idx = Math.min(timeData.length - 1, Math.floor(a * step));
+      const v = (timeData[idx] - 128) / 128;
+      const r = maxR * 0.95 + v * maxR * 0.12;
+      const x = cx + Math.cos(a) * r;
+      const y = cy + Math.sin(a) * r;
+      if (a === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 1;
+}
+
+const PARTICLES = [];
+const PCOUNT = 160;
+for (let i = 0; i < PCOUNT; i++) {
+  PARTICLES.push({
+    a: Math.random() * Math.PI * 2,
+    r: Math.random() * 0.9,
+    speed: 0.0006 + Math.random() * 0.0018,
+    band: Math.floor(Math.random() * BAR_COUNT),
+    size: 1.5 + Math.random() * 3
+  });
+}
+
+function drawParticles(t, levels, pal) {
+  const cx = W / 2, cy = H / 2;
+  const maxR = Math.min(W, H) * 0.48;
+  ctx.globalCompositeOperation = 'lighter';
+  for (const p of PARTICLES) {
+    const v = levels[p.band] * (0.5 + levels[(p.band + 1) % BAR_COUNT] * 0.5);
+    p.a += p.speed * (1 + v * 8);
+    p.r += p.speed * 60 * v;
+    if (p.r > 1.05) { p.r = 0.02; p.a = Math.random() * Math.PI * 2; }
+    const x = cx + Math.cos(p.a) * p.r * maxR;
+    const y = cy + Math.sin(p.a) * p.r * maxR;
+    const c = pal[p.band % pal.length];
+    ctx.fillStyle = c;
+    ctx.globalAlpha = 0.15 + v * 0.85;
+    ctx.shadowColor = c;
+    ctx.shadowBlur = 14 * v;
+    ctx.beginPath();
+    ctx.arc(x, y, p.size * (0.6 + v * 2), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+  if (analyser) {
+    analyser.getByteTimeDomainData(timeData);
+    ctx.strokeStyle = 'rgba(255,255,255,0.28)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    const step = timeData.length / W;
+    for (let x = 0; x < W; x++) {
+      const idx = Math.min(timeData.length - 1, Math.floor(x * step));
+      const y = (timeData[idx] / 255) * H * 0.9 + H * 0.05;
+      if (x === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 1;
+}
+
+function draw() {
+  requestAnimationFrame(draw);
+  const t = performance.now();
+
+  ctx.clearRect(0, 0, W, H);
+
+  if (analyser) {
+    analyser.getByteFrequencyData(freqData);
+  } else {
+    freqData.fill(0);
+  }
+
+  const levels = getLevels();
+  const pal = getPalette();
+
+  if (themeIndex === 0) drawBars(t, levels, pal);
+  else if (themeIndex === 1) drawRings(t, levels, pal);
+  else drawParticles(t, levels, pal);
+}
+
+draw();
+</script>
+</body>
+</html>

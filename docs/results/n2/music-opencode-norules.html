@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Realtime Music Visualizer</title>
+<style>
+  :root {
+    --bg1: #0b0f1a;
+    --bg2: #141b2e;
+    --accent: #22d3ee;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    color: #e5e7eb;
+    overflow: hidden;
+    background: radial-gradient(120% 120% at 50% 0%, var(--bg2) 0%, var(--bg1) 60%, #05070d 100%);
+  }
+  #viz {
+    position: fixed;
+    inset: 0;
+    display: block;
+  }
+  #ui {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 12px 18px;
+    background: rgba(10, 14, 26, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+    max-width: 94vw;
+    z-index: 10;
+  }
+  button, label.btn {
+    appearance: none;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.06);
+    color: #e5e7eb;
+    padding: 8px 16px;
+    border-radius: 10px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.18s, transform 0.08s, border-color 0.18s;
+    user-select: none;
+  }
+  button:hover, label.btn:hover { background: rgba(255, 255, 255, 0.14); }
+  button:active, label.btn:active { transform: scale(0.96); }
+  button.primary {
+    background: linear-gradient(135deg, #22d3ee, #6366f1);
+    border-color: transparent;
+    color: #060a12;
+    font-weight: 600;
+  }
+  button.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent) inset;
+  }
+  #fileInput { display: none; }
+  .separator {
+    width: 1px;
+    height: 28px;
+    background: rgba(255, 255, 255, 0.12);
+  }
+  #title {
+    position: fixed;
+    top: 18px;
+    left: 20px;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: rgba(229, 231, 235, 0.65);
+    z-index: 10;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+  }
+  #status {
+    position: fixed;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 12px;
+    color: rgba(229, 231, 235, 0.45);
+    z-index: 9;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  @media (max-width: 640px) {
+    #ui { gap: 8px; padding: 10px 12px; }
+    button, label.btn { padding: 7px 12px; font-size: 13px; }
+  }
+</style>
+</head>
+<body>
+<canvas id="viz"></canvas>
+<div id="title">REALTIME MUSIC VISUALIZER</div>
+<div id="ui">
+  <button id="btnPlay" class="primary">Play / Pause</button>
+  <label class="btn" for="fileInput">Load Audio File</label>
+  <input type="file" id="fileInput" accept="audio/*" />
+  <button id="btnMic" title="Use microphone input">Use Mic</button>
+  <div class="separator"></div>
+  <button data-theme="bars" class="active">Bars</button>
+  <button data-theme="rings">Rings</button>
+  <button data-theme="particles">Particles</button>
+  <div class="separator"></div>
+  <button id="btnPalette" title="Cycle color palette">Cycle Colors</button>
+</div>
+<div id="status">Load an audio file or use your microphone</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const canvas = document.getElementById("viz");
+  const ctx = canvas.getContext("2d");
+  const btnPlay = document.getElementById("btnPlay");
+  const fileInput = document.getElementById("fileInput");
+  const btnMic = document.getElementById("btnMic");
+  const btnPalette = document.getElementById("btnPalette");
+  const statusEl = document.getElementById("status");
+  const themeBtns = [...document.querySelectorAll("[data-theme]")];
+
+  let dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.floor(window.innerWidth * dpr);
+    canvas.height = Math.floor(window.innerHeight * dpr);
+  }
+  window.addEventListener("resize", resize);
+  resize();
+
+  // ---- Audio graph -------------------------------------------------------
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 2048;
+  analyser.smoothingTimeConstant = 0.82;
+  const freqData = new Uint8Array(analyser.frequencyBinCount);
+  const timeData = new Uint8Array(analyser.frequencyBinCount);
+
+  const audioEl = new Audio();
+  audioEl.crossOrigin = "anonymous";
+  audioEl.preload = "auto";
+  audioEl.addEventListener("ended", () => {
+    btnPlay.textContent = "Play / Pause";
+    statusEl.textContent = "Playback ended";
+  });
+
+  let sourceNode = null;
+  let micStream = null;
+
+  function ensureSource() {
+    if (sourceNode) return;
+    sourceNode = audioCtx.createMediaElementSource(audioEl);
+    sourceNode.connect(analyser);
+    analyser.connect(audioCtx.destination);
+  }
+
+  // ---- Frequency scaling -------------------------------------------------
+  // Map analyser bins to 72 bars using a log-ish curve so low bands get room
+  // and highs still show up.
+  const BAR_COUNT = 72;
+  const P = 2.0; // curve exponent: higher = more weight on lows
+
+  function barIndex(i) {
+    const t = i / BAR_COUNT;
+    const f = 1 - Math.pow(1 - t, P); // ease-out
+    return Math.floor(f * (analyser.frequencyBinCount - 1));
+  }
+
+  // ---- Theme engine ------------------------------------------------------
+  let theme = "bars";
+  let palettes = [
+    { c1: [34, 211, 238], c2: [99, 102, 241], c3: [236, 72, 153] }, // cyan/indigo/pink
+    { c1: [52, 211, 153], c2: [16, 185, 129], c3: [245, 158, 11] }, // emerald/gold
+    { c1: [251, 113, 133], c2: [217, 70, 239], c3: [129, 140, 248] }, // rose/purple
+    { c1: [250, 204, 21], c2: [249, 115, 22], c3: [239, 68, 68] },   // amber/red
+    { c1: [96, 165, 250], c2: [45, 212, 191], c3: [167, 139, 250] }, // sky/teal/violet
+  ];
+  let palIdx = 0;
+  let pal = palettes[0];
+  let paletteMix = 0;
+
+  btnPalette.addEventListener("click", () => {
+    palIdx = (palIdx + 1) % palettes.length;
+    pal = palettes[palIdx];
+  });
+
+  themeBtns.forEach((b) => {
+    b.addEventListener("click", () => {
+      theme = b.dataset.theme;
+      themeBtns.forEach((x) => x.classList.remove("active"));
+      b.classList.add("active");
+    });
+  });
+
+  // ---- Particles ---------------------------------------------------------
+  const particles = [];
+  const MAX_P = 420;
+  for (let i = 0; i < MAX_P; i++) {
+    particles.push({
+      x: Math.random(),
+      y: Math.random(),
+      vx: 0,
+      vy: 0,
+      size: 0,
+      hue: 0,
+      age: 0,
+    });
+  }
+
+  // ---- Colors ------------------------------------------------------------
+  function lerp(a, b, t) {
+    return a + (b - a) * t;
+  }
+
+  function mixC(c1, c2, t) {
+    return [lerp(c1[0], c2[0], t), lerp(c1[1], c2[1], t), lerp(c1[2], c2[2], t)];
+  }
+
+  function cssColor([r, g, b], a = 1) {
+    return `rgba(${r | 0}, ${g | 0}, ${b | 0}, ${a})`;
+  }
+
+  function shade(c, k) {
+    return [Math.min(255, c[0] * k), Math.min(255, c[1] * k), Math.min(255, c[2] * k)];
+  }
+
+  // Spectral energy buckets for gradient ramps
+  function energyBands(level, index) {
+    // level 0..1, index 0..BAR_COUNT-1
+    const norm = index / BAR_COUNT;
+    const gradPos = norm;
+    const c =
+      norm < 0.5
+        ? mixC(pal.c1, pal.c2, gradPos * 2)
+        : mixC(pal.c2, pal.c3, (gradPos - 0.5) * 2);
+    return shade(c, 0.35 + 0.65 * level);
+  }
+
+  // ---- Render loop -------------------------------------------------------
+  let rafId = null;
+
+  function draw() {
+    rafId = requestAnimationFrame(draw);
+    const W = canvas.width;
+    const H = canvas.height;
+    const w = W / dpr;
+    const h = H / dpr;
+
+    analyser.getByteFrequencyData(freqData);
+    analyser.getByteTimeDomainData(timeData);
+
+    // Scaled bar values with smoothing already handled by analyser
+    const bars = [];
+    let peak = 1;
+    for (let i = 0; i < BAR_COUNT; i++) {
+      const v = freqData[barIndex(i)] / 255;
+      bars.push(v);
+      if (v > peak) peak = v;
+    }
+    const peakValue = peak;
+
+    // Wipe
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+
+    // Faint vertical gradient (drawn each frame for subtle persistence effect)
+    const bg = ctx.createLinearGradient(0, 0, 0, h);
+    bg.addColorStop(0, "rgba(13,18,32,0.30)");
+    bg.addColorStop(0.5, "rgba(9,12,24,0.18)");
+    bg.addColorStop(1, "rgba(5,7,13,0.30)");
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, w, h);
+
+    // ---- THEMES -----------------------------------------------------------
+    if (theme === "bars") {
+      drawBars(bars, w, h);
+    } else if (theme === "rings") {
+      drawRings(bars, w, h, peak);
+    } else {
+      drawParticles(bars, timeData, w, h, peakValue);
+    }
+  }
+
+  function drawBars(bars, w, h) {
+    const gap = w / BAR_COUNT;
+    const barW = gap * 0.72;
+    const baseY = h * 0.78;
+
+    for (let i = 0; i < bars.length; i++) {
+      const v = bars[i];
+      const bh = Math.max(2, v * h * 0.62);
+      const x = i * gap + (gap - barW) / 2;
+      const y = baseY - bh;
+
+      const g = ctx.createLinearGradient(0, y, 0, baseY);
+      const col = energyBands(v, i);
+      g.addColorStop(0, cssColor(shade(col, 1.25), 0.95));
+      g.addColorStop(1, cssColor(col, 0.55));
+      ctx.fillStyle = g;
+      ctx.fillRect(x, y, barW, bh);
+
+      // cap dot
+      ctx.fillStyle = cssColor(shade(col, 1.4));
+      ctx.beginPath();
+      ctx.arc(x + barW / 2, y, barW * 0.28, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Waveform line overlay
+    const waveCol = cssColor(shade(mixC(pal.c1, pal.c3, 0.5), 1.1), 0.85);
+    ctx.strokeStyle = waveCol;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    const N = 512;
+    const step = Math.floor(analyser.frequencyBinCount / N);
+    for (let i = 0; i < N; i++) {
+      const v = (timeData[i * step] - 128) / 128;
+      const x = (i / N) * w;
+      const y = baseY - 40 + v * 30;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+
+  function drawRings(bars, w, h, peak) {
+    const cx = w / 2;
+    const cy = h / 2;
+    const baseR = Math.min(w, h) * 0.16;
+    const rings = 3;
+    const perRing = Math.floor(bars.length / rings);
+
+    for (let r = 0; r < rings; r++) {
+      const count = perRing;
+      const R = baseR * (1 + r * 0.9);
+      const amp = (baseR * 0.5) * (1 + r * 0.55);
+      ctx.lineWidth = 1.5 + r;
+      for (let i = 0; i < count; i++) {
+        const angle = (i / count) * Math.PI * 2;
+        const v = bars[(r * perRing + i) % bars.length];
+        const rr = R + v * amp;
+        const x = cx + Math.cos(angle) * rr;
+        const y = cy + Math.sin(angle) * rr;
+        const col = energyBands(v, (r * perRing + i) / bars.length);
+        ctx.fillStyle = cssColor(col, 0.8);
+        ctx.beginPath();
+        ctx.arc(x, y, 1.5 + v * 2.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // pulsing center glow
+    const glowR = baseR * (0.5 + peak * 0.5);
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, glowR);
+    grad.addColorStop(0, cssColor(pal.c1, 0.35));
+    grad.addColorStop(1, cssColor(pal.c1, 0));
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, glowR, 0, Math.PI * 2);
+    ctx.fill();
+
+    // waveform ring
+    const N = 256;
+    const step = Math.floor(analyser.frequencyBinCount / N);
+    ctx.strokeStyle = cssColor(shade(pal.c3, 1.1), 0.7);
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (let i = 0; i <= N; i++) {
+      const angle = (i / N) * Math.PI * 2;
+      const v = (timeData[i * step] - 128) / 128;
+      const rr = baseR * 2.6 + v * baseR * 0.7;
+      const x = cx + Math.cos(angle) * rr;
+      const y = cy + Math.sin(angle) * rr;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+
+  function drawParticles(bars, timeData, w, h, peakValue) {
+    const active = Math.floor(40 + peakValue * 320);
+
+    for (let i = 0; i < MAX_P; i++) {
+      const p = particles[i];
+      if (i < active) {
+        // drive particle by a frequency band
+        const band = (i / MAX_P) * bars.length;
+        const b0 = bars[Math.floor(band) % bars.length] || 0;
+        const b1 = bars[(Math.floor(band) + 1) % bars.length] || 0;
+        const v = b0 * (1 - band % 1) + b1 * (band % 1);
+        const col = energyBands(v, band / bars.length);
+
+        p.vx += (Math.random() - 0.5) * 0.02;
+        p.vy += (Math.random() - 0.5) * 0.02;
+        const sp = 0.5 + v * 3.2;
+        p.vx += Math.cos(i * 0.7) * 0.001 * v * 8;
+        p.vy += Math.sin(i * 0.9) * 0.001 * v * 8;
+        p.vx *= 0.92;
+        p.vy *= 0.92;
+
+        p.x += p.vx * sp;
+        p.y += p.vy * sp;
+
+        p.size = 0.6 + v * 4.5;
+        p.col = col;
+        p.alpha = Math.min(0.95, 0.2 + v);
+
+        // wrap edges
+        if (p.x < 0) p.x = 1;
+        if (p.x > 1) p.x = 0;
+        if (p.y < 0) p.y = 1;
+        if (p.y > 1) p.y = 0;
+
+        ctx.fillStyle = cssColor(col, p.alpha);
+        ctx.beginPath();
+        ctx.arc(p.x * w, p.y * h, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  // ---- Controls ----------------------------------------------------------
+  function setStatus(msg) {
+    statusEl.textContent = msg;
+  }
+
+  async function resume() {
+    if (audioCtx.state === "suspended") await audioCtx.resume();
+  }
+
+  btnPlay.addEventListener("click", async () => {
+    await resume();
+    if (audioEl.src) {
+      if (audioEl.paused) {
+        await audioEl.play();
+        btnPlay.textContent = "Pause";
+      } else {
+        audioEl.pause();
+        btnPlay.textContent = "Play / Pause";
+      }
+    } else if (micStream) {
+      setStatus("Microphone live — use Play/Pause to toggle monitor");
+    } else {
+      setStatus("Please load an audio file or enable the mic first");
+    }
+  });
+
+  fileInput.addEventListener("change", async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    await resume();
+    const url = URL.createObjectURL(file);
+    audioEl.src = url;
+    ensureSource();
+    stopMic();
+    await audioEl.play();
+    btnPlay.textContent = "Pause";
+    setStatus(`Now playing: ${file.name}`);
+  });
+
+  btnMic.addEventListener("click", async () => {
+    try {
+      await resume();
+      stopMic();
+      if (audioEl.src) {
+        audioEl.pause();
+        audioEl.src = "";
+        btnPlay.textContent = "Play / Pause";
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micStream = stream;
+      const mic = audioCtx.createMediaStreamSource(stream);
+      mic.connect(analyser);
+      setStatus("Microphone live — speak or play some music");
+    } catch (err) {
+      setStatus("Mic unavailable: " + (err.name || err.message));
+    }
+  });
+
+  function stopMic() {
+    if (micStream) {
+      micStream.getTracks().forEach((t) => t.stop());
+      micStream = null;
+    }
+  }
+
+  // ---- Boot --------------------------------------------------------------
+  draw();
+  // Touch unlock
+  window.addEventListener(
+    "pointerdown",
+    () => {
+      if (audioCtx.state === "suspended") audioCtx.resume();
+    },
+    { once: true }
+  );
+})();
+</script>
+</body>
+</html>

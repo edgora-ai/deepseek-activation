@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pulse — WebAudio Music Visualizer</title>
+<style>
+:root{
+  --bg:#05060f;
+  --panel:rgba(255,255,255,.055);
+  --line:rgba(255,255,255,.13);
+  --text:#e8edf8;
+  --muted:#8b93ab;
+  --accent:#22d3ee;
+  --accent2:#ff2d95;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif;
+  color:var(--text);
+  display:flex;flex-direction:column;overflow:hidden;
+  background:
+    radial-gradient(1100px 700px at 78% -12%,rgba(88,45,150,.35) 0%,transparent 60%),
+    radial-gradient(900px 620px at 8% 112%,rgba(13,78,110,.38) 0%,transparent 55%),
+    linear-gradient(160deg,#05060f 0%,#0b1026 55%,#13081f 100%);
+}
+header{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:14px 20px;
+  background:rgba(8,10,24,.5);
+  border-bottom:1px solid var(--line);
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+  z-index:2;
+}
+h1{font-size:15px;font-weight:650;letter-spacing:.4px;display:flex;align-items:center;gap:9px}
+h1 .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent);animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.8)}}
+h1 small{font-weight:400;color:var(--muted);font-size:11.5px;letter-spacing:.2px}
+.spacer{flex:1}
+.btn{
+  background:var(--panel);border:1px solid var(--line);color:var(--text);
+  padding:8px 13px;border-radius:10px;font-size:13px;cursor:pointer;
+  transition:background .15s,border-color .15s,box-shadow .15s,color .15s;
+  user-select:none;
+}
+.btn:hover:not(:disabled){background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.28)}
+.btn:disabled{opacity:.38;cursor:not-allowed}
+.btn.live{border-color:var(--accent2);color:#ff8fc2;box-shadow:0 0 14px rgba(255,45,149,.35);background:rgba(255,45,149,.1)}
+.btn.play.playing{color:#7deef9;border-color:var(--accent);box-shadow:0 0 12px rgba(34,211,238,.3)}
+.divider{width:1px;height:26px;background:var(--line);margin:0 4px}
+.seg{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{background:transparent;border:0;color:var(--muted);padding:8px 14px;font-size:13px;cursor:pointer;transition:background .15s,color .15s}
+.seg button:hover{color:var(--text)}
+.seg button.active{background:rgba(34,211,238,.16);color:#7deef9;box-shadow:inset 0 0 0 1px rgba(34,211,238,.35)}
+#viz{flex:1;display:block;min-height:0}
+footer{
+  display:flex;justify-content:space-between;gap:12px;
+  padding:9px 20px;font-size:12px;color:var(--muted);
+  background:rgba(8,10,24,.5);border-top:1px solid var(--line);
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  z-index:2;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span class="dot"></span>Pulse <small>WebAudio spectrum visualizer</small></h1>
+  <div class="spacer"></div>
+  <button id="btnFile" class="btn" title="Load an audio file">🎵 Load track</button>
+  <input type="file" id="fileInput" accept="audio/*" hidden>
+  <button id="btnMic" class="btn" title="Toggle microphone input">🎙 Mic</button>
+  <button id="btnPlay" class="btn play" title="Play / pause" disabled>▶ Play</button>
+  <div class="divider"></div>
+  <div class="seg" id="themeSeg">
+    <button data-theme="bars" class="active" title="Bar spectrum">Bars</button>
+    <button data-theme="rings" title="Radial rings">Rings</button>
+    <button data-theme="particles" title="Particle field">Particles</button>
+  </div>
+  <button id="btnPalette" class="btn" title="Cycle color palette">🎨 Neon</button>
+</header>
+
+<canvas id="viz">Your browser does not support the canvas element.</canvas>
+
+<footer>
+  <span id="srcInfo">No source — load a track or enable the mic</span>
+  <span id="timeInfo"></span>
+</footer>
+
+<audio id="audioEl" preload="auto"></audio>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------------- DOM ---------------- */
+const canvas = document.getElementById('viz');
+const g = canvas.getContext('2d');
+const audioEl = document.getElementById('audioEl');
+const fileInput = document.getElementById('fileInput');
+const btnFile   = document.getElementById('btnFile');
+const btnPlay   = document.getElementById('btnPlay');
+const btnMic    = document.getElementById('btnMic');
+const btnPalette= document.getElementById('btnPalette');
+const srcInfo   = document.getElementById('srcInfo');
+const timeInfo  = document.getElementById('timeInfo');
+
+/* ---------------- audio graph ---------------- */
+const BARS = 72;
+let audioCtx = null;
+let analyser = null;
+let elementSource = null;      // media-element node (created once)
+let elementConnected = false;
+let micStream = null;
+let micSource = null;
+let wasPlayingBeforeMic = false;
+let objectUrl = null;
+let fileName = null;
+
+let freqData = new Uint8Array(1024);
+let timeData = new Uint8Array(1024).fill(128);
+let barLevels = new Float32Array(BARS);
+const bands = [];              // log-spaced [lo,hi] FFT bin ranges
+
+function ensureAudio() {
+  if (audioCtx) return audioCtx;
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  audioCtx = new Ctx();
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 2048;
+  analyser.smoothingTimeConstant = 0.82;   // built-in spectral smoothing
+  analyser.connect(audioCtx.destination);
+  freqData = new Uint8Array(analyser.frequencyBinCount);
+  timeData = new Uint8Array(analyser.frequencyBinCount).fill(128);
+  computeBands();
+  return audioCtx;
+}
+
+/* Logarithmic frequency division: every bar covers an octave-scale chunk,
+   so the low end gets real visual weight instead of a couple of bins. */
+function computeBands() {
+  const sr = audioCtx.sampleRate;
+  const fMin = 30;
+  const fMax = Math.min(16000, sr / 2 - 50);
+  bands.length = 0;
+  for (let i = 0; i < BARS; i++) {
+    const f0 = fMin * Math.pow(fMax / fMin, i / BARS);
+    const f1 = fMin * Math.pow(fMax / fMin, (i + 1) / BARS);
+    const lo = Math.max(0, Math.floor(f0 / sr * analyser.fftSize));
+    const hi = Math.min(analyser.frequencyBinCount - 1,
+                        Math.ceil(f1 / sr * analyser.fftSize));
+    bands.push({ lo, hi });
+  }
+}
+
+/* Pull one spectrum + one waveform per frame; average each band's bins,
+   apply a perceptual curve, then fast-attack / slow-release smoothing. */
+function captureFrame() {
+  analyser.getByteFrequencyData(freqData);
+  analyser.getByteTimeDomainData(timeData);
+  for (let i = 0; i < BARS; i++) {
+    const b = bands[i];
+    let sum = 0;
+    for (let j = b.lo; j <= b.hi; j++) sum += freqData[j];
+    let t = sum / Math.max(1, b.hi - b.lo + 1) / 255;
+    t = Math.pow(t, 1.25);                 // perceptual lift
+    barLevels[i] = t > barLevels[i] ? t : barLevels[i] + (t - barLevels[i]) * 0.3;
+  }
+}
+
+/* ---------------- sources ---------------- */
+function loadFile(file) {
+  stopMic();
+  ensureAudio();
+  audioCtx.resume();
+
+  if (!elementSource) {
+    elementSource = audioCtx.createMediaElementSource(audioEl);
+  }
+  if (!elementConnected) {
+    elementSource.connect(analyser);
+    elementConnected = true;
+  }
+  if (objectUrl) URL.revokeObjectURL(objectUrl);
+  objectUrl = URL.createObjectURL(file);
+  fileName = file.name;
+  audioEl.src = objectUrl;
+  audioEl.play().catch(e => {
+    if (e.name !== 'AbortError') setStatus('Playback error: ' + e.message);
+  });
+  setStatus('Track: ' + fileName);
+  updateControls();
+  audioEl.addEventListener('timeupdate', updateTime);
+}
+
+function toggleMic() {
+  if (micStream) { stopMic(); return; }
+  ensureAudio();
+  audioCtx.resume();
+  wasPlayingBeforeMic = !audioEl.paused;
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+    micStream = stream;
+    micSource = audioCtx.createMediaStreamSource(stream);
+    micSource.connect(analyser);
+    if (elementConnected) elementSource.disconnect(analyser);  // keep element silent
+    audioEl.pause();
+    updateControls();
+    setStatus('Microphone live');
+    timeInfo.textContent = '';
+  }).catch(err => {
+    setStatus('Mic error: ' + err.message);
+  });
+}
+
+function stopMic() {
+  if (micStream) {
+    micStream.getTracks().forEach(t => t.stop());
+    micStream = null;
+  }
+  if (micSource) {
+    micSource.disconnect();
+    micSource = null;
+  }
+  if (elementConnected && !micStream) {
+    elementSource.connect(analyser);       // restore element routing
+  }
+  updateControls();
+  if (!micStream && wasPlayingBeforeMic && audioEl.src) {
+    audioEl.play().catch(e => {
+      if (e.name !== 'AbortError') setStatus('Playback error: ' + e.message);
+    });
+  }
+}
+
+function togglePlay() {
+  if (!audioEl.src || micStream) return;
+  ensureAudio();
+  audioCtx.resume();
+  if (audioEl.paused) audioEl.play().catch(e => setStatus('Playback error: ' + e.message));
+  else audioEl.pause();
+  syncPlayBtn();
+}
+
+function updateControls() {
+  const hasFile = !!audioEl.src;
+  btnPlay.disabled = !hasFile || !!micStream;
+  syncPlayBtn();
+}
+function syncPlayBtn() {
+  btnPlay.textContent = audioEl.paused ? '▶ Play' : '❚❚ Pause';
+  btnPlay.classList.toggle('playing', !audioEl.paused);
+}
+function updateTime() {
+  const d = audioEl.duration;
+  if (isFinite(d)) timeInfo.textContent = fmt(audioEl.currentTime) + ' / ' + fmt(d);
+}
+function fmt(s) {
+  s = Math.floor(s || 0);
+  return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+}
+function setStatus(msg) { srcInfo.textContent = msg; }
+
+/* ---------------- themes & palettes ---------------- */
+const PALETTES = [
+  { name: 'Neon',   hues: [318, 190, 52],  css: ['#ff2d95', '#22d3ee', '#fde047'] },
+  { name: 'Sunset', hues: [12, 340, 260],  css: ['#ff7a00', '#ff2d55', '#a78bfa'] },
+  { name: 'Aurora', hues: [162, 205, 262], css: ['#34e0a1', '#22d3ee', '#8b5cf6'] },
+  { name: 'Ember',  hues: [8, 38, 52],     css: ['#ff4d00', '#ffb300', '#ffeaa7'] },
+];
+let theme = 'bars';
+let pIdx = 0;
+let fullClear = true;
+
+document.querySelectorAll('#themeSeg button').forEach(b => {
+  b.addEventListener('click', () => {
+    theme = b.dataset.theme;
+    document.querySelectorAll('#themeSeg button').forEach(x =>
+      x.classList.toggle('active', x === b));
+    fullClear = true;
+  });
+});
+
+btnPalette.addEventListener('click', () => {
+  pIdx = (pIdx + 1) % PALETTES.length;
+  btnPalette.textContent = '🎨 ' + PALETTES[pIdx].name;
+  fullClear = true;
+});
+
+/* ---------------- rendering ---------------- */
+function drawBars(w, h) {
+  const pal = PALETTES[pIdx];
+  g.globalCompositeOperation = 'source-over';
+  g.clearRect(0, 0, w, h);
+
+  /* waveform line across the top */
+  const tw = w - 40;
+  g.beginPath();
+  for (let i = 0; i < timeData.length; i++) {
+    const x = 20 + i / (timeData.length - 1) * tw;
+    const y = 30 + (timeData[i] - 128) / 128 * 30;
+    i ? g.lineTo(x, y) : g.moveTo(x, y);
+  }
+  g.strokeStyle = pal.css[1];
+  g.globalAlpha = 0.45;
+  g.lineWidth = 1.5;
+  g.stroke();
+  g.globalAlpha = 1;
+
+  /* spectrum bars from the bottom */
+  const n = BARS, gap = 3;
+  const areaW = w - 40;
+  const bw = areaW / n - gap;
+  const bottom = h - 16, maxH = h - 96;
+  const grad = g.createLinearGradient(0, bottom, 0, bottom - maxH);
+  grad.addColorStop(0, pal.css[0]);
+  grad.addColorStop(0.6, pal.css[1]);
+  grad.addColorStop(1, pal.css[2]);
+  g.shadowColor = pal.css[1];
+  for (let i = 0; i < n; i++) {
+    const v = barLevels[i];
+    const bh = 4 + v * maxH;
+    g.fillStyle = grad;
+    g.shadowBlur = 16 * v;
+    g.fillRect(20 + i * (bw + gap), bottom - bh, bw, bh);
+  }
+  g.shadowBlur = 0;
+}
+
+function drawRings(w, h, t) {
+  const pal = PALETTES[pIdx];
+  g.globalCompositeOperation = 'lighter';
+  g.clearRect(0, 0, w, h);
+  const cx = w / 2, cy = h / 2;
+  const n = 64;
+  const maxR = Math.min(w, h) * 0.42;
+  const spacing = maxR / n;
+
+  g.save();
+  g.translate(cx, cy);
+  g.rotate(t * 0.05);
+  for (let i = 0; i < n; i++) {
+    const v = barLevels[Math.floor(i * BARS / n)];
+    const r = 6 + i * spacing + v * spacing * 4;
+    g.beginPath();
+    g.arc(0, 0, r, 0, Math.PI * 2);
+    g.strokeStyle = 'hsl(' + (pal.hues[0] + i * 3) % 360 + ', 90%, 62%)';
+    g.globalAlpha = 0.22 + 0.58 * v;
+    g.lineWidth = 1 + v * 2.5;
+    g.stroke();
+  }
+  g.restore();
+
+  /* polar waveform */
+  g.beginPath();
+  for (let i = 0; i < timeData.length; i++) {
+    const a = i / timeData.length * Math.PI * 2;
+    const v = (timeData[i] - 128) / 128;
+    const r = maxR * 0.55 * (1 + v * 0.55);
+    const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r;
+    i ? g.lineTo(x, y) : g.moveTo(x, y);
+  }
+  g.closePath();
+  g.strokeStyle = pal.css[1];
+  g.globalAlpha = 0.5;
+  g.lineWidth = 2;
+  g.stroke();
+  g.globalAlpha = 1;
+  g.globalCompositeOperation = 'source-over';
+}
+
+const PCOUNT = 240;
+const particles = [];
+function initParticles() {
+  particles.length = 0;
+  for (let i = 0; i < PCOUNT; i++) {
+    particles.push({
+      x: Math.random() * innerWidth,
+      y: Math.random() * innerHeight,
+      vx: 0, vy: 0,
+      s: 1 + Math.random() * 1.8,
+      hue: Math.random() * 360
+    });
+  }
+}
+initParticles();
+
+function drawParticles(w, h, t) {
+  const pal = PALETTES[pIdx];
+  g.globalCompositeOperation = 'lighter';
+
+  /* translucent trail instead of clear */
+  g.globalCompositeOperation = 'source-over';
+  g.fillStyle = 'rgba(8,10,20,0.24)';
+  g.fillRect(0, 0, w, h);
+  g.globalCompositeOperation = 'lighter';
+
+  for (let i = 0; i < particles.length; i++) {
+    const p = particles[i];
+    const v = barLevels[i % BARS];
+    p.vx += (Math.random() - 0.5) * v * 4;
+    p.vy += (Math.random() - 0.5) * v * 4;
+    p.vx *= 0.985; p.vy *= 0.985;
+    p.x += p.vx; p.y += p.vy;
+    if (p.x < 0 || p.x > w) { p.vx *= -1; p.x = Math.max(0, Math.min(w, p.x)); }
+    if (p.y < 0 || p.y > h) { p.vy *= -1; p.y = Math.max(0, Math.min(h, p.y)); }
+    const hue = (p.hue + t * 20 + v * 80) % 360;
+    g.fillStyle = 'hsla(' + hue + ', 90%, ' + (58 + v * 12) + '%, ' + (0.5 + v * 0.5) + ')';
+    const r = p.s * (0.6 + v * 2.2);
+    g.beginPath();
+    g.arc(p.x, p.y, r, 0, Math.PI * 2);
+    g.fill();
+  }
+
+  /* waveform ribbon along the bottom */
+  const tw = w - 40;
+  g.globalCompositeOperation = 'source-over';
+  g.beginPath();
+  for (let i = 0; i < timeData.length; i++) {
+    const x = 20 + i / (timeData.length - 1) * tw;
+    const y = h - 12 + (timeData[i] - 128) / 128 * 22;
+    i ? g.lineTo(x, y) : g.moveTo(x, y);
+  }
+  g.strokeStyle = pal.css[0];
+  g.globalAlpha = 0.35;
+  g.lineWidth = 1.5;
+  g.stroke();
+  g.globalAlpha = 1;
+}
+
+/* ---------------- render loop ---------------- */
+function resize() {
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  canvas.width = Math.round(innerWidth * dpr);
+  canvas.height = Math.round(innerHeight * dpr);
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  initParticles();
+  fullClear = true;
+}
+window.addEventListener('resize', resize);
+resize();
+
+function frame() {
+  requestAnimationFrame(frame);
+  const w = innerWidth, h = innerHeight;
+
+  if (analyser && !micStream) captureFrame();
+  else if (analyser && micStream) captureFrame();
+  else if (micStream) captureFrame();          // always grab when either source lives
+  else barLevels.fill(0);
+
+  if (fullClear) { g.clearRect(0, 0, w, h); fullClear = false; }
+  const t = performance.now() / 1000;
+
+  if (theme === 'bars') drawBars(w, h);
+  else if (theme === 'rings') drawRings(w, h, t);
+  else drawParticles(w, h, t);
+}
+requestAnimationFrame(frame);
+
+/* ---------------- controls ---------------- */
+btnFile.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) loadFile(fileInput.files[0]);
+  fileInput.value = '';
+});
+btnPlay.addEventListener('click', togglePlay);
+btnMic.addEventListener('click', toggleMic);
+audioEl.addEventListener('play', syncPlayBtn);
+audioEl.addEventListener('pause', syncPlayBtn);
+audioEl.addEventListener('ended', syncPlayBtn);
+updateControls();
+
+})();
+</script>
+</body>
+</html>

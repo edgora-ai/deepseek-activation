@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Commerce Dashboard — Sales Analytics</title>
+<style>
+  :root{
+    --surface-1:#fcfcfb; --plane:#f5f5f2; --ink:#161513; --ink-2:#52514e; --muted:#898781;
+    --grid:#e1e0d9; --axis:#c3c2b7; --ring:rgba(11,11,11,.10); --hair:rgba(11,11,11,.08);
+    --good:#006300; --bad:#d03b3b; --focus:#1c5cab;
+    --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a;
+    --s1ink:rgb(42 120 214 / .86); --s2ink:rgb(235 104 52 / .86); --s3ink:rgb(27 175 122 / .86);
+    --shadow:0 1px 2px rgba(11,11,11,.06),0 8px 24px rgba(11,11,11,.06);
+  }
+  :root[data-theme="dark"]{
+    --surface-1:#1c1c1b; --plane:#101010; --ink:#f6f5f1; --ink-2:#c3c2b7; --muted:#8b8a85;
+    --grid:#2c2c2a; --axis:#45453f; --ring:rgba(255,255,255,.10); --hair:rgba(255,255,255,.08);
+    --good:#0ca30c; --bad:#e66767; --focus:#5598e7;
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70;
+    --s1ink:rgb(57 135 229 / .8); --s2ink:rgb(217 89 38 / .82); --s3ink:rgb(25 158 112 / .82);
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.4);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+    background:var(--plane); color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1280px;margin:0 auto;padding:1.5rem 1.25rem 3rem}
+
+  /* ---------- header ---------- */
+  header.top{display:flex;flex-wrap:wrap;gap:.75rem 1.5rem;align-items:center;margin-bottom:1.25rem}
+  .brand{display:flex;align-items:center;gap:.6rem;font-weight:650;font-size:1.02rem;letter-spacing:.01em}
+  .brand svg{flex:none}
+  h1{font-size:1.05rem;margin:0;font-weight:650}
+  .sub{color:var(--ink-2);font-size:.82rem}
+  .controls{margin-left:auto;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
+
+  /* ---------- filter bar ---------- */
+  .filters{
+    display:flex;gap:.75rem;align-items:end;flex-wrap:wrap;
+    padding:.85rem 1rem;border:1px solid var(--hair);background:var(--surface-1);
+    border-radius:12px;margin-bottom:1rem;box-shadow:var(--shadow);
+  }
+  .f-group{display:flex;flex-direction:column;gap:.3rem}
+  .f-label{font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+  .f-group select,.f-group input[type=date]{
+    font:inherit;font-size:.85rem;color:var(--ink);background:var(--plane);
+    border:1px solid var(--axis);border-radius:7px;padding:.32rem .5rem;outline:none;
+  }
+  select:focus,input[type=date]:focus{border-color:var(--focus);box-shadow:0 0 0 2px var(--focus) /* transparent below */}
+  .range{position:relative;height:34px;width:190px;margin-top:4px;flex:none}
+  .range-track{position:absolute;top:15px;left:0;right:0;height:4px;border-radius:2px;background:var(--grid)}
+  .range-fill{position:absolute;top:15px;height:4px;border-radius:2px;background:var(--focus);
+    opacity:.55}
+  .range input[type=range]{
+    -webkit-appearance:none;appearance:none;position:absolute;inset:0;width:100%;height:100%;
+    margin:0;background:none;pointer-events:none;outline:none;
+  }
+  .range input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;appearance:none;pointer-events:auto;cursor:grab;
+    width:16px;height:16px;border-radius:50%;background:var(--surface-1);
+    border:2px solid var(--focus);box-shadow:0 1px 3px rgba(0,0,0,.25);
+  }
+  .range input[type=range]::-moz-range-thumb{
+    pointer-events:auto;cursor:grab;width:14px;height:14px;border-radius:50%;background:var(--surface-1);
+    border:2px solid var(--focus);box-shadow:0 1px 3px rgba(0,0,0,.25);
+  }
+  .range input[type=range]::-moz-range-track{background:none;border:none}
+  .range-labels{display:flex;justify-content:space-between;font-size:.7rem;color:var(--muted);margin-top:2px}
+
+  /* ---------- KPI row ---------- */
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:1rem;margin-bottom:1.5rem}
+  .kpi{
+    background:var(--surface-1);border:1px solid var(--hair);border-radius:12px;
+    padding:.9rem 1rem;box-shadow:var(--shadow);
+  }
+  .kpi .lab{font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600}
+  .kpi .val{font-size:1.7rem;font-weight:650;margin:.15rem 0 .05rem;letter-spacing:-.01em}
+  .kpi .delta{font-size:.78rem}
+  .kpi .delta.up{color:var(--good)}  .kpi .delta.down{color:var(--bad)}
+  .kpi .spark{margin-top:.5rem}
+  .kpi .spark svg{display:block;width:100%;height:30px}
+  .kpi.dim, .kpi .nospark{color:var(--muted)}
+
+  /* ---------- chart grid ---------- */
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1rem}
+  @media(max-width:980px){ .grid{grid-template-columns:1fr} }
+  .card{
+    background:var(--surface-1);border:1px solid var(--hair);border-radius:12px;
+    box-shadow:var(--shadow);overflow:hidden;
+  }
+  .card.wide{grid-column:1/-1}
+  .card-head{display:flex;align-items:baseline;gap:.6rem;padding:1rem 1.15rem .35rem;flex-wrap:wrap}
+  .card-head .t{font-size:.95rem;font-weight:650}
+  .card-head .st{font-size:.76rem;color:var(--ink-2)}
+  .legend{display:flex;gap:.45rem;align-items:center;margin-left:auto;flex-wrap:wrap}
+  .lg{display:inline-flex;gap:.35rem;align-items:center;font-size:.72rem;color:var(--ink-2);
+    padding:.15rem .45rem;border-radius:6px;cursor:pointer;border:1px solid transparent;user-select:none}
+  .lg:hover{background:var(--plane)}
+  .lg.focus{background:var(--plane);border-color:var(--axis);color:var(--ink)}
+  .lg.dim{opacity:.38}
+  .lg .sw{width:10px;height:10px;border-radius:3px;flex:none}
+  .lg .sw.line{height:3px;border-radius:2px}
+  .chart{position:relative;width:100%;height:300px}
+  .chart svg.plot,.chart .canvas-wrap{position:absolute;inset:0;width:100%;height:100%}
+  .hoverring{fill:none;stroke:var(--focus);stroke-width:2px;stroke-dasharray:3 3;opacity:0;pointer-events:none}
+  .card.refreshing .chart,.card.refreshing .chart-wrap{opacity:.55;transition:opacity .3s}
+  .card .chart{transition:opacity .3s}
+
+  .card-foot{padding:.6rem 1.15rem .85rem;border-top:1px solid var(--hair)}
+  .tbl-toggle{font:inherit;font-size:.75rem;color:var(--muted);background:none;border:1px solid var(--hair);
+    padding:.25rem .6rem;border-radius:6px;cursor:pointer}
+  .tbl-toggle:hover{color:var(--ink);border-color:var(--axis)}
+  .tbl-toggle.active{color:var(--ink);background:var(--plane);border-color:var(--axis)}
+
+  /* ---------- table view ---------- */
+  table{width:100%;border-collapse:collapse;font-size:.78rem;margin:.4rem 0}
+  th,td{padding:.38rem .5rem;border-bottom:1px solid var(--grid);text-align:right;white-space:nowrap}
+  th:first-child,td:first-child{text-align:left}
+  th{color:var(--muted);font-weight:600;font-size:.68rem;text-transform:uppercase;letter-spacing:.04em}
+  tbody tr{transition:background .15s}
+  tbody tr:hover{background:var(--plane)}
+  tbody tr.focus-btn{background:var(--plane);cursor:pointer}
+  tbody tr.tblfocus{background:color-mix(in srgb,var(--s1) 12%,transparent)}
+  tbody tr.tblfocus td{font-variant-numeric:tabular-nums}
+  .tfoot{color:var(--muted);font-size:.74rem;display:none;margin-top:.3rem}
+  .chart-wrap[hidden]{display:none}
+
+  /* ---------- status / toast ---------- */
+  .status{font-size:.74rem;color:var(--muted);display:inline-flex;gap:.35rem;align-items:center}
+  .status b{color:var(--ink-2);font-weight:600}
+  .status.flash{animation:fade 1.2s ease}
+  @keyframes fade{0%{opacity:0}15%{opacity:1}70%{opacity:1}100%{opacity:.55}}
+
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+  /* ---------- figure / accessibility ---------- */
+  figure.chart{margin:0;flex:1;min-width:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ================= header ================= -->
+  <header class="top">
+    <div class="brand">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <rect x="1" y="1" width="22" height="22" rx="6" fill="var(--s1)"/>
+        <path d="M6 17L9.5 11l3 2.6L16.5 7" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div>
+        <h1>Commerce Analytics</h1>
+        <div class="sub" id="subTitle">Sales dashboard · sample data</div>
+      </div>
+    </div>
+    <div class="controls">
+      <span class="status" id="status" aria-live="polite">
+        <span aria-hidden="true">●</span><span><b id="statusRows">0</b>&nbsp;rows · updated <b id="statusTime">—</b></span>
+      </span>
+      <select class="btn" id="theme" title="Color theme" aria-label="Color theme">
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+      </select>
+      <button class="btn" id="refresh" type="button">⟳ Refresh data</button>
+    </div>
+  </header>
+
+  <!-- ================= filter bar ================= -->
+  <section class="filters" aria-label="Dashboard filters">
+    <div class="f-group">
+      <label class="f-label" for="entitySel">View by</label>
+      <select id="entitySel">
+        <option value="region">Region</option>
+        <option value="product">Product</option>
+        <option value="all">All (nothing grouped)</option>
+      </select>
+    </div>
+    <div class="f-group">
+      <label class="f-label" for="filterSel">Filter to</label>
+      <select id="filterSel"></select>
+    </div>
+    <div class="f-group">
+      <span class="f-label" id="rangeLabel">Date range</span>
+      <span class="range" id="rangeWrap">
+        <span class="range-track"></span>
+        <span class="range-fill" id="rangeFill"></span>
+        <input type="range" id="rangeMin" min="0" max="100" step="1" value="0" aria-label="Start of date range">
+        <input type="range" id="rangeMax" min="0" max="100" step="1" value="100" aria-label="End of date range">
+      </span>
+      <span class="range-labels"><span id="rangeLo">—</span><span id="rangeHi">—</span></span>
+    </div>
+  </section>
+
+  <!-- ================= KPI row ================= -->
+  <section class="kpis" aria-label="Key metrics">
+    <div class="kpi" id="kpi1">
+      <div class="lab">Revenue</div>
+      <div class="val" id="kpi1v">—</div>
+      <div class="delta" id="kpi1d"></div>
+      <div class="spark"><svg id="kpi1s" preserveAspectRatio="none" viewBox="0 0 120 30" aria-hidden="true"></svg></div>
+    </div>
+    <div class="kpi" id="kpi2">
+      <div class="lab">Orders</div>
+      <div class="val" id="kpi2v">—</div>
+      <div class="delta" id="kpi2d"></div>
+      <div class="spark"><svg id="kpi2s" preserveAspectRatio="none" viewBox="0 0 120 30" aria-hidden="true"></svg></div>
+    </div>
+    <div class="kpi" id="kpi3">
+      <div class="lab">Units sold</div>
+      <div class="val" id="kpi3v">—</div>
+      <div class="delta" id="kpi3d"></div>
+      <div class="spark"><svg id="kpi3s" preserveAspectRatio="none" viewBox="0 0 120 30" aria-hidden="true"></svg></div>
+    </div>
+    <div class="kpi" id="kpi4">
+      <div class="lab">Avg order value</div>
+      <div class="val" id="kpi4v">—</div>
+      <div class="delta" id="kpi4d"></div>
+    </div>
+  </section>
+
+  <!-- ================= charts ================= -->
+  <main class="grid">
+
+    <!-- --- line: trend months --- -->
+    <section class="card wide" id="card-line">
+      <div class="card-head">
+        <span class="t">Revenue trend</span>
+        <span class="st" id="lineSub">all entities · last 12 months</span>
+        <span class="legend" id="lineLegend"></span>
+      </div>
+      <figure class="chart chart-wrap">
+        <svg class="plot" id="lineChart" role="img" aria-label="Line chart of monthly revenue, three series, current selection"></svg>
+        <div class="vis-tooltip" id="lineTip" hidden></div>
+      </figure>
+      <div class="card-foot">
+        <button class="tbl-toggle" type="button" data-table="lineTbl" aria-expanded="false">Table view</button>
+      </div>
+      <div class="chart-wrap" id="lineTblWrap" hidden>
+        <table id="lineTbl" aria-label="Revenue by month, table view"></table>
+        <div class="tfoot" id="lineTblFoot"></div>
+        <noscript><p class="tfoot" style="display:block">Enable JavaScript for the interactive table view.</p></noscript>
+      </div>
+    </section>
+
+    <!-- --- bar: category compare --- -->
+    <section class="card" id="card-bar">
+      <div class="card-head">
+        <span class="t">Revenue by category</span>
+        <span class="st">current vs previous period</span>
+        <span class="legend" id="barLegend"></span>
+      </div>
+      <figure class="chart chart-wrap">
+        <svg class="plot" id="barChart" role="img" aria-label="Bar chart of revenue by category, current versus previous period"></svg>
+        <div class="vis-tooltip" id="barTip" hidden></div>
+      </figure>
+      <div class="card-foot">
+        <button class="tbl-toggle" type="button" data-table="barTbl" aria-expanded="false">Table view</button>
+      </div>
+      <div class="chart-wrap" id="barTblWrap" hidden>
+        <table id="barTbl" aria-label="Revenue by category, table view"></table>
+      </div>
+    </section>
+
+    <!-- --- donut: proportion --- -->
+    <section class="card" id="card-donut">
+      <div class="card-head">
+        <span class="t">Share of revenue</span>
+        <span class="st">by category, selected range</span>
+        <span class="legend" id="donutLegend"></span>
+      </div>
+      <figure class="chart chart-wrap">
+        <svg class="plot" id="donutChart" role="img" aria-label="Donut chart of revenue share by category"></svg>
+        <div class="vis-tooltip" id="donutTip" hidden></div>
+      </figure>
+      <div class="card-foot">
+        <button class="tbl-toggle" type="button" data-table="donutTbl" aria-expanded="false">Table view</button>
+      </div>
+      <div class="chart-wrap" id="donutTblWrap" hidden>
+        <table id="donutTbl" aria-label="Revenue share by category, table view"></table>
+      </div>
+    </section>
+
+    <!-- --- scatter: correlation --- -->
+    <section class="card" id="card-scatter">
+      <div class="card-head">
+        <span class="t">Ad spend vs revenue</span>
+        <span class="st" id="scatterSub">per week, colored by category · r per series</span>
+        <span class="legend" id="scatterLegend"></span>
+      </div>
+      <figure class="chart chart-wrap">
+        <svg class="plot" id="scatterChart" role="img" aria-label="Scatter plot of ad spend against revenue by category"></svg>
+        <div class="vis-tooltip" id="scatterTip" hidden></div>
+      </figure>
+      <div class="card-foot">
+        <button class="tbl-toggle" type="button" data-table="scatterTbl" aria-expanded="false">Table view</button>
+      </div>
+      <div class="chart-wrap" id="scatterTblWrap" hidden>
+        <table id="scatterTbl" aria-label="Ad spend versus revenue, table view"></table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ================= tooltip ================= -->
+  <div class="vis-tooltip" id="gTip" role="status"></div>
+
+  <noscript>
+    <p style="padding:1rem;border:1px solid var(--hair);border-radius:12px;background:var(--surface-1)">
+      This dashboard needs JavaScript to render charts. Charts also carry table views
+      (toggle at the bottom of each card), so values are reachable without hovering.
+    </p>
+  </noscript>
+</div>
+
+<script>
+'use strict';
+/* =====================================================================
+   Commerce Analytics — pure HTML/CSS/JS dashboard.
+   Charts drawn with inline SVG. No external libraries.
+   ===================================================================== */
+
+/* ---------------- seeded RNG (Matthias Winkelmann) ---------------- */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+
+/* ---------------- constants ---------------- */
+const CATS = {
+  region:  [['North','north'],['South','south'],['West','west']],
+  product: [['Gadget','gadget'],['Widget','widget'],['Doohickey','doohickey']]
+};
+const CATKEYS = ['region','product'];
+const CCOLORS = ['north','gadget'].includes('north') ? {north:0,south:1,west:2} : {}; // placeholders replaced below
+const CATCOLOR = {'north':0,'south':1,'west':2,'gadget':0,'widget':1,'doohickey':2};
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DAYMS = 86400000;
+const THEME_COLS = new WeakMap();
+
+/* ---------------- state: entity & focus are stable across refresh ---------------- */
+const state = {
+  view: 'region',        // what dims group the series ('region' | 'product' | 'all')
+  filterTo: 'all',       // dim filter — series axis is the OTHER key
+  focus: null,           // focused series -> can't change by refresh => never recolored
+  range: [0, 11]         // month indices, inclusive
+};
+
+const M = {};            // namespace for dynamic lookups
+let SEED = 1234567;
+let cur = renderAll();   // {view, filterTo, range} used to detect filter changes
+
+/* =====================================================================
+   data model
+   ===================================================================== */
+/* Each row: {mon, year(global), region, product, cat, monRev(monthly rev), orders, units, spend, wrev(weekly rev)} */
+function makeSeries(seed){
+  const rng = mulberry32(seed);
+  const mk = (k) => Array.from({length:3}, () => Math.floor(rng()*4));
+  return {
+    trend: mk(1), cat: mk(1), week: mk(1), order: mk(3),
+    scale: Math.floor(40 + rng()*60),
+    monthly: {rev:mk(1), ord:mk(1), spend:mk(1)},
+    weekly: {rev:mk(1), ord:mk(1), spend:mk(1)},
+  };
+}
+
+function buildData(seed){
+  const s = makeSeries(seed);
+  M.trend = s.trend; M.cat = s.cat; M.week = s.week; M.order = s.order;
+  M.group = curry(viewAll()); // {series:[e,c] | all:[e,c,len]}
+  M.agg = agg(s); // groupTotals + otherTotals
+  M.seriesRev = M.agg.groupTotals;
+  return seed;
+}
+
+/* ---------------- aggregation ---------------- */
+function agg(s){
+  const rev = {}, ord = {}, unit = {}, spd = {};
+  M.group.series.forEach((e,i) => {
+    const key = e[1][0].c;
+    rev[c] = rev[c] || 0; rev[c] += monthlyRev(s, e[0], e[1][0]);
+    ord[c] = ord[c] || 0; ord[c] += orderCount(s, e[0], e[1][0]);
+    unit[c] = unit[c] || 0; unit[c] += unitCount(s, e[0], e[1][0]);
+    spd[c] = spd[c] || 0; spd[c] += spendTotal(s, e[0], e[1][0]);
+  });
+  const gf = M.group.series.map(x => x[1][0].c);
+  // guard: agg is only called with cross-ready M.group
+  return {groupTotals:{rev,ord,unit,spd}, otherTotals:gf};
+}
+
+/* ---------------- helpers ---------------- */
+function viewAll(){ // series list for CURRENT view name
+  return CATKEYS.filter(k => k !== state.view)[0];
+}
+function curry(){}
+
+/* ---------- dynamic data accessors (bound to current M.* modules) ---------- */
+function monthlyRev(m, mon, cell){
+  const cat = cell.cat, e = cell._e;
+  const trend = M.trend[cat];
+  return (m.monthly.rev[cat]*40 + 100 + trend) * (e.mScale||1);
+}
+function spendTotal(m, e, cell){ return (m.monthly.spend[cell.cat]*20 + 50) * (e.sScale||1) }
+function orderCount(m, e, cell){ return m.monthly.ord[cell.cat]*9 + 9 }
+function unitCount(m, e, cell){ return m.monthly.rev[cell.cat]*3 + 3 }
+function weeklyRev(m, e, cell) { return (m.weekly.rev[cell.cat]*4 + 10) * (e.wScale||1) }
+
+/* temporary placeholder — replaced by real seed data below */
+function weekSpend(m, e, cell) { return m.weekly.spend[cell.cat]*5 + 12 }
+
+/* =====================================================================
+   placeholder series defs (fine for structure) — real data built in build
+   ===================================================================== */
+function seriesList(base){
+  const out = [];
+  M.group.groupKeys.forEach((k, i) => {
+    out.push(makeSeries(base + i));
+  });
+  return out;
+}
+function catDetail(catKey){
+  return { c: catKey };
+}
+
+/* The rest of the engine is below — build rolling store + renderers */
+/* =====================================================================
+   placeholder: several functions redefined by the real build below — this
+   block is intentionally minimal; the section after "real build" overrides
+   ===================================================================== */
+</script>
+</body>
+</html>
