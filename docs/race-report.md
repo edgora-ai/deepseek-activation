@@ -92,10 +92,7 @@ SVG 动画任务三个测试中最"温和"——所有通道、带/无规则都�
 
 **结论**：规则增益随任务复杂度变化——越复杂越需要规则兜底，简单任务规则无感。
 
-## 产物
+## 产物 / 复现
 
-`docs/results/race/` 下 8 个 HTML（命名 `<通道>-<规则>/-race.html`）。截图待补。
-
-## 复现
-
-提示词见上；命令同 tests-method.md（并行跑 + 90min timeout + 文件 stdin 传参给 claude）。
+产物：`docs/results/race/`（8 配置 HTML + 8 截图）。
+复现：提示词见上；命令同 tests-method.md（并行跑 + 90min timeout + 文件 stdin 传参给 claude）。
