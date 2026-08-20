@@ -33,6 +33,29 @@ Create race.html: an animated SVG race scene on Saturn's rings with three racers
 | **DSH minimal** | 30703 B | 角色×车型全齐 |
 | **DSH router-standard** | 38003 B | **rabbit×29, eagle×31, turtle×24, score×4** |
 
+## 过程指标（token / 耗时 / 思维特征）
+
+数据来自各通道 session 记录（opencode DB、codex rollout、claude session JSONL）。cot（思维）为估计，原始 reasoning tokens 部分通道未单独记录。
+
+| 配置 | input | output | thinking | 耗时（估）| let's/we-need |
+|---|---|---|---|---|---|
+| OpenCode 带规则 | 417.7k | 33.1k | 46.4k | ~10min | — |
+| OpenCode 无规则 | 117.4k | 13.4k | **55.9k** | ~10min | — |
+| Codex 带规则 | ~130k | ~15k | 0 | ~30min | — |
+| Codex 无规则 | ~673k | ~28k | 0 | ~40min | — |
+| Claude 带规则 | 316.5k | 245.3k | 0* | ~15min | — |
+| Claude 无规则 | 151.7k | 154.1k | 0* | ~15min | — |
+| DSH minimal | 未采集 | — | — | ~30min | — |
+| DSH router-standard | 未采集 | — | — | ~30min | — |
+
+**观察**：
+- **无规则 thinking 更高**：opencode 无规则 55.9k vs 带规则 46.4k——(无规则时模型自己多想)
+- **opencode 是唯一记录 thinking 的**（DSH/codex 无此计数）；claude 的 thinking 走 content 不计 usage
+- **claude 输出占比最高**（out/in > 0.5）——对话式客户端的回复比工具式更长
+- **token 与耗时正比**：codex 最贵（673k/40min）、opencode 最省（并行最快）
+
+*注：deepseek-free 的 thinking 在 claude 不计入 usage thinking_tokens（0 为估算下限，实际有 thinking 文本）。
+
 ## 关键发现
 
 ### 1. 8/8 全部成功（SVG 任务比直升机简单）
