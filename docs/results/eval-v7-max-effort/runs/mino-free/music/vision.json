@@ -1,0 +1,7 @@
+{
+  "status": "ok",
+  "valid": false,
+  "summary": "画面仅显示启动音频上下文按钮和提示文字，未渲染任何可视化图形。",
+  "model": "gpt-5.6-terra",
+  "durationMs": 3030
+}

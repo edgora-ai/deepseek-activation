@@ -1,0 +1,7 @@
+{
+  "status": "ok",
+  "valid": true,
+  "summary": "画面完整呈现火星赛道、起终点、兔子自行车、乌龟摩托车和鹰三轮车，角色在终点附近且无明显破损。",
+  "model": "gpt-5.6-terra",
+  "durationMs": 3819
+}

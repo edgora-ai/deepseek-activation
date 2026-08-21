@@ -1,0 +1,7 @@
+{
+  "status": "ok",
+  "valid": false,
+  "summary": "赛道与起终点已绘制，但三个角色及其载具未显示，画面未呈现正在比赛移动的动画。",
+  "model": "gpt-5.6-terra",
+  "durationMs": 4365
+}

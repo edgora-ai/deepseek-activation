@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Space Shooter</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #000;
+    height: 100%;
+    overflow: hidden;
+  }
+  canvas {
+    display: block;
+    margin: 0 auto;
+    background: #000010;
+    image-rendering: auto;
+  }
+</style>
+</head>
+<body>
+<canvas id="game" width="800" height="600"></canvas>
+<script>
+(function () {
+  'use strict';
+
+  var canvas = document.getElementById('game');
+  var ctx = canvas.getContext('2d');
+  var W = canvas.width;
+  var H = canvas.height;
+
+  var STATE_START = 'start';
+  var STATE_PLAYING = 'playing';
+  var state = STATE_START;
+
+  // Input
+  var keys = {};
+  window.addEventListener('keydown', function (e) {
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].indexOf(e.key) !== -1) {
+      e.preventDefault();
+    }
+    keys[e.key.toLowerCase()] = true;
+    if (state === STATE_START && (e.key === ' ' || e.key === 'Enter')) {
+      startGame();
+    }
+  });
+  window.addEventListener('keyup', function (e) {
+    keys[e.key.toLowerCase()] = false;
+  });
+
+  // Entities
+  var player = null;
+  var bullets = [];
+  var enemies = [];
+  var explosions = [];
+  var score = 0;
+  var spawnTimer = 0;
+  var shootCooldown = 0;
+
+  function startGame() {
+    player = { x: W / 2, y: H - 60, w: 36, h: 36, speed: 300 };
+    bullets = [];
+    enemies = [];
+    explosions = [];
+    score = 0;
+    spawnTimer = 0;
+    shootCooldown = 0;
+    state = STATE_PLAYING;
+  }
+
+  function spawnEnemy() {
+    var size = 26 + Math.random() * 14;
+    enemies.push({
+      x: size / 2 + Math.random() * (W - size),
+      y: -size,
+      w: size,
+      h: size,
+      vy: 60 + Math.random() * 80 + Math.min(score * 2, 100),
+      vx: (Math.random() - 0.5) * 60
+    });
+  }
+
+  function addExplosion(x, y, color, count) {
+    for (var i = 0; i < count; i++) {
+      var angle = Math.random() * Math.PI * 2;
+      var speed = 40 + Math.random() * 160;
+      explosions.push({
+        x: x,
+        y: y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        life: 0.4 + Math.random() * 0.5,
+        maxLife: 0.9,
+        color: color
+      });
+    }
+  }
+
+  function rectsOverlap(a, b) {
+    return a.x < b.x + b.w && a.x + a.w > b.x &&
+           a.y < b.y + b.h && a.y + a.h > b.y;
+  }
+
+  function update(dt) {
+    if (state !== STATE_PLAYING) return;
+
+    // Player movement
+    var dx = 0, dy = 0;
+    if (keys['arrowleft'] || keys['a']) dx -= 1;
+    if (keys['arrowright'] || keys['d']) dx += 1;
+    if (keys['arrowup'] || keys['w']) dy -= 1;
+    if (keys['arrowdown'] || keys['s']) dy += 1;
+    if (dx || dy) {
+      var len = Math.sqrt(dx * dx + dy * dy);
+      player.x += (dx / len) * player.speed * dt;
+      player.y += (dy / len) * player.speed * dt;
+    }
+    player.x = Math.max(player.w / 2, Math.min(W - player.w / 2, player.x));
+    player.y = Math.max(player.h / 2, Math.min(H - player.h / 2, player.y));
+
+    // Shooting (hold Space)
+    shootCooldown -= dt;
+    if (keys[' '] && shootCooldown <= 0) {
+      bullets.push({ x: player.x - 3, y: player.y - 22, w: 6, h: 14 });
+      shootCooldown = 0.18;
+    }
+
+    // Bullets
+    for (var i = bullets.length - 1; i >= 0; i--) {
+      bullets[i].y -= 500 * dt;
+      if (bullets[i].y + bullets[i].h < 0) bullets.splice(i, 1);
+    }
+
+    // Enemies
+    spawnTimer -= dt;
+    if (spawnTimer <= 0) {
+      spawnEnemy();
+      spawnTimer = Math.max(0.35, 1.1 - score * 0.005);
+    }
+    for (i = enemies.length - 1; i >= 0; i--) {
+      var en = enemies[i];
+      en.x += en.vx * dt;
+      en.y += en.vy * dt;
+      if (en.x - en.w / 2 < 0 || en.x + en.w / 2 > W) {
+        en.vx *= -1;
+        en.x = Math.max(en.w / 2, Math.min(W - en.w / 2, en.x));
+      }
+      // Bullet-enemy collisions
+      for (var j = bullets.length - 1; j >= 0; j--) {
+        var b = bullets[j];
+        var er = { x: en.x - en.w / 2, y: en.y - en.h / 2, w: en.w, h: en.h };
+        if (rectsOverlap(b, er)) {
+          bullets.splice(j, 1);
+          enemies.splice(i, 1);
+          score += 10;
+          addExplosion(en.x, en.y, '#ff8830', 18);
+          break;
+        }
+      }
+    }
+
+    // Enemy-player collisions & off-screen cleanup
+    var pr = { x: player.x - player.w / 2, y: player.y - player.h / 2, w: player.w, h: player.h };
+    for (i = enemies.length - 1; i >= 0; i--) {
+      var e2 = enemies[i];
+      var r2 = { x: e2.x - e2.w / 2, y: e2.y - e2.h / 2, w: e2.w, h: e2.h };
+      if (rectsOverlap(pr, r2)) {
+        enemies.splice(i, 1);
+        score = Math.max(0, score - 20);
+        addExplosion(e2.x, e2.y, '#ffcc00', 24);
+      } else if (e2.y - e2.h / 2 > H) {
+        enemies.splice(i, 1);
+      }
+    }
+
+    // Explosions
+    for (i = explosions.length - 1; i >= 0; i--) {
+      var p = explosions[i];
+      p.life -= dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vx *= 0.96;
+      p.vy *= 0.96;
+      if (p.life <= 0) explosions.splice(i, 1);
+    }
+  }
+
+  function drawShip(x, y, w, h, color) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x, y - h / 2);          // nose
+    ctx.lineTo(x + w / 2, y + h / 2);
+    ctx.lineTo(x + w / 6, y + h / 4);
+    ctx.lineTo(x, y + h / 2);          // tail notch
+    ctx.lineTo(x - w / 6, y + h / 4);
+    ctx.lineTo(x - w / 2, y + h / 2);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function draw() {
+    // Background stars (deterministic-ish twinkle via time)
+    ctx.fillStyle = '#000010';
+    ctx.fillRect(0, 0, W, H);
+
+    if (state === STATE_START) {
+      drawStartScreen();
+      return;
+    }
+
+    // Stars
+    var t = performance.now() / 1000;
+    ctx.fillStyle = '#ffffff';
+    for (var s = 0; s < 60; s++) {
+      var sx = (s * 137) % W;
+      var sy = ((s * 211) + t * 30 * ((s % 3) + 1)) % H;
+      var a = 0.3 + 0.7 * Math.abs(Math.sin(t + s));
+      ctx.globalAlpha = a;
+      ctx.fillRect(sx, sy, 2, 2);
+    }
+    ctx.globalAlpha = 1;
+
+    // Bullets
+    ctx.fillStyle = '#66ff66';
+    for (var bi = 0; bi < bullets.length; bi++) {
+      ctx.fillRect(bullets[bi].x, bullets[bi].y, bullets[bi].w, bullets[bi].h);
+    }
+
+    // Enemies
+    for (var ei = 0; ei < enemies.length; ei++) {
+      drawShip(enemies[ei].x, enemies[ei].y, enemies[ei].w, enemies[ei].h, '#cc4444');
+    }
+
+    // Player
+    if (player) drawShip(player.x, player.y, player.w, player.h, '#44aaff');
+
+    // Explosion particles
+    for (var pi = 0; pi < explosions.length; pi++) {
+      var p = explosions[pi];
+      ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x - 2, p.y - 2, 4, 4);
+    }
+    ctx.globalAlpha = 1;
+
+    // Score HUD
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 22px monospace';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText('SCORE: ' + score, 12, 10);
+  }
+
+  function drawStartScreen() {
+    ctx.fillStyle = '#000010';
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 52px monospace';
+    ctx.fillText('SPACE SHOOTER', W / 2, H / 2 - 70);
+
+    ctx.font = '18px monospace';
+    ctx.fillStyle = '#88aacc';
+    ctx.fillText('Move: Arrow Keys or WASD', W / 2, H / 2 - 5);
+    ctx.fillText('Shoot: SPACE', W / 2, H / 2 + 25);
+
+    var blink = Math.sin(performance.now() / 250) > -0.3;
+    if (blink) {
+      ctx.fillStyle = '#ffff66';
+      ctx.font = 'bold 26px monospace';
+      ctx.fillText('PRESS SPACE TO START', W / 2, H / 2 + 90);
+    }
+
+    // Decorative ship on start screen
+    drawShip(W / 2, H / 2 - 140, 40, 40, '#44aaff');
+  }
+
+  var lastTime = performance.now();
+  function loop(now) {
+    var dt = (now - lastTime) / 1000;
+    lastTime = now;
+    if (dt > 0.05) dt = 0.05; // clamp after tab switches
+    update(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

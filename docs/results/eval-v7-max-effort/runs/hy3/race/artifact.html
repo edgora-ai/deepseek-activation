@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Martian Ring Road Grand Prix</title>
+<style>
+  html,body{margin:0;padding:0;background:#140a06;font-family:system-ui,"Segoe UI",Arial,sans-serif;color:#fff;}
+  .wrap{position:relative;max-width:1000px;margin:0 auto;box-shadow:0 0 60px rgba(0,0,0,.6);}
+  svg{display:block;width:100%;height:auto;background:#140a06;}
+  .title{position:absolute;top:10px;left:14px;font-weight:800;letter-spacing:2px;font-size:15px;text-shadow:0 2px 6px #000;color:#f4c542;pointer-events:none;}
+  .title small{display:block;font-size:10px;color:#ffd9a8;letter-spacing:1px;font-weight:600;}
+  .board{position:absolute;top:10px;right:12px;width:212px;background:rgba(30,14,7,.78);border:1px solid #c8743a;border-radius:12px;padding:10px 12px;box-shadow:0 6px 18px rgba(0,0,0,.5);}
+  .board h2{margin:0 0 8px;font-size:12px;letter-spacing:1.5px;color:#f4c542;text-align:center;text-transform:uppercase;}
+  .row{display:flex;align-items:center;gap:8px;margin:7px 0;font-size:13px;}
+  .rank{width:20px;height:20px;border-radius:50%;background:#3a2012;border:1px solid #7a4322;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex:0 0 auto;}
+  .row.lead .rank{background:#f4c542;color:#3a2012;border-color:#fff3c4;}
+  .nm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .pct{font-variant-numeric:tabular-nums;font-size:11px;color:#ffd9a8;width:36px;text-align:right;}
+  .bar{height:5px;border-radius:3px;background:#3a2012;margin:2px 0 2px 28px;overflow:hidden;}
+  .bar > i{display:block;height:100%;width:0;border-radius:3px;}
+  .foot{position:absolute;bottom:8px;left:14px;font-size:11px;color:#ffcaa0;opacity:.85;text-shadow:0 1px 3px #000;pointer-events:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<svg id="stage" viewBox="0 0 1000 560" preserveAspectRatio="xMidYMid meet" role="img" aria-label="A rabbit on a bicycle, a turtle on a motorcycle and a bald eagle on a tricycle racing on a Martian ring road.">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a1530"/>
+      <stop offset="0.45" stop-color="#7a2a2a"/>
+      <stop offset="1" stop-color="#c8743a"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#fff3c4"/>
+      <stop offset="0.6" stop-color="#ffb347"/>
+      <stop offset="1" stop-color="#ff7a2e"/>
+    </radialGradient>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#d27a3f"/>
+      <stop offset="1" stop-color="#7a3c1c"/>
+    </linearGradient>
+    <linearGradient id="road" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5a3320"/>
+      <stop offset="1" stop-color="#3a1e10"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <!-- Sky -->
+  <rect x="0" y="0" width="1000" height="380" fill="url(#sky)"/>
+  <!-- Distant sun -->
+  <circle cx="820" cy="90" r="46" fill="url(#sun)"/>
+  <circle cx="820" cy="90" r="70" fill="url(#glow)" opacity="0.5"/>
+  <!-- Stars -->
+  <g fill="#fff" opacity="0.85">
+    <circle cx="80" cy="40" r="1.5"/><circle cx="160" cy="70" r="1"/>
+    <circle cx="260" cy="35" r="1.3"/><circle cx="360" cy="80" r="1"/>
+    <circle cx="470" cy="45" r="1.4"/><circle cx="560" cy="30" r="1"/>
+    <circle cx="660" cy="60" r="1.2"/><circle cx="930" cy="50" r="1.3"/>
+    <circle cx="40" cy="120" r="1"/><circle cx="430" cy="110" r="1"/>
+  </g>
+  <!-- Two small moons -->
+  <circle cx="120" cy="80" r="14" fill="#d9b38c"/>
+  <circle cx="113" cy="76" r="4" fill="#b08a64" opacity="0.6"/>
+  <circle cx="690" cy="120" r="9" fill="#c9a07c"/>
+
+  <!-- Far mountains / canyon silhouette -->
+  <g opacity="0.55">
+    <path d="M0,300 L120,210 L240,290 L360,200 L500,300 L640,220 L780,300 L900,230 L1000,300 L1000,380 L0,380 Z" fill="#6e2c14"/>
+  </g>
+
+  <!-- Martian ground -->
+  <rect x="0" y="360" width="1000" height="200" fill="url(#ground)"/>
+  <!-- Ground craters / texture -->
+  <g fill="#7a3c1c" opacity="0.6">
+    <ellipse cx="150" cy="470" rx="46" ry="14"/>
+    <ellipse cx="430" cy="510" rx="60" ry="16"/>
+    <ellipse cx="720" cy="480" rx="52" ry="15"/>
+    <ellipse cx="900" cy="520" rx="40" ry="12"/>
+    <ellipse cx="300" cy="520" rx="38" ry="11"/>
+  </g>
+  <g fill="#9c5028" opacity="0.5">
+    <ellipse cx="150" cy="467" rx="22" ry="6"/>
+    <ellipse cx="720" cy="477" rx="24" ry="7"/>
+  </g>
+
+  <!-- ===== Ring road (the racetrack) ===== -->
+  <ellipse cx="500" cy="445" rx="470" ry="98" fill="none" stroke="url(#road)" stroke-width="74"/>
+  <ellipse cx="500" cy="445" rx="470" ry="98" fill="none" stroke="#2a140a" stroke-width="6"/>
+  <ellipse cx="500" cy="445" rx="470" ry="98" fill="none" stroke="#6a3a22" stroke-width="2" stroke-dasharray="14 16"/>
+
+  <!-- Start line (left, on track center-left) -->
+  <g transform="translate(37,447) rotate(-12)">
+    <rect x="-4" y="-37" width="8" height="74" fill="#fff"/>
+    <rect x="-4" y="-37" width="8" height="74" fill="url(#glow)" opacity="0.3"/>
+    <polygon points="-12,-40 -4,-46 4,-46 12,-40 12,40 -12,40" fill="none" stroke="#fff" stroke-width="2" opacity="0.7"/>
+    <text x="0" y="-50" fill="#fff" font-size="12" font-weight="700" text-anchor="middle">START</text>
+  </g>
+
+  <!-- Finish line (right) -->
+  <g transform="translate(963,447) rotate(12)">
+    <g id="finishflag"></g>
+    <text x="0" y="-50" fill="#f4c542" font-size="12" font-weight="800" text-anchor="middle">FINISH</text>
+  </g>
+
+  <!-- Race lane guide dots -->
+  <g id="lanes"></g>
+
+  <!-- Racer groups injected by script -->
+  <g id="racers"></g>
+
+  <!-- Dust particles layer -->
+  <g id="dust"></g>
+
+  <!-- Checkered finish flag built here -->
+  <g transform="translate(963,447) rotate(12)">
+    <rect x="0" y="-46" width="3" height="92" fill="#caa"/>
+    <g id="checker"></g>
+  </g>
+
+</svg>
+<div class="title">MARTIAN RING ROAD GRAND PRIX<small>Rabbit · Turtle · Bald Eagle</small></div>
+<div class="board">
+  <h2>Leaderboard</h2>
+  <div id="lb"></div>
+</div>
+<div class="foot">Live ranking updates as they race toward the finish line.</div>
+</div>
+<script>
+"use strict";
+<!--JS-->
+</script>
+</body>
+</html>

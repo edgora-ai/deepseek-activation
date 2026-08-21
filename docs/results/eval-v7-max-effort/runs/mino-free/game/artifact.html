@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Space Shooter</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #000; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+  canvas { display: block; border: 1px solid #222; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = canvas.width = 480;
+const H = canvas.height = 640;
+
+// State
+let state = 'start'; // start, playing, gameover
+let score = 0;
+let highScore = 0;
+let player, bullets, enemies, explosions, stars, spawnTimer;
+let keys = {};
+
+// Stars background
+function initStars() {
+  stars = [];
+  for (let i = 0; i < 100; i++) {
+    stars.push({ x: Math.random() * W, y: Math.random() * H, s: Math.random() * 1.5 + 0.5, v: Math.random() * 2 + 1 });
+  }
+}
+
+function updateStars() {
+  for (const s of stars) {
+    s.y += s.v;
+    if (s.y > H) { s.y = 0; s.x = Math.random() * W; }
+  }
+}
+
+function drawStars() {
+  for (const s of stars) {
+    ctx.fillStyle = `rgba(255,255,255,${s.v / 3})`;
+    ctx.fillRect(s.x, s.y, s.s, s.s);
+  }
+}
+
+// Player
+function initPlayer() {
+  player = { x: W / 2, y: H - 60, w: 30, h: 30, speed: 5, cooldown: 0, alive: true };
+}
+
+function updatePlayer() {
+  if (!player.alive) return;
+  if (keys['ArrowLeft'] || keys['KeyA']) player.x -= player.speed;
+  if (keys['ArrowRight'] || keys['KeyD']) player.x += player.speed;
+  if (keys['ArrowUp'] || keys['KeyW']) player.y -= player.speed;
+  if (keys['ArrowDown'] || keys['KeyS']) player.y += player.speed;
+  player.x = Math.max(player.w / 2, Math.min(W - player.w / 2, player.x));
+  player.y = Math.max(player.w / 2, Math.min(H - player.w / 2, player.y));
+  if (player.cooldown > 0) player.cooldown--;
+}
+
+function drawPlayer() {
+  if (!player.alive) return;
+  ctx.save();
+  ctx.translate(player.x, player.y);
+  // Ship body
+  ctx.fillStyle = '#0af';
+  ctx.beginPath();
+  ctx.moveTo(0, -15);
+  ctx.lineTo(-12, 12);
+  ctx.lineTo(-4, 8);
+  ctx.lineTo(0, 14);
+  ctx.lineTo(4, 8);
+  ctx.lineTo(12, 12);
+  ctx.closePath();
+  ctx.fill();
+  // Cockpit
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(0, -2, 3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+// Bullets
+function shoot() {
+  if (!player.alive || player.cooldown > 0) return;
+  bullets.push({ x: player.x, y: player.y - 15, w: 4, h: 10, speed: 8 });
+  player.cooldown = 8;
+}
+
+function updateBullets() {
+  for (let i = bullets.length - 1; i >= 0; i--) {
+    bullets[i].y -= bullets[i].speed;
+    if (bullets[i].y < -10) bullets.splice(i, 1);
+  }
+}
+
+function drawBullets() {
+  ctx.fillStyle = '#ff0';
+  for (const b of bullets) {
+    ctx.fillRect(b.x - b.w / 2, b.y - b.h / 2, b.w, b.h);
+  }
+}
+
+// Enemies
+function spawnEnemy() {
+  const w = 24 + Math.random() * 12;
+  enemies.push({
+    x: Math.random() * (W - 60) + 30,
+    y: -30,
+    w: w,
+    h: w,
+    speed: 1.5 + Math.random() * 2,
+    health: 1
+  });
+}
+
+function updateEnemies() {
+  spawnTimer--;
+  if (spawnTimer <= 0) {
+    spawnEnemy();
+    spawnTimer = Math.max(20, 60 - Math.floor(score / 5));
+  }
+  for (let i = enemies.length - 1; i >= 0; i--) {
+    enemies[i].y += enemies[i].speed;
+    if (enemies[i].y > H + 30) enemies.splice(i, 1);
+  }
+}
+
+function drawEnemies() {
+  for (const e of enemies) {
+    ctx.save();
+    ctx.translate(e.x, e.y);
+    ctx.fillStyle = '#f44';
+    ctx.beginPath();
+    ctx.moveTo(0, e.h / 2);
+    ctx.lineTo(-e.w / 2, -e.h / 2);
+    ctx.lineTo(-e.w / 4, -e.h / 4);
+    ctx.lineTo(e.w / 4, -e.h / 4);
+    ctx.lineTo(e.w / 2, -e.h / 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#f88';
+    ctx.beginPath();
+    ctx.arc(0, 2, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+// Explosions
+function addExplosion(x, y, color) {
+  explosions.push({ x, y, r: 5, maxR: 20 + Math.random() * 10, color, alpha: 1 });
+}
+
+function updateExplosions() {
+  for (let i = explosions.length - 1; i >= 0; i--) {
+    const e = explosions[i];
+    e.r += 1.5;
+    e.alpha -= 0.04;
+    if (e.alpha <= 0) explosions.splice(i, 1);
+  }
+}
+
+function drawExplosions() {
+  for (const e of explosions) {
+    ctx.globalAlpha = e.alpha;
+    ctx.fillStyle = e.color;
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = e.alpha * 0.5;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, e.r * 0.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+}
+
+// Collisions
+function checkCollisions() {
+  // Bullet vs enemy
+  for (let bi = bullets.length - 1; bi >= 0; bi--) {
+    const b = bullets[bi];
+    for (let ei = enemies.length - 1; ei >= 0; ei--) {
+      const e = enemies[ei];
+      if (Math.abs(b.x - e.x) < e.w / 2 + b.w / 2 && Math.abs(b.y - e.y) < e.h / 2 + b.h / 2) {
+        e.health--;
+        bullets.splice(bi, 1);
+        if (e.health <= 0) {
+          addExplosion(e.x, e.y, '#f80');
+          score++;
+          enemies.splice(ei, 1);
+        }
+        break;
+      }
+    }
+  }
+  // Player vs enemy
+  if (player.alive) {
+    for (let ei = enemies.length - 1; ei >= 0; ei--) {
+      const e = enemies[ei];
+      if (Math.abs(player.x - e.x) < (e.w + player.w) / 2 && Math.abs(player.y - e.y) < (e.h + player.h) / 2) {
+        addExplosion(player.x, player.y, '#0af');
+        addExplosion(e.x, e.y, '#f80');
+        enemies.splice(ei, 1);
+        player.alive = false;
+        setTimeout(() => {
+          if (score > highScore) highScore = score;
+          state = 'gameover';
+        }, 800);
+        break;
+      }
+    }
+  }
+}
+
+// HUD
+function drawHUD() {
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 18px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText(`SCORE: ${score}`, 10, 28);
+  ctx.textAlign = 'right';
+  ctx.fillText(`HI: ${highScore}`, W - 10, 28);
+}
+
+// Screens
+function drawStartScreen() {
+  drawStars();
+  ctx.fillStyle = '#0af';
+  ctx.font = 'bold 40px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('SPACE SHOOTER', W / 2, H / 2 - 40);
+  ctx.fillStyle = '#888';
+  ctx.font = '16px monospace';
+  ctx.fillText('Arrow Keys / WASD to move', W / 2, H / 2 + 10);
+  ctx.fillText('SPACE to shoot', W / 2, H / 2 + 35);
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 20px monospace';
+  ctx.fillText('Press SPACE to start', W / 2, H / 2 + 80);
+}
+
+function drawGameOverScreen() {
+  drawStars();
+  ctx.fillStyle = '#f44';
+  ctx.font = 'bold 40px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('GAME OVER', W / 2, H / 2 - 40);
+  ctx.fillStyle = '#fff';
+  ctx.font = '24px monospace';
+  ctx.fillText(`Score: ${score}`, W / 2, H / 2 + 10);
+  ctx.fillStyle = '#888';
+  ctx.font = '18px monospace';
+  ctx.fillText('Press SPACE to restart', W / 2, H / 2 + 55);
+}
+
+// Game loop
+function initGame() {
+  score = 0;
+  bullets = [];
+  enemies = [];
+  explosions = [];
+  spawnTimer = 60;
+  initPlayer();
+  initStars();
+}
+
+function update() {
+  updateStars();
+  if (state === 'playing') {
+    updatePlayer();
+    updateBullets();
+    updateEnemies();
+    updateExplosions();
+    checkCollisions();
+  } else if (state === 'gameover') {
+    updateExplosions();
+  }
+}
+
+function draw() {
+  ctx.fillStyle = '#0a0a1a';
+  ctx.fillRect(0, 0, W, H);
+  if (state === 'start') {
+    drawStartScreen();
+  } else if (state === 'playing') {
+    drawStars();
+    drawBullets();
+    drawEnemies();
+    drawPlayer();
+    drawExplosions();
+    drawHUD();
+  } else if (state === 'gameover') {
+    drawGameOverScreen();
+    drawExplosions();
+    drawHUD();
+  }
+}
+
+function gameLoop() {
+  update();
+  draw();
+  requestAnimationFrame(gameLoop);
+}
+
+// Input
+document.addEventListener('keydown', (e) => {
+  keys[e.code] = true;
+  if (e.code === 'Space') {
+    e.preventDefault();
+    if (state === 'start') {
+      state = 'playing';
+      initGame();
+    } else if (state === 'gameover') {
+      state = 'playing';
+      initGame();
+    } else if (state === 'playing') {
+      shoot();
+    }
+  }
+});
+
+document.addEventListener('keyup', (e) => {
+  keys[e.code] = false;
+});
+
+// Prevent scroll on arrow keys
+window.addEventListener('keydown', (e) => {
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
+});
+
+initStars();
+gameLoop();
+</script>
+</body>
+</html>

@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sales Analytics Dashboard</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --surface-page:#f9f9f7;--surface-card:#fcfcfb;
+  --text-primary:#0b0b0b;--text-secondary:#52514e;--text-muted:#898781;
+  --gridline:#e1e0d9;--baseline:#c3c2b7;--border:rgba(11,11,11,.10);
+  --s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;
+  --success:#006300;--radius:10px;
+  --shadow:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
+}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --surface-page:#0d0d0d;--surface-card:#1a1a19;
+  --text-primary:#fff;--text-secondary:#c3c2b7;--text-muted:#898781;
+  --gridline:#2c2c2a;--baseline:#383835;--border:rgba(255,255,255,.10);
+  --s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;
+  --success:#0ca30c;
+}}
+:root[data-theme="dark"]{
+  --surface-page:#0d0d0d;--surface-card:#1a1a19;
+  --text-primary:#fff;--text-secondary:#c3c2b7;--text-muted:#898781;
+  --gridline:#2c2c2a;--baseline:#383835;--border:rgba(255,255,255,.10);
+  --s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;
+  --success:#0ca30c;
+}
+html{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--surface-page);color:var(--text-primary);line-height:1.5}
+body{padding:24px;max-width:1280px;margin:0 auto}
+h1{font-size:22px;font-weight:600;margin-bottom:4px}
+.subtitle{color:var(--text-secondary);font-size:13px;margin-bottom:20px}
+.filters{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:20px}
+.filters label{font-size:12px;color:var(--text-secondary);font-weight:500;text-transform:uppercase;letter-spacing:.04em}
+.filters select,.filters input{font-family:inherit;font-size:13px;padding:6px 10px;border:1px solid var(--baseline);border-radius:6px;background:var(--surface-card);color:var(--text-primary)}
+.filters select:focus,.filters input:focus{outline:2px solid var(--s1);outline-offset:1px}
+.btn{font-family:inherit;font-size:13px;padding:6px 14px;border:1px solid var(--baseline);border-radius:6px;background:var(--surface-card);color:var(--text-primary);cursor:pointer;font-weight:500;transition:background .15s}
+.btn:hover{background:var(--gridline)}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+.kpi{background:var(--surface-card);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow)}
+.kpi-label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:4px;font-weight:500}
+.kpi-value{font-size:28px;font-weight:600;line-height:1.15}
+.kpi-delta{font-size:12px;margin-top:4px;font-weight:500}
+.kpi-delta.up{color:var(--success)}
+.kpi-delta.down{color:var(--series-2)}
+.charts{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.chart-card{background:var(--surface-card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);position:relative;overflow:visible}
+.chart-title{font-size:13px;font-weight:600;margin-bottom:12px;color:var(--text-primary)}
+.chart-title span{font-weight:400;color:var(--text-muted);font-size:12px;margin-left:6px}
+svg{display:block;width:100%;overflow:visible}
+svg text{font-family:inherit}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-secondary)}
+.legend-swatch{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+.tooltip{position:fixed;pointer-events:none;background:var(--surface-card);border:1px solid var(--baseline);border-radius:6px;padding:8px 12px;font-size:12px;color:var(--text-primary);box-shadow:0 4px 12px rgba(0,0,0,.12);z-index:1000;display:none;white-space:nowrap;line-height:1.5}
+.tooltip .tt-title{font-weight:600;margin-bottom:2px}
+.tooltip .tt-row{display:flex;align-items:center;gap:6px}
+.tooltip .tt-swatch{width:8px;height:3px;border-radius:1px;flex-shrink:0}
+@media(max-width:800px){.kpi-row{grid-template-columns:1fr 1fr}.charts{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<h1>Sales Analytics Dashboard</h1>
+<p class="subtitle">Deterministic sample data — filters and refresh update all views</p>
+
+<div class="filters" id="filters">
+  <div><label for="f-region">Region</label><br><select id="f-region"></select></div>
+  <div><label for="f-category">Category</label><br><select id="f-category"></select></div>
+  <div><label for="f-from">From</label><br><input type="month" id="f-from"></div>
+  <div><label for="f-to">To</label><br><input type="month" id="f-to"></div>
+  <div style="align-self:flex-end"><button class="btn" id="btn-refresh">↻ Refresh data</button></div>
+</div>
+
+<div class="kpi-row" id="kpis"></div>
+
+<div class="charts">
+  <div class="chart-card"><div class="chart-title">Revenue Trend <span>monthly</span></div><div id="chart-line"></div></div>
+  <div class="chart-card"><div class="chart-title">Revenue by Category</div><div id="chart-bar"></div></div>
+  <div class="chart-card"><div class="chart-title">Regional Share</div><div id="chart-donut"></div></div>
+  <div class="chart-card"><div class="chart-title">Spend vs Revenue <span>per record</span></div><div id="chart-scatter"></div></div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ---------- colour tokens (from CSS vars via getComputedStyle) ---------- */
+const SERIES = ['--s1','--s2','--s3','--s4'];
+const SERIES_NAMES = [];
+function cssVar(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim()}
+
+/* ---------- data generation ---------- */
+const REGIONS = ['North','South','East','West'];
+const CATEGORIES = ['Electronics','Apparel','Home','Sports'];
+const MONTHS = ['2024-01','2024-02','2024-03','2024-04','2024-05','2024-06',
+                '2024-07','2024-08','2024-09','2024-10','2024-11','2024-12'];
+
+let seed = 42;
+function rand(){seed=(seed*16807+0)%2147483647;return(seed-1)/2147483646}
+function randInt(a,b){return Math.floor(rand()*(b-a+1))+a}
+
+let DATA = [];
+
+function generateData(){
+  DATA = [];
+  for(const r of REGIONS){
+    for(const c of CATEGORIES){
+      const baseRev = randInt(8000,40000);
+      for(const m of MONTHS){
+        const rev = Math.round(baseRev*(0.7+rand()*0.8));
+        const spend = Math.round(rev*(0.5+rand()*0.4));
+        const orders = randInt(40,300);
+        DATA.push({region:r,category:c,month:m,revenue:rev,spend,orders});
+      }
+    }
+  }
+}
+generateData();
+
+/* ---------- state ---------- */
+let fRegion = 'All', fCategory = 'All', fFrom = MONTHS[0], fTo = MONTHS[MONTHS.length-1];
+
+function filtered(){
+  return DATA.filter(d=>{
+    if(fRegion!=='All' && d.region!==fRegion) return false;
+    if(fCategory!=='All' && d.category!==fCategory) return false;
+    if(d.month < fFrom || d.month > fTo) return false;
+    return true;
+  });
+}
+
+/* ---------- tooltip ---------- */
+const ttEl = document.getElementById('tooltip');
+function showTip(e,html){
+  ttEl.innerHTML=html;
+  ttEl.style.display='block';
+  const r=ttEl.getBoundingClientRect();
+  let x=e.clientX+12, y=e.clientY-8;
+  if(x+r.width>window.innerWidth) x=e.clientX-r.width-12;
+  if(y+r.height>window.innerHeight) y=e.clientY-r.height-8;
+  ttEl.style.left=x+'px';ttEl.style.top=y+'px';
+}
+function hideTip(){ttEl.style.display='none'}
+
+/* ---------- format helpers ---------- */
+function fmt$(n){return '$'+n.toLocaleString('en-US')}
+function fmtPct(n){return (n*100).toFixed(1)+'%'}
+
+/* ---------- KPI ---------- */
+function renderKPIs(rows){
+  const rev = rows.reduce((s,d)=>s+d.revenue,0);
+  const ord = rows.reduce((s,d)=>s+d.orders,0);
+  const aov = ord?rev/ord:0;
+  const margin = rows.reduce((s,d)=>s+(d.revenue-d.spend),0);
+  const marginRate = rev?margin/rev:0;
+  const el = document.getElementById('kpis');
+  el.innerHTML = [
+    {label:'Revenue',value:fmt$(rev),delta:'+8.2%',up:true},
+    {label:'Orders',value:ord.toLocaleString(),delta:'+5.1%',up:true},
+    {label:'Avg Order Value',value:fmt$(Math.round(aov)),delta:'+2.9%',up:true},
+    {label:'Margin',value:fmtPct(marginRate),delta:marginRate>.3?'+1.4pp':'-0.6pp',up:marginRate>.3}
+  ].map(k=>`<div class="kpi"><div class="kpi-label">${k.label}</div><div class="kpi-value">${k.value}</div><div class="kpi-delta ${k.up?'up':'down'}">${k.up?'▲':'▼'} ${k.delta}</div></div>`).join('');
+}
+
+/* ---------- Line trend ---------- */
+function renderLine(rows){
+  const months = [...new Set(rows.map(d=>d.month))].sort();
+  const byMonth = {};
+  rows.forEach(d=>{if(!byMonth[d.month]) byMonth[d.month]=0; byMonth[d.month]+=d.revenue});
+  const vals = months.map(m=>byMonth[m]||0);
+  const max = Math.max(...vals,1);
+  const W=560,H=200,P=40,B=30,T=10;
+  const plotW=W-P-10, plotH=H-T-B;
+  let pts=vals.map((v,i)=>{
+    const x=P+i*(plotW/(months.length-1||1));
+    const y=T+plotH-(v/max)*plotH;
+    return{x,y,v,m:months[i]};
+  });
+  const pathD=pts.map((p,i)=>(i===0?'M':'L')+p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ');
+  let gridLines='';
+  for(let i=0;i<=4;i++){
+    const y=T+plotH*(i/4);
+    const val=Math.round(max*(1-i/4));
+    gridLines+=`<line x1="${P}" y1="${y}" x2="${W-10}" y2="${y}" stroke="var(--gridline)" stroke-width="1"/>`;
+    gridLines+=`<text x="${P-6}" y="${y+3}" text-anchor="end" fill="var(--text-muted)" font-size="10">${(val/1000).toFixed(0)}k</text>`;
+  }
+  let xLabels=pts.filter((_,i)=>i%Math.max(1,Math.floor(pts.length/6))===0||i===pts.length-1).map(p=>
+    `<text x="${p.x}" y="${H-4}" text-anchor="middle" fill="var(--text-muted)" font-size="10">${p.m.slice(5)}</text>`
+  ).join('');
+  let dots=pts.map(p=>
+    `<circle cx="${p.x}" cy="${p.y}" r="4" fill="var(--s1)" stroke="var(--surface-card)" stroke-width="2" class="dot" data-m="${p.m}" data-v="${p.v}"/>`
+  ).join('');
+  const html=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+    ${gridLines}<line x1="${P}" y1="${T+plotH}" x2="${W-10}" y2="${T+plotH}" stroke="var(--baseline)" stroke-width="1"/>
+    <path d="${pathD}" fill="none" stroke="var(--s1)" stroke-width="2" stroke-linejoin="round"/>
+    ${xLabels}${dots}
+  </svg>`;
+  document.getElementById('chart-line').innerHTML=html;
+  document.querySelectorAll('#chart-line .dot').forEach(dot=>{
+    dot.style.cursor='pointer';
+    dot.addEventListener('pointerenter',e=>{
+      e.target.setAttribute('r','6');
+      showTip(e,`<div class="tt-title">${dot.dataset.m}</div><div class="tt-row"><span class="tt-swatch" style="background:var(--s1)"></span>${fmt$(+dot.dataset.v)}</div>`);
+    });
+    dot.addEventListener('pointermove',e=>showTip(e,`<div class="tt-title">${dot.dataset.m}</div><div class="tt-row"><span class="tt-swatch" style="background:var(--s1)"></span>${fmt$(+dot.dataset.v)}</div>`));
+    dot.addEventListener('pointerleave',e=>{e.target.setAttribute('r','4');hideTip()});
+  });
+}
+
+/* ---------- Bar chart (category) ---------- */
+function renderBar(rows){
+  const byCat={};
+  rows.forEach(d=>{if(!byCat[d.category])byCat[d.category]=0;byCat[d.category]+=d.revenue});
+  const cats=Object.keys(byCat).sort((a,b)=>byCat[b]-byCat[a]);
+  const vals=cats.map(c=>byCat[c]);
+  const max=Math.max(...vals,1);
+  const W=560,H=200,P=60,B=28,T=10;
+  const plotW=W-P-10,plotH=H-T-B;
+  const barW=Math.min(48,plotW/cats.length*0.55);
+  const gap=plotW/cats.length;
+  let gridLines='';
+  for(let i=0;i<=4;i++){
+    const y=T+plotH*(i/4);
+    const val=Math.round(max*(1-i/4));
+    gridLines+=`<line x1="${P}" y1="${y}" x2="${W-10}" y2="${y}" stroke="var(--gridline)" stroke-width="1"/>`;
+    gridLines+=`<text x="${P-6}" y="${y+3}" text-anchor="end" fill="var(--text-muted)" font-size="10">${(val/1000).toFixed(0)}k</text>`;
+  }
+  let bars=cats.map((c,i)=>{
+    const x=P+i*gap+gap/2-barW/2;
+    const h=(byCat[c]/max)*plotH;
+    const y=T+plotH-h;
+    return `<rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="3" fill="var(--s1)" opacity="${0.85+i*0.05}" class="bar" data-c="${c}" data-v="${byCat[c]}" style="cursor:pointer"/>
+    <text x="${x+barW/2}" y="${H-6}" text-anchor="middle" fill="var(--text-muted)" font-size="10">${c}</text>`;
+  }).join('');
+  document.getElementById('chart-bar').innerHTML=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+    ${gridLines}<line x1="${P}" y1="${T+plotH}" x2="${W-10}" y2="${T+plotH}" stroke="var(--baseline)" stroke-width="1"/>${bars}
+  </svg>`;
+  document.querySelectorAll('#chart-bar .bar').forEach(bar=>{
+    bar.addEventListener('pointerenter',e=>{
+      e.target.style.opacity='1';
+      showTip(e,`<div class="tt-title">${bar.dataset.c}</div><div class="tt-row"><span class="tt-swatch" style="background:var(--s1)"></span>${fmt$(+bar.dataset.v)}</div>`);
+    });
+    bar.addEventListener('pointermove',e=>showTip(e,`<div class="tt-title">${bar.dataset.c}</div><div class="tt-row"><span class="tt-swatch" style="background:var(--s1)"></span>${fmt$(+bar.dataset.v)}</div>`));
+    bar.addEventListener('pointerleave',e=>{e.target.style.opacity='';hideTip()});
+  });
+}
+
+/* ---------- Donut (region share) ---------- */
+function renderDonut(rows){
+  const byReg={};
+  rows.forEach(d=>{if(!byReg[d.region])byReg[d.region]=0;byReg[d.region]+=d.revenue});
+  const regs=Object.keys(byReg).sort((a,b)=>byReg[b]-byReg[a]);
+  const total=regs.reduce((s,r)=>s+byReg[r],0)||1;
+  const W=560,H=220,CX=W/2-40,CY=H/2,R=80,r=48;
+  const colours=['var(--s1)','var(--s2)','var(--s3)','var(--s4)'];
+  let cum=-Math.PI/2;
+  let paths=regs.map((reg,i)=>{
+    const val=byReg[reg]/total;
+    const angle=val*2*Math.PI;
+    const x1=CX+R*Math.cos(cum),y1=CY+R*Math.sin(cum);
+    const x2=CX+R*Math.cos(cum+angle),y2=CY+R*Math.sin(cum+angle);
+    const ix1=CX+r*Math.cos(cum+angle),iy1=CY+r*Math.sin(cum+angle);
+    const ix2=CX+r*Math.cos(cum),iy2=CY+r*Math.sin(cum);
+    const large=angle>Math.PI?1:0;
+    const d=`M${x1},${y1} A${R},${R},0,${large},1,${x2},${y2} L${ix1},${iy1} A${r},${r},0,${large},0,${ix2},${iy2} Z`;
+    cum+=angle;
+    return `<path d="${d}" fill="${colours[i]}" class="slice" data-r="${reg}" data-v="${byReg[reg]}" data-pct="${(val*100).toFixed(1)}" style="cursor:pointer"/>`;
+  }).join('');
+  let legendItems=regs.map((reg,i)=>
+    `<div class="legend-item"><div class="legend-swatch" style="background:${colours[i]}"></div>${reg} ${(byReg[reg]/total*100).toFixed(1)}%</div>`
+  ).join('');
+  document.getElementById('chart-donut').innerHTML=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+    ${paths}
+    <text x="${CX}" y="${CY-6}" text-anchor="middle" fill="var(--text-primary)" font-size="18" font-weight="600">${fmt$(total)}</text>
+    <text x="${CX}" y="${CY+12}" text-anchor="middle" fill="var(--text-muted)" font-size="10">total</text>
+  </svg><div class="legend">${legendItems}</div>`;
+  document.querySelectorAll('#chart-donut .slice').forEach(s=>{
+    s.addEventListener('pointerenter',e=>{
+      e.target.style.opacity='0.8';
+      showTip(e,`<div class="tt-title">${s.dataset.r}</div><div class="tt-row"><span style="font-weight:600">${fmt$(+s.dataset.v)}</span> (${s.dataset.pct}%)</div>`);
+    });
+    s.addEventListener('pointermove',e=>showTip(e,`<div class="tt-title">${s.dataset.r}</div><div class="tt-row"><span style="font-weight:600">${fmt$(+s.dataset.v)}</span> (${s.dataset.pct}%)</div>`));
+    s.addEventListener('pointerleave',e=>{e.target.style.opacity='';hideTip()});
+  });
+}
+
+/* ---------- Scatter (spend vs revenue) ---------- */
+function renderScatter(rows){
+  const W=560,H=220,P=60,B=30,T=15;
+  const plotW=W-P-10,plotH=H-T-B;
+  const maxX=Math.max(...rows.map(d=>d.spend),1);
+  const maxY=Math.max(...rows.map(d=>d.revenue),1);
+  let gridLines='';
+  for(let i=0;i<=4;i++){
+    const y=T+plotH*(i/4);
+    const val=Math.round(maxY*(1-i/4));
+    gridLines+=`<line x1="${P}" y1="${y}" x2="${W-10}" y2="${y}" stroke="var(--gridline)" stroke-width="1"/>`;
+    gridLines+=`<text x="${P-6}" y="${y+3}" text-anchor="end" fill="var(--text-muted)" font-size="10">${(val/1000).toFixed(0)}k</text>`;
+  }
+  for(let i=0;i<=4;i++){
+    const x=P+plotW*(i/4);
+    const val=Math.round(maxX*(i/4));
+    gridLines+=`<text x="${x}" y="${H-4}" text-anchor="middle" fill="var(--text-muted)" font-size="10">${(val/1000).toFixed(0)}k</text>`;
+  }
+  const catColours=['var(--s1)','var(--s2)','var(--s3)','var(--s4)'];
+  const cats=[...new Set(rows.map(d=>d.category))];
+  let hitAreas=rows.map(d=>{
+    const x=P+(d.spend/maxX)*plotW;
+    const y=T+plotH-(d.revenue/maxY)*plotH;
+    return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="12" fill="transparent" class="shover" data-r="${d.region}" data-c="${d.category}" data-m="${d.month}" data-rev="${d.revenue}" data-sp="${d.spend}"/>`;
+  }).join('');
+  let dots=rows.map(d=>{
+    const x=P+(d.spend/maxX)*plotW;
+    const y=T+plotH-(d.revenue/maxY)*plotH;
+    const ci=cats.indexOf(d.category);
+    return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="${catColours[ci%4]}" opacity="0.7" stroke="var(--surface-card)" stroke-width="1.5" pointer-events="none"/>`;
+  }).join('');
+  let legendItems=cats.map((c,i)=>
+    `<div class="legend-item"><div class="legend-swatch" style="background:${catColours[i%4]}"></div>${c}</div>`
+  ).join('');
+  document.getElementById('chart-scatter').innerHTML=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+    ${gridLines}
+    <line x1="${P}" y1="${T}" x2="${P}" y2="${T+plotH}" stroke="var(--baseline)" stroke-width="1"/>
+    <line x1="${P}" y1="${T+plotH}" x2="${W-10}" y2="${T+plotH}" stroke="var(--baseline)" stroke-width="1"/>
+    <text x="${W/2+20}" y="${H-1}" text-anchor="middle" fill="var(--text-muted)" font-size="10">Spend</text>
+    ${hitAreas}${dots}
+  </svg><div class="legend">${legendItems}</div>`;
+  document.querySelectorAll('#chart-scatter .shover').forEach(dot=>{
+    dot.addEventListener('pointerenter',e=>{
+      showTip(e,`<div class="tt-title">${dot.dataset.r} / ${dot.dataset.c}</div><div class="tt-row">${dot.dataset.m}</div><div class="tt-row">Revenue: ${fmt$(+dot.dataset.rev)}</div><div class="tt-row">Spend: ${fmt$(+dot.dataset.sp)}</div>`);
+    });
+    dot.addEventListener('pointermove',e=>showTip(e,`<div class="tt-title">${dot.dataset.r} / ${dot.dataset.c}</div><div class="tt-row">${dot.dataset.m}</div><div class="tt-row">Revenue: ${fmt$(+dot.dataset.rev)}</div><div class="tt-row">Spend: ${fmt$(+dot.dataset.sp)}</div>`));
+    dot.addEventListener('pointerleave',()=>hideTip());
+  });
+}
+
+/* ---------- init filters ---------- */
+function initFilters(){
+  const regions=['All',...new Set(DATA.map(d=>d.region))];
+  const cats=['All',...new Set(DATA.map(d=>d.category))];
+  const selR=document.getElementById('f-region');
+  const selC=document.getElementById('f-category');
+  regions.forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=r;selR.appendChild(o)});
+  cats.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;selC.appendChild(o)});
+  document.getElementById('f-from').value=fFrom;
+  document.getElementById('f-to').value=fTo;
+  selR.addEventListener('change',()=>{fRegion=selR.value;render()});
+  selC.addEventListener('change',()=>{fCategory=selC.value;render()});
+  document.getElementById('f-from').addEventListener('change',e=>{fFrom=e.target.value;render()});
+  document.getElementById('f-to').addEventListener('change',e=>{fTo=e.target.value;render()});
+}
+
+/* ---------- render all ---------- */
+function render(){
+  const rows=filtered();
+  renderKPIs(rows);
+  renderLine(rows);
+  renderBar(rows);
+  renderDonut(rows);
+  renderScatter(rows);
+}
+
+/* ---------- refresh ---------- */
+document.getElementById('btn-refresh').addEventListener('click',()=>{
+  seed=Date.now()%2147483647;
+  generateData();
+  render();
+});
+
+initFilters();
+render();
+})();
+</script>
+</body>
+</html>

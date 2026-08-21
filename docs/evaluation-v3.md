@@ -37,4 +37,20 @@
 - `docs/results/eval-v5-claude-models/`：30 次基准 + 补跑 + 路径修复（models-summary.*、gallery.html、runs/）
 - `docs/results/eval-v6-fix-round/`：修复轮（3 次）
 - `docs/results/eval-v4-models/`：DSH 轮（假完成证据，README 说明）
+- `docs/results/eval-v7-max-effort/`：max 推理强度对照轮（见下）
 - 截图未入库（体积），本地可看 `runs/<model>/<task>/screenshot.png` 与 `gallery.html`。
+
+## 附：max 推理强度对照轮（2026-08-21 晚）
+
+通过 `CLAUDE_CODE_EFFORT_LEVEL` 注入 max（nv3→high）重跑。结果：**max 对这批免费模型是净伤害**。
+
+| 模型 | v5 默认 | v7 max | 变化 |
+|---|---:|---:|---|
+| hy3 | 4/6 | 4/6（全勤 1344KB） | 持平，唯一双强度稳定者 |
+| mino-free | 2/6 | 3/6（全勤） | 略升 |
+| opencode-free | 4/6 | 2/6 | 高强度下计划过大被 `-p` 单轮截断 |
+| muse-free | 6/6 | 0/6 | **Write 工具调用发出空参数**（会话 JSONL 取证 `Write [] {}`） |
+
+结论：hroze 免费模型一律保持默认 effort；muse-free 只在默认强度下可用。gateway 免费池持续轮换（deepseek-free、nv3 先后下线，muse-free 间歇 400），对比结论有时效性。
+
+数据：`docs/results/eval-v7-max-effort/models-summary-maxeffort.{json,md}`

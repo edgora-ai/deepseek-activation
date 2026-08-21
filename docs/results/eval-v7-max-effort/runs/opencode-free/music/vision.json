@@ -1,0 +1,7 @@
+{
+  "status": "ok",
+  "valid": true,
+  "summary": "画面中央已渲染彩色环形音频可视化与径向条纹，并非黑屏或纯色面板。",
+  "model": "gpt-5.6-terra",
+  "durationMs": 2868
+}

@@ -1,0 +1,7 @@
+{
+  "status": "ok",
+  "valid": true,
+  "summary": "A recognizable helicopter with fuselage, main rotor, tail, terrain, and HUD is visibly rendered without black screen or layout collapse.",
+  "model": "gpt-5.6-terra",
+  "durationMs": 3937
+}

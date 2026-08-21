@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WebAudio Music Visualizer</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #05060a; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #e8ecf4; }
+  #stage { position: fixed; inset: 0; }
+  canvas { display: block; width: 100%; height: 100%; }
+
+  #ui {
+    position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%);
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: center;
+    padding: 12px 16px; border-radius: 16px;
+    background: rgba(16, 20, 32, 0.72); backdrop-filter: blur(10px);
+    border: 1px solid rgba(120, 160, 255, 0.18);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.45);
+    max-width: 94vw; z-index: 10;
+  }
+
+  button, label.btn {
+    appearance: none; border: 1px solid rgba(140, 170, 255, 0.25);
+    background: linear-gradient(180deg, rgba(60,80,140,0.35), rgba(40,52,96,0.35));
+    color: #e8ecf4; padding: 9px 14px; border-radius: 11px; font-size: 13px;
+    cursor: pointer; transition: all .18s ease; user-select: none; white-space: nowrap;
+  }
+  button:hover, label.btn:hover { border-color: rgba(150,190,255,0.6); transform: translateY(-1px); }
+  button:active, label.btn:active { transform: translateY(0); }
+  button.active { background: linear-gradient(180deg, #5b8cff, #3a63d8); border-color: #8fb0ff; color: #fff; box-shadow: 0 0 16px rgba(91,140,255,0.55); }
+
+  .sep { width: 1px; height: 26px; background: rgba(255,255,255,0.12); margin: 0 2px; }
+  input[type="range"] { width: 96px; accent-color: #5b8cff; cursor: pointer; }
+  .lbl { font-size: 11px; opacity: 0.65; letter-spacing: .04em; text-transform: uppercase; }
+  #fileInput { display: none; }
+  #status { position: fixed; top: 16px; left: 16px; font-size: 12px; opacity: 0.7; z-index: 10; background: rgba(10,12,20,0.5); padding: 6px 10px; border-radius: 8px; }
+  #hint { position: fixed; top: 16px; right: 16px; font-size: 12px; opacity: 0.6; z-index: 10; text-align: right; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="cv"></canvas></div>
+
+<div id="status">Idle — showing demo animation</div>
+<div id="hint">Load a song or use mic to begin.<br>Canvas animates immediately.</div>
+
+<div id="ui">
+  <label class="btn" for="fileInput">📂 Open File</label>
+  <input id="fileInput" type="file" accept="audio/*">
+  <button id="micBtn">🎤 Microphone</button>
+  <div class="sep"></div>
+  <button id="playBtn">▶ Play</button>
+  <input id="seek" type="range" min="0" max="1000" value="0" step="1">
+  <div class="sep"></div>
+  <span class="lbl">Mode</span>
+  <button class="mode active" data-mode="bars">Bars</button>
+  <button class="mode" data-mode="rings">Rings</button>
+  <button class="mode" data-mode="particles">Particles</button>
+  <div class="sep"></div>
+  <span class="lbl">Vol</span>
+  <input id="vol" type="range" min="0" max="100" value="80">
+</div>
+
+<audio id="audio" crossorigin="anonymous"></audio>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- Canvas setup ----------
+  const canvas = document.getElementById("cv");
+  const ctx = canvas.getContext("2d");
+  let W = 0, H = 0, DPR = 1;
+
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = Math.floor(W * DPR);
+    canvas.height = Math.floor(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  window.addEventListener("resize", resize);
+  resize();
+
+  // ---------- Audio graph ----------
+  const BIN_COUNT = 128;          // >= 60 frequency bins required
+  const audioEl = document.getElementById("audio");
+  let audioCtx = null;
+  let analyser = null;
+  let gainNode = null;
+  let freqData = null;            // Uint8Array, live data
+  let smoothed = new Float32Array(BIN_COUNT);  // smoothed 0..1 values
+  let sourceNode = null;          // current MediaElement/MediaStream source
+  let micStream = null;
+  let usingMic = false;
+
+  function ensureAudio() {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 256;                 // 256 / 2 = 128 bins
+    analyser.smoothingTimeConstant = 0.75;
+    gainNode = audioCtx.createGain();
+    gainNode.gain.value = parseInt(document.getElementById("vol").value, 10) / 100;
+    analyser.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    freqData = new Uint8Array(analyser.frequencyBinCount); // 128
+  }
+
+  // Connect the <audio> element as the playing source (for file playback).
+  function connectFileSource() {
+    ensureAudio();
+    if (usingMic) disconnectMic();
+    if (!sourceNode) {
+      sourceNode = audioCtx.createMediaElementSource(audioEl);
+      sourceNode.connect(analyser);
+    }
+    usingMic = false;
+  }
+
+  function disconnectMic() {
+    if (micStream) {
+      micStream.getTracks().forEach(t => t.stop());
+      micStream = null;
+    }
+    if (sourceNode && usingMic) {
+      try { sourceNode.disconnect(); } catch (e) {}
+      sourceNode = null;
+    }
+    usingMic = false;
+  }
+
+  function connectMic() {
+    ensureAudio();
+    if (sourceNode && !usingMic) {
+      try { sourceNode.disconnect(); } catch (e) {}
+      sourceNode = null;
+    }
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+      micStream = stream;
+      sourceNode = audioCtx.createMediaStreamSource(stream);
+      sourceNode.connect(analyser);     // not to destination -> no feedback
+      usingMic = true;
+      setStatus("Microphone live");
+    }).catch(function (err) {
+      setStatus("Mic error: " + err.message);
+    });
+  }
+
+  // ---------- File + controls ----------
+  const fileInput = document.getElementById("fileInput");
+  const playBtn = document.getElementById("playBtn");
+  const seek = document.getElementById("seek");
+  const vol = document.getElementById("vol");
+  const micBtn = document.getElementById("micBtn");
+  const statusEl = document.getElementById("status");
+
+  function setStatus(t) { statusEl.textContent = t; }
+
+  fileInput.addEventListener("change", function (e) {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    const url = URL.createObjectURL(f);
+    audioEl.src = url;
+    connectFileSource();
+    audioCtx.resume();
+    audioEl.play();
+    playBtn.textContent = "⏸ Pause";
+    setStatus("Playing: " + f.name);
+  });
+
+  playBtn.addEventListener("click", function () {
+    if (usingMic) { setStatus("Mic active — stop mic to play files"); return; }
+    if (!audioEl.src) { fileInput.click(); return; }
+    ensureAudio();
+    audioCtx.resume();
+    if (audioEl.paused) { audioEl.play(); playBtn.textContent = "⏸ Pause"; }
+    else { audioEl.pause(); playBtn.textContent = "▶ Play"; }
+  });
+
+  audioEl.addEventListener("ended", function () { playBtn.textContent = "▶ Play"; seek.value = 0; });
+  audioEl.addEventListener("timeupdate", function () {
+    if (audioEl.duration) seek.value = Math.round((audioEl.currentTime / audioEl.duration) * 1000);
+  });
+  seek.addEventListener("input", function () {
+    if (audioEl.duration) audioEl.currentTime = (seek.value / 1000) * audioEl.duration;
+  });
+
+  vol.addEventListener("input", function () {
+    if (gainNode) gainNode.gain.value = parseInt(vol.value, 10) / 100;
+  });
+
+  micBtn.addEventListener("click", function () {
+    if (usingMic) { disconnectMic(); micBtn.classList.remove("active"); playBtn.textContent = "▶ Play"; setStatus("Mic stopped"); }
+    else { audioEl.pause(); playBtn.textContent = "▶ Play"; connectMic(); micBtn.classList.add("active"); }
+  });
+
+  // ---------- Mode switching ----------
+  let mode = "bars";
+  document.querySelectorAll(".mode").forEach(function (b) {
+    b.addEventListener("click", function () {
+      document.querySelectorAll(".mode").forEach(x => x.classList.remove("active"));
+      b.classList.add("active");
+      mode = b.getAttribute("data-mode");
+      if (mode === "particles") initParticles();
+    });
+  });
+
+  // ---------- Data acquisition ----------
+  // Returns a normalized (0..1) Float32Array of length BIN_COUNT.
+  // When audio is live, use the real analyser; otherwise synthesize an idle demo.
+  let idlePhase = 0;
+  const synth = new Float32Array(BIN_COUNT);
+
+  function getSpectrum(t) {
+    if (analyser && (audioCtx.state === "running") && !audioEl.paused || (analyser && usingMic && audioCtx.state === "running")) {
+      analyser.getByteFrequencyData(freqData);
+      for (let i = 0; i < BIN_COUNT; i++) {
+        const v = freqData[i] / 255;
+        // smooth toward target
+        smoothed[i] += (v - smoothed[i]) * 0.35;
+      }
+      return smoothed;
+    }
+    // Idle / demo animation so the canvas is always alive.
+    idlePhase += 0.03;
+    for (let i = 0; i < BIN_COUNT; i++) {
+      const n = i / BIN_COUNT;
+      const s = (Math.sin(idlePhase + n * 9) * 0.5 + 0.5) *
+                (Math.sin(idlePhase * 0.7 + n * 4) * 0.5 + 0.5);
+      const falloff = Math.pow(1 - n, 1.4);
+      const target = Math.max(0, s * falloff * 0.85);
+      synth[i] = target;
+      smoothed[i] += (target - smoothed[i]) * 0.2;
+    }
+    return smoothed;
+  }
+
+  // ---------- Visual modes ----------
+  function drawBars(spec, t) {
+    const n = BIN_COUNT;
+    const bw = W / n;
+    const baseY = H;
+    ctx.clearRect(0, 0, W, H);
+    // background glow
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, "rgba(10,14,28,0.0)");
+    g.addColorStop(1, "rgba(20,30,60,0.25)");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+    for (let i = 0; i < n; i++) {
+      const v = spec[i];
+      const h = Math.max(2, v * H * 0.8);
+      const x = i * bw;
+      const hue = 200 + (i / n) * 140;
+      const grad = ctx.createLinearGradient(0, baseY - h, 0, baseY);
+      grad.addColorStop(0, "hsla(" + hue + ",90%,62%,0.95)");
+      grad.addColorStop(1, "hsla(" + (hue + 40) + ",90%,40%,0.15)");
+      ctx.fillStyle = grad;
+      ctx.shadowColor = "hsla(" + hue + ",90%,60%,0.7)";
+      ctx.shadowBlur = 18;
+      const pad = bw * 0.18;
+      ctx.fillRect(x + pad, baseY - h, bw - pad * 2, h);
+      // mirrored top reflection
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = 0.12;
+      ctx.fillRect(x + pad, 0, bw - pad * 2, h * 0.4);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  function drawRings(spec, t) {
+    ctx.clearRect(0, 0, W, H);
+    const cx = W / 2, cy = H / 2;
+    const baseR = Math.min(W, H) * 0.16;
+    const n = BIN_COUNT;
+    const rot = t * 0.0002;
+
+    // central pulse
+    let energy = 0;
+    for (let i = 0; i < n; i++) energy += spec[i];
+    energy /= n;
+    const pulse = baseR + energy * Math.min(W, H) * 0.12;
+    const cg = ctx.createRadialGradient(cx, cy, 0, cx, cy, pulse);
+    cg.addColorStop(0, "rgba(120,170,255," + (0.25 + energy * 0.5) + ")");
+    cg.addColorStop(1, "rgba(20,30,60,0)");
+    ctx.fillStyle = cg;
+    ctx.beginPath(); ctx.arc(cx, cy, pulse, 0, Math.PI * 2); ctx.fill();
+
+    for (let ring = 0; ring < 2; ring++) {
+      const rr = baseR + ring * Math.min(W, H) * 0.12;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(rot * (ring === 0 ? 1 : -1));
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2;
+        const v = spec[i];
+        const len = 8 + v * Math.min(W, H) * 0.22;
+        const hue = (200 + (i / n) * 160 + ring * 60) % 360;
+        ctx.strokeStyle = "hsla(" + hue + ",90%,60%," + (0.5 + v * 0.5) + ")";
+        ctx.lineWidth = 2 + v * 3;
+        ctx.shadowColor = "hsla(" + hue + ",90%,60%,0.8)";
+        ctx.shadowBlur = 12;
+        const x1 = Math.cos(a) * rr, y1 = Math.sin(a) * rr;
+        const x2 = Math.cos(a) * (rr + len), y2 = Math.sin(a) * (rr + len);
+        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+
+  // Particles
+  const particles = [];
+  function initParticles() { particles.length = 0; }
+  function drawParticles(spec, t) {
+    ctx.fillStyle = "rgba(5,6,12,0.28)";   // motion trails
+    ctx.fillRect(0, 0, W, H);
+    const cx = W / 2, cy = H / 2;
+    let energy = 0;
+    for (let i = 0; i < BIN_COUNT; i++) energy += spec[i];
+    energy /= BIN_COUNT;
+
+    const spawn = Math.round(energy * 14) + 1;
+    for (let k = 0; k < spawn; k++) {
+      const idx = Math.floor(Math.random() * BIN_COUNT);
+      const ang = (idx / BIN_COUNT) * Math.PI * 2;
+      const speed = 1 + spec[idx] * 9;
+      particles.push({
+        x: cx, y: cy,
+        vx: Math.cos(ang) * speed,
+        vy: Math.sin(ang) * speed,
+        life: 1, hue: 200 + (idx / BIN_COUNT) * 160
+      });
+    }
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx; p.y += p.vy;
+      p.vx *= 0.985; p.vy *= 0.985;
+      p.life -= 0.012;
+      if (p.life <= 0 || p.x < -20 || p.x > W + 20 || p.y < -20 || p.y > H + 20) {
+        particles.splice(i, 1); continue;
+      }
+      const r = 1.5 + p.life * 3.5;
+      ctx.beginPath();
+      ctx.fillStyle = "hsla(" + p.hue + ",90%," + (55 + p.life * 25) + "%," + p.life + ")";
+      ctx.shadowColor = "hsla(" + p.hue + ",90%,60%,0.9)";
+      ctx.shadowBlur = 10;
+      ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+    if (particles.length > 1400) particles.splice(0, particles.length - 1400);
+  }
+
+  // ---------- Render loop ----------
+  function render(t) {
+    const spec = getSpectrum(t);
+    if (mode === "bars") drawBars(spec, t);
+    else if (mode === "rings") drawRings(spec, t);
+    else drawParticles(spec, t);
+    requestAnimationFrame(render);
+  }
+  requestAnimationFrame(render);
+
+  // Resume audio context on first gesture (autoplay policy).
+  window.addEventListener("pointerdown", function () {
+    if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+  }, { once: false });
+})();
+</script>
+</body>
+</html>

@@ -13,10 +13,19 @@ import { evaluateGenericArtifact } from './lib/evaluate-generic.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..')
-const ROOT = join(REPO, 'docs/results/eval-v5-claude-models')
+const DEFAULT_ROOT = join(REPO, 'docs/results/eval-v5-claude-models')
+const ROOT = process.argv.includes('--out-root')
+  ? resolve(process.argv[process.argv.indexOf('--out-root') + 1])
+  : DEFAULT_ROOT
 const RUNS = join(ROOT, 'runs')
 
 const options = parseArgs(process.argv.slice(2))
+// Per-model max reasoning effort: the gateway accepts no `max` tier for nv3,
+// so its ceiling is high; every other model takes max.
+const MODEL_EFFORT = {
+  nv3: 'high',
+}
+const effort = MODEL_EFFORT[options.model] || 'max'
 const runDir = join(RUNS, options.model, options.task)
 try {
   await readFile(join(runDir, 'meta.json'))
@@ -37,7 +46,7 @@ const generation = await spawnClient({
   executable: 'claude',
   args: ['-p', '--model', options.model, prompt],
   cwd: runDir,
-  env: { ...process.env },
+  env: { ...process.env, CLAUDE_CODE_EFFORT_LEVEL: effort },
   timeoutMs: options.timeoutMs,
 })
 const meta = {}
@@ -71,6 +80,7 @@ if (options.vision && evaluation.screenshot) {
 
 const output = {
   ...meta,
+  effort,
   artifact: artifact ? { bytes: artifact.bytes, hash: artifact.hash } : null,
   evaluation,
   vision,
@@ -144,6 +154,7 @@ function parseArgs(argv) {
     else if (argument === '--task') result.task = argv[++index]
     else if (argument === '--timeout-ms') result.timeoutMs = Number(argv[++index])
     else if (argument === '--vision') result.vision = true
+    else if (argument === '--out-root') { ++index }
     else throw new Error(`unknown argument: ${argument}`)
   }
   if (!result.model || !result.task) throw new Error('--model and --task are required')
