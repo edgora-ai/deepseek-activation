@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Martian Ring Road Race</title>
+<style>
+  :root{
+    --bg:#1a0e0a; --panel:#2b1710; --panel-edge:#5a3222;
+    --ink:#ffe9d6; --dim:#c9a284; --gold:#ffd166; --accent:#ff7a45;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:radial-gradient(ellipse at 50% -10%, #3a1d12 0%, var(--bg) 60%);
+    color:var(--ink);
+    font-family:"Segoe UI", system-ui, sans-serif;
+    display:flex;flex-direction:column;height:100vh;overflow:hidden;
+  }
+  header{
+    display:flex;align-items:center;gap:16px;
+    padding:10px 20px;border-bottom:2px solid var(--panel-edge);
+    background:linear-gradient(180deg,#33201a,#241209);
+    flex:0 0 auto;
+  }
+  header h1{font-size:20px;letter-spacing:1px;text-shadow:0 2px 6px #000}
+  header h1 span{color:var(--accent)}
+  #raceClock{
+    font-variant-numeric:tabular-nums;font-size:18px;font-weight:700;
+    background:#00000055;border:1px solid var(--panel-edge);
+    padding:4px 14px;border-radius:8px;color:var(--gold);
+  }
+  #statusMsg{font-size:14px;color:var(--dim);font-style:italic}
+  main{flex:1;display:flex;min-height:0}
+  #stage{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;background:#0d0705}
+  svg#scene{width:100%;height:100%;display:block}
+  aside#board{
+    flex:0 0 300px;border-left:2px solid var(--panel-edge);
+    background:var(--panel);padding:14px;display:flex;flex-direction:column;gap:10px;
+  }
+  aside#board h2{font-size:15px;letter-spacing:2px;text-transform:uppercase;color:var(--dim)}
+  .row{
+    display:flex;align-items:center;gap:10px;background:#00000042;
+    border:1px solid #5a322288;border-radius:10px;padding:8px 10px;
+    transition:transform .25s ease, box-shadow .25s ease;
+  }
+  .row.leader{box-shadow:0 0 14px #ffd16644;border-color:#ffd16688}
+  .rank{
+    width:30px;height:30px;border-radius:50%;flex:0 0 auto;
+    display:flex;align-items:center;justify-content:center;
+    font-weight:800;font-size:15px;color:#2b1710;background:#8a6a52;
+  }
+  .rank.r1{background:linear-gradient(135deg,#ffe08a,#d99a1f)}
+  .rank.r2{background:linear-gradient(135deg,#e8e8ee,#9aa0ad)}
+  .rank.r3{background:linear-gradient(135deg,#f0b083,#b96a35)}
+  .meta{flex:1;min-width:0}
+  .name{font-weight:700;font-size:14px;display:flex;justify-content:space-between}
+  .name em{font-style:normal;font-size:11px;color:var(--dim);font-weight:400}
+  .bar{height:8px;margin-top:5px;border-radius:4px;background:#120804;overflow:hidden;border:1px solid #00000066}
+  .fill{height:100%;width:0%;border-radius:4px;transition:width .12s linear}
+  .pct{font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums;width:44px;text-align:right}
+  #banner{
+    margin-top:auto;text-align:center;padding:12px;border-radius:12px;
+    background:#00000059;border:1px dashed var(--panel-edge);font-size:14px;line-height:1.6;
+    min-height:86px;display:flex;flex-direction:column;justify-content:center;
+  }
+  #banner b{color:var(--gold)}
+</style>
+</head>
+<body>
+<header>
+  <h1>🔴 MARTIAN RING ROAD <span>GRAND PRIX</span></h1>
+  <div id="raceClock">0.00 s</div>
+  <div id="statusMsg">Engines firing…</div>
+</header>
+<main>
+  <div id="stage">
+    <svg id="scene" viewBox="0 0 1280 760" preserveAspectRatio="xMidYMid meet" aria-label="Martian ring road race animation"></svg>
+  </div>
+  <aside id="board">
+    <h2>🏆 Live Leaderboard</h2>
+    <div id="rows"></div>
+    <div id="banner">Race starting…</div>
+  </aside>
+</main>
+
+<script>
+"use strict";
+/* ============================ SCENE SETUP ============================ */
+const SVGNS = "http://www.w3.org/2000/svg";
+const CX = 640, CY = 400, RX = 520, RY = 262;      // ring-road ellipse
+const START_ANGLE = Math.PI / 2;                    // bottom centre
+const LAPS = 1;
+
+const scene = document.getElementById("scene");
+scene.innerHTML = `
+<defs>
+  <radialGradient id="skyG" cx="50%" cy="18%" r="95%">
+    <stop offset="0%" stop-color="#ff9d5c"/><stop offset="45%" stop-color="#c65a2e"/>
+    <stop offset="100%" stop-color="#5e2413"/>
+  </radialGradient>
+  <radialGradient id="sunG" cx="50%" cy="50%" r="50%">
+    <stop offset="0%" stop-color="#fff3cf"/><stop offset="55%" stop-color="#ffd27a"/>
+    <stop offset="100%" stop-color="#ffab4a" stop-opacity="0"/>
+  </radialGradient>
+  <linearGradient id="groundG" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#a34a26"/><stop offset="100%" stop-color="#5c2412"/>
+  </linearGradient>
+  <linearGradient id="roadG" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#4a2018"/><stop offset="100%" stop-color="#2a110b"/>
+  </linearGradient>
+  <filter id="soft" x="-40%" y="-40%" width="180%" height="180%">
+    <feGaussianBlur stdDeviation="3"/>
+  </filter>
+</defs>
+<rect width="1280" height="760" fill="url(#skyG)"/>
+<g id="stars"></g>
+<circle cx="1010" cy="120" r="150" fill="url(#sunG)" opacity=".85"/>
+<circle cx="1010" cy="120" r="46" fill="#fff0c2"/>
+<circle cx="215" cy="105" r="17" fill="#e8c9a8" opacity=".9"/>
+<ellipse cx="212" cy="102" rx="4" ry="4" fill="#c9a184"/>
+<ellipse cx="222" cy="111" rx="3" ry="3" fill="#c9a184"/>
+<circle cx="300" cy="160" r="7" fill="#d9b491" opacity=".75"/>
+<path d="M0 470 L140 360 L250 450 L380 340 L520 455 L700 350 L860 455 L1010 370 L1150 460 L1280 395 L1280 760 L0 760 Z"
+      fill="#7a3018" opacity=".85"/>
+<path d="M0 500 L180 420 L330 500 L520 430 L720 505 L920 435 L1120 505 L1280 450 L1280 760 L0 760 Z"
+      fill="url(#groundG)"/>
+<g id="craters"></g>
+<ellipse cx="${CX}" cy="${CY}" rx="${RX}" ry="${RY}" fill="none" stroke="url(#roadG)"
+         stroke-width="58" stroke-linecap="round"/>
+<ellipse cx="${CX}" cy="${CY}" rx="${RX}" ry="${RY}" fill="none" stroke="#1c0c07"
+         stroke-width="62" opacity=".55" filter="url(#soft)"/>
+<ellipse cx="${CX}" cy="${CY}" rx="${RX}" ry="${RY}" fill="none" stroke="#e8dcc8"
+         stroke-width="3" stroke-dasharray="26 20" opacity=".55"/>
+<ellipse cx="${CX}" cy="${CY}" rx="${RX+31}" ry="${RY+31}" fill="none" stroke="#c98b5e" stroke-width="2" opacity=".35"/>
+<ellipse cx="${CX}" cy="${CY}" rx="${RX-31}" ry="${RY-31}" fill="none" stroke="#c98b5e" stroke-width="2" opacity=".35"/>
+<g id="startLine"></g>
+<g id="rocks"></g>`;
+scene.innerHTML += `
+<g id="racers"></g>
+<g id="fxLayer"></g>`;
+
+/* deterministic pseudo-random scenery */
+let seed = 42;
+const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+
+(function decorate(){
+  const stars = document.getElementById("stars");
+  for (let i = 0; i < 90; i++){
+    const c = document.createElementNS(SVGNS, "circle");
+    c.setAttribute("cx", rnd()*1280); c.setAttribute("cy", rnd()*300);
+    c.setAttribute("r", (rnd()*1.3+.3).toFixed(2));
+    c.setAttribute("fill", "#ffe9d6"); c.setAttribute("opacity", (.25+rnd()*.6).toFixed(2));
+    stars.appendChild(c);
+  }
+  const craters = document.getElementById("craters");
+  [[170,600,34],[1080,640,46],[420,690,26],[880,700,30],[620,650,18],[1230,560,22]]
+  .forEach(([x,y,r])=>{
+    craters.insertAdjacentHTML("beforeend",
+     `<ellipse cx="${x}" cy="${y}" rx="${r}" ry="${r*.38}" fill="#4a1c0d"/>
+      <ellipse cx="${x}" cy="${y-3}" rx="${r}" ry="${r*.38}" fill="#8f4222"/>`);
+  });
+  const rocks = document.getElementById("rocks");
+  for (let i = 0; i < 26; i++){
+    const x = rnd()*1280, y = 560 + rnd()*190, s = 3 + rnd()*9;
+    rocks.insertAdjacentHTML("beforeend",
+     `<path d="M${x-s} ${y} q ${s*.4} ${-s*1.5} ${s} ${-s*.9} q ${s*.9} ${-.2*s} ${s} ${s*.9} Z" fill="${rnd()>.5?'#6b2c15':'#571f0e'}" opacity=".9"/>`);
+  }
+  /* checkered start / finish line at bottom centre */
+  const sl = document.getElementById("startLine");
+  let cells = "";
+  for (let row = 0; row < 3; row++)
+    for (let col = 0; col < 10; col++)
+      if ((row+col)%2===0)
+        cells += `<rect x="${col*7.4}" y="${row*7}" width="7.4" height="7" fill="#f2ead9"/>`;
+  sl.innerHTML =
+   `<g transform="translate(${CX-37},${CY+RY-9})">${cells}</g>
+    <g transform="translate(${CX-64},${CY+RY-118})">
+      <rect x="-3" y="0" width="6" height="112" fill="#d9cdb8"/>
+      <path d="M3 4 L54 16 L3 30 Z" fill="#ff7a45" stroke="#ffd166" stroke-width="2"/>
+    </g>`;
+})();
+
+/* ============================ RACER ART ============================ */
+/* Local coordinate system: origin under wheels, +x = facing direction. */
+
+function bikeWheels(r){ return `
+  <g class="wheel">
+    <circle r="${r}" fill="#14100e" stroke="#3a2c24" stroke-width="4"/>
+    <g class="spokes" stroke="#cbb9a4" stroke-width="1.6">
+      <line x1="${-r}" y1="0" x2="${r}" y2="0"/><line x1="0" y1="${-r}" x2="0" y2="${r}"/>
+      <line x1="${-r*.7}" y1="${-r*.7}" x2="${r*.7}" y2="${r*.7}"/>
+      <line x1="${-r*.7}" y1="${r*.7}" x2="${r*.7}" y2="${-r*.7}"/>
+    </g>
+    <circle r="${r*.18}" fill="#8a7a68"/>
+  </g>`; }
+
+function limbPath(hx,hy,fx,fy,l1,l2,dir){
+  /* two-bone IK: returns polyline through hip-knee-foot */
+  const dx=fx-hx, dy=fy-hy; let d=Math.hypot(dx,dy);
+  d = Math.min(d, l1+l2-.5);
+  const a=(l1*l1-l2*l2+d*d)/(2*d);
+  const h=Math.sqrt(Math.max(l1*l1-a*a,0));
+  const ux=dx/(d||1), uy=dy/(d||1);
+  const kx=hx+ux*a - uy*h*dir, ky=hy+uy*a + ux*h*dir;
+  return `${hx},${hy} ${kx.toFixed(1)},${ky.toFixed(1)} ${fx},${fy}`;
+}
+
+const RACER_ART = {
+rabbit: () => `
+  <ellipse cx="0" cy="4" rx="66" ry="9" fill="#000" opacity=".35"/>
+  <g transform="translate(-32,0)">${bikeWheels(21)}</g>
+  <g transform="translate(36,0)">${bikeWheels(21)}</g>
+  <g stroke="#e04b3a" stroke-width="5" fill="none" stroke-linecap="round">
+    <path d="M-32 0 L4 -46 L36 0 M4 -46 L14 -74 M-32 0 L14 -74"/>
+    <path d="M14 -74 L34 -78 M14 -72 L34 -84" stroke-width="4"/>
+  </g>
+  <circle cx="4" cy="-46" r="6" fill="#c73b2c"/>
+  <circle cx="34" cy="-81" r="4" fill="#c73b2c"/>
+  <!-- pedalling legs (points updated per frame) -->
+  <polyline class="legA" points="" fill="none" stroke="#b97856" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline class="legB" points="" fill="none" stroke="#a06648" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle class="shoeA" r="5.5" fill="#f4e9dc"/><circle class="shoeB" r="5.5" fill="#f4e9dc"/>
+  <!-- body -->
+  <g class="torso">
+    <ellipse cx="0" cy="-92" rx="26" ry="20" fill="#cfd6dd" transform="rotate(-18)"/>
+    <circle cx="-24" cy="-104" r="9" fill="#f4f6f8"/>
+    <ellipse cx="26" cy="-118" rx="17" ry="15" fill="#e6ebef"/>
+    <polygon points="14,-126 40,-132 36,-116" fill="#dde3e8"/>
+    <circle cx="34" cy="-124" r="2.6" fill="#1c1410"/>
+    <path d="M43 -122 q6 2 3 6" stroke="#7c4a3a" stroke-width="2.5" fill="none"/>
+    <g class="ears">
+      <ellipse cx="18" cy="-146" rx="6" ry="19" fill="#e6ebef" transform="rotate(-14 18 -146)"/>
+      <ellipse cx="30" cy="-144" rx="6" ry="19" fill="#dbe2e8" transform="rotate(10 30 -144)"/>
+      <ellipse cx="18" cy="-145" rx="2.6" ry="13" fill="#ffb9c0" transform="rotate(-14 18 -146)"/>
+    </g>
+    <!-- arms to handlebars -->
+    <path d="M14 -104 Q26 -92 33 -82" stroke="#cfd6dd" stroke-width="8" fill="none" stroke-linecap="round"/>
+    <circle cx="34" cy="-81" r="5" fill="#e88"/>
+  </g>
+  <path class="speedlines" d="M-78 -96 h20 M-84 -80 h16 M-76 -64 h14" stroke="#ffd166" stroke-width="2.5" opacity="0" stroke-linecap="round"/>`,
+
+turtle: () => `
+  <ellipse cx="0" cy="4" rx="76" ry="10" fill="#000" opacity=".35"/>
+  <g transform="translate(-42,0)">${bikeWheels(24)}</g>
+  <g transform="translate(44,0)">${bikeWheels(24)}</g>
+  <path d="M-42 0 A 24 24 0 0 1 -18 -14 L-30 -20 A 30 30 0 0 0 -46 -8 Z" fill="#b03a2e"/>
+  <path d="M44 -2 A 26 26 0 0 0 20 -16 L32 -24 A 32 32 0 0 1 50 -10 Z" fill="#b03a2e"/>
+  <g stroke="#3d3d45" stroke-width="7" fill="none" stroke-linecap="round">
+    <path d="M-42 0 L-6 -44 L44 0 M-6 -44 L4 -78"/>
+    <path d="M-42 0 Q-20 -30 -6 -44" stroke-width="5"/>
+  </g>
+  <path d="M4 -78 L14 -84" stroke="#3d3d45" stroke-width="5" stroke-linecap="round"/>
+  <path d="M-14 -86 L-30 -80" stroke="#77777f" stroke-width="6" stroke-linecap="round"/>
+  <g class="exhaust" transform="translate(-34,-82)"></g>
+  <rect x="8" y="-84" width="12" height="10" rx="2" fill="#ffd166"/>
+  <path d="M22 -80 L44 -88" stroke="#fff3b0" stroke-width="2" opacity=".7"/>
+  <!-- turtle body -->
+  <g class="torso">
+    <path d="M-34 -58 A 38 34 0 1 1 34 -58 L 26 -46 L -26 -46 Z" fill="#2e7d4f"/>
+    <g stroke="#1f5c39" stroke-width="2.5" fill="none">
+      <path d="M-34 -58 A 38 34 0 0 1 34 -58"/>
+      <path d="M0 -90 L0 -46 M-20 -84 Q-16 -64 -18 -47 M20 -84 Q16 -64 18 -47"/>
+      <path d="M-28 -72 Q0 -62 28 -72"/>
+    </g>
+    <rect x="-30" y="-50" width="60" height="10" rx="5" fill="#d9c27e"/>
+    <ellipse cx="40" cy="-84" rx="15" ry="12" fill="#5aa06e"/>
+    <circle cx="47" cy="-89" r="2.8" fill="#142018"/>
+    <path d="M54 -83 q4 3 1 5" stroke="#2e7d4f" stroke-width="2" fill="none"/>
+    <path d="M53 -97 q8 -4 10 3 q-6 -1 -8 1" fill="#e8a23c"/>
+    <path d="M46 -100 l3 -7 M41 -101 l1 -8 M36 -100 l-1 -7" stroke="#e8a23c" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M34 -70 Q24 -80 10 -80" stroke="#5aa06e" stroke-width="8" fill="none" stroke-linecap="round"/>
+    <circle cx="10" cy="-80" r="5" fill="#e8a23c"/>
+    <path d="M-30 -70 Q-40 -78 -46 -76" stroke="#5aa06e" stroke-width="8" fill="none" stroke-linecap="round"/>
+  </g>
+  <path class="speedlines" d="M-92 -70 h20 M-98 -54 h16 M-90 -38 h14" stroke="#8fe3ff" stroke-width="2.5" opacity="0" stroke-linecap="round"/>`,
+
+eagle: () => `
+  <ellipse cx="0" cy="4" rx="60" ry="9" fill="#000" opacity=".35"/>
+  <g transform="translate(40,0)">${bikeWheels(26)}</g>
+  <g transform="translate(-40,2)"><circle r="14" fill="#181310" stroke="#3a2c24" stroke-width="4"/><circle r="4" fill="#8a7a68"/></g>
+  <g transform="translate(-34,0)">${bikeWheels(14)}</g>
+  <g stroke="#c0392b" stroke-width="6" fill="none" stroke-linecap="round">
+    <path d="M40 0 L36 -34 L40 -52 M36 -34 L-30 -44 M40 -52 L-24 -60"/>
+    <path d="M-24 -60 L-24 -34 L-30 -30" stroke-width="5"/>
+  </g>
+  <rect x="-34" y="-66" width="34" height="9" rx="4" fill="#7d3c20"/>
+  <!-- pedalling legs on front-wheel crank -->
+  <polyline class="legA" points="" fill="none" stroke="#e0a23c" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline class="legB" points="" fill="none" stroke="#c98c2c" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <g class="clawA" fill="#f5c542"><path d="M0 0 q6 2 8 6 M0 0 q7 0 9 3"/></g>
+  <g class="clawB" fill="#f5c542"><path d="M0 0 q6 2 8 6 M0 0 q7 0 9 3"/></g>
+  <!-- eagle -->
+  <g class="torso">
+    <ellipse cx="-6" cy="-88" rx="27" ry="21" fill="#6e4a2f"/>
+    <path class="wing" d="M-2 -100 Q34 -108 40 -84 Q22 -88 8 -80 Z" fill="#59391f"/>
+    <path d="M-30 -78 L-46 -66 L-28 -68 Z" fill="#f2ede4"/>
+    <path d="M-32 -84 L-52 -74 L-30 -76 Z" fill="#e8e1d4"/>
+    <ellipse cx="16" cy="-114" rx="16" ry="14" fill="#f7f3ea"/>
+    <path d="M2 -124 Q16 -134 30 -122 Q28 -112 16 -110 Q4 -114 2 -124" fill="#ffffff"/>
+    <path d="M28 -118 q14 2 12 8 q-2 6 -12 2 Z" fill="#f2a93b"/>
+    <circle cx="22" cy="-119" r="2.6" fill="#14100c"/>
+    <path d="M12 -127 L30 -125" stroke="#c9bfae" stroke-width="2.5"/>
+    <path d="M-4 -106 Q10 -94 24 -96" stroke="#f7f3ea" stroke-width="7" fill="none" stroke-linecap="round"/>
+    <circle cx="26" cy="-96" r="4.5" fill="#f5c542"/>
+  </g>
+  <path class="speedlines" d="M-80 -100 h18 M-86 -84 h15 M-78 -68 h13" stroke="#ffd166" stroke-width="2.5" opacity="0" stroke-linecap="round"/>`
+};
+
+/* ============================ RACERS ============================ */
+const racersEl = document.getElementById("racers");
+const SPECS = [
+  { key:"turtle", name:"🐢 Turbo Turtle",   vehicle:"Motorcycle",       color:"#2ecc71",
+    base:0.52, amp:0.045, freq:0.9,  wheelR:24, lane:-15 },
+  { key:"rabbit", name:"🐰 Blaze Bunny",    vehicle:"Bicycle",          color:"#ff7a9c",
+    base:0.435, amp:0.16,  freq:1.35, wheelR:21, lane:0 },
+  { key:"eagle",  name:"🦅 Major Beak",     vehicle:"Pedal Tricycle",   color:"#f5c542",
+    base:0.295, amp:0.075, freq:0.8,  wheelR:26, lane:15 },
+];
+
+const racers = SPECS.map((spec, idx) => {
+  const g = document.createElementNS(SVGNS, "g");
+  g.setAttribute("class", "racer");
+  g.innerHTML = RACER_ART[spec.key]();
+  racersEl.appendChild(g);
+
+  // leaderboard row
+  const row = document.createElement("div");
+  row.className = "row";
+  row.innerHTML = `
+    <div class="rank">${idx+1}</div>
+    <div class="meta">
+      <div class="name"><span>${spec.name}</span><em>${spec.vehicle}</em></div>
+      <div class="bar"><div class="fill" style="background:${spec.color}"></div></div>
+    </div>
+    <div class="pct">0%</div>`;
+  document.getElementById("rows").appendChild(row);
+
+  return {
+    ...spec,
+    g,
+    row,
+    el:{
+      torso:   g.querySelector(".torso"),
+      spokes:  g.querySelectorAll(".spokes"),
+      legA:    g.querySelector(".legA"),
+      legB:    g.querySelector(".legB"),
+      shoeA:   g.querySelector(".shoeA"),
+      shoeB:   g.querySelector(".shoeB"),
+      clawA:   g.querySelector(".clawA"),
+      clawB:   g.querySelector(".clawB"),
+      wing:    g.querySelector(".wing"),
+      ears:    g.querySelector(".ears"),
+      exhaust: g.querySelector(".exhaust"),
+      speed:   g.querySelector(".speedlines"),
+      rank:    row.querySelector(".rank"),
+      fill:    row.querySelector(".fill"),
+      pct:     row.querySelector(".pct"),
+    },
+    angle: START_ANGLE,
+    dist: 0,
+    wheelAngle: 0,
+    crankAngle: Math.random()*Math.PI*2,
+    finished: false,
+    finishTime: null,
+    particles: [],
+    puffTimer: 0,
+  };
+});
+
+/* ============================ GEOMETRY HELPERS ============================ */
+function posAt(a, lane = 0){
+  /* offset along the track's outward normal (+lane = outer lane) */
+  const nx = Math.cos(a)/RX, ny = Math.sin(a)/RY;
+  const nl = Math.hypot(nx, ny) || 1;
+  return { x: CX + RX*Math.cos(a) + lane*nx/nl,
+           y: CY + RY*Math.sin(a) + lane*ny/nl };
+}
+function headingAt(a){
+  /* velocity for decreasing angle */
+  const vx = RX*Math.sin(a), vy = -RY*Math.cos(a);
+  return Math.atan2(vy, vx)*180/Math.PI;
+}
+
+/* ============================ FX ============================ */
+function spawnPuff(r){
+  const c = document.createElementNS(SVGNS, "circle");
+  c.setAttribute("r", (2+Math.random()*2.5).toFixed(1));
+  c.setAttribute("fill", "#d8d2cc");
+  c.setAttribute("opacity", ".8");
+  r.el.exhaust.appendChild(c);
+  r.particles.push({ node:c, vx:-14-Math.random()*10, vy:-6-Math.random()*8, life:1, grow:9 });
+}
+function spawnDust(r){
+  const c = document.createElementNS(SVGNS, "circle");
+  c.setAttribute("r", (2+Math.random()*3).toFixed(1));
+  c.setAttribute("fill", "#c98b5e");
+  c.setAttribute("opacity", ".55");
+  r.g.insertBefore(c, r.g.firstChild);
+  c.setAttribute("cx", (-r.wheelR*1.6).toFixed(1)); c.setAttribute("cy", "-2");
+  r.particles.push({ node:c, vx:-24-Math.random()*14, vy:-3-Math.random()*6, life:1, grow:5 });
+}
+
+/* ============================ MAIN LOOP ============================ */
+const clockEl = document.getElementById("raceClock");
+const statusEl = document.getElementById("statusMsg");
+const bannerEl = document.getElementById("banner");
+
+let startTime = performance.now();
+let raceOver = false;
+
+function speedOf(r, t){
+  /* base pace + organic surges/fatigue so movement never looks robotic */
+  return r.base * (1
+    + r.amp * Math.sin(t*r.freq*2.1 + r.crankAngle)
+    + r.amp*0.55 * Math.sin(t*r.freq*4.7)
+    + r.amp*0.3  * Math.sin(t*r.freq*9.3));
+}
+
+function updateRacer(r, t, dt){
+  if (!r.finished){
+    const sp = speedOf(r, t);                       // rad/s
+    const prev = posAt(r.angle, r.lane);
+    r.angle -= sp*dt;
+    const cur = posAt(r.angle, r.lane);
+    r.dist += Math.hypot(cur.x-prev.x, cur.y-prev.y);
+    r.wheelAngle += (Math.hypot(cur.x-prev.x, cur.y-prev.y)/r.wheelR)*57.2958;
+    r.crankAngle += sp*dt*7.5;
+    if (START_ANGLE - r.angle >= Math.PI*2*LAPS){
+      r.finished = true;
+      r.finishTime = t;
+    }
+  }
+
+  const p = posAt(r.angle, r.lane);
+  const hd = headingAt(p.x === undefined ? START_ANGLE : r.angle);
+  const bob = r.finished ? 0 : Math.sin(t*9 + r.crankAngle)*1.6;
+  const tilt = r.finished ? 0 : Math.sin(t*6.3 + r.crankAngle)*1.4;
+
+  r.g.setAttribute("transform",
+    `translate(${p.x.toFixed(1)},${p.y.toFixed(1)}) rotate(${hd.toFixed(2)}) translate(0,${bob.toFixed(1)}) rotate(${tilt.toFixed(2)},0,-60)`);
+
+  r.el.spokes.forEach(s => s.setAttribute("transform", `rotate(${r.wheelAngle.toFixed(1)})`));
+
+  /* pedalling legs via 2-bone IK */
+  const pedal = (side) => {
+    const leg = side ? r.el.legB : r.el.legA;
+    if (!leg) return;   // turtle rests feet on pegs — no articulated legs
+    const phase = r.crankAngle + (side ? Math.PI : 0);
+    const fx = CRANK.x + Math.cos(phase)*CRANK.r;
+    const fy = CRANK.y + Math.sin(phase)*CRANK.r;
+    leg.setAttribute("points", limbPath(HIP.x, HIP.y, fx, fy, THIGH, SHIN, side?-1:1));
+    const shoe = side ? r.el.shoeB : r.el.shoeA;
+    if (shoe){
+      shoe.setAttribute("cx", fx); shoe.setAttribute("cy", fy);
+    } else {
+      const claw = side ? r.el.clawB : r.el.clawA;
+      if (claw) claw.setAttribute("transform", `translate(${fx+3},${fy})`);
+    }
+  };
+  const isRabbit = r.key === "rabbit";
+  const HIP  = isRabbit ? {x:2,y:-84}  : {x:-4,y:-70};
+  const CRANK= isRabbit ? {x:6,y:-16,r:11} : {x:40,y:0,r:12};
+  const THIGH= 24, SHIN = 24;
+  pedal(false); pedal(true);
+
+  if (r.key === "eagle" && !r.finished){
+    const flap = Math.sin(t*7)*6;
+    r.el.wing && r.el.wing.setAttribute("d",
+      `M-2 -100 Q34 ${-108-flap} 40 ${-84-flap*.4} Q22 -88 8 -80 Z`);
+  }
+  if (r.key === "rabbit" && r.el.ears){
+    r.el.ears.setAttribute("transform", `rotate(${Math.sin(t*8)*5},24,-130)`);
+  }
+
+  /* exhaust smoke + kicked-up dust */
+  if (!r.finished){
+    r.puffTimer -= dt;
+    if (r.puffTimer <= 0){
+      if (r.key === "turtle") spawnPuff(r);
+      else spawnDust(r);
+      r.puffTimer = 0.09 + Math.random()*0.08;
+    }
+  }
+  r.particles.forEach(pt => {
+    pt.life -= dt*1.4;
+    const x = parseFloat(pt.node.getAttribute("cx")||0) + pt.vx*dt;
+    const y = (parseFloat(pt.node.getAttribute("cy")||0)) + pt.vy*dt;
+    pt.node.setAttribute("cx", x.toFixed(1));
+    pt.node.setAttribute("cy", (y - 8*dt).toFixed(1));
+    const nr = parseFloat(pt.node.getAttribute("r")) + pt.grow*dt*0.4;
+    pt.node.setAttribute("r", nr.toFixed(1));
+    pt.node.setAttribute("opacity", Math.max(pt.life*0.8,0).toFixed(2));
+  });
+  r.particles = r.particles.filter(pt => {
+    if (pt.life <= 0){ pt.node.remove(); return false; }
+    return true;
+  });
+
+  /* speed lines fade in with pace */
+  if (r.el.speed){
+    const intensity = r.finished ? 0 : Math.min(Math.max((speedOf(r,t)/r.base-1.12)*2.2,0),0.9);
+    r.el.speed.setAttribute("opacity", intensity.toFixed(2));
+  }
+
+  const prog = Math.min((START_ANGLE - r.angle)/(Math.PI*2*LAPS), 1);
+  r.progress = prog;
+}
+
+function updateBoard(t){
+  const order = [...racers].sort((a,b) =>
+    (b.finished ? 1e9 - b.finishTime : b.progress) -
+    (a.finished ? 1e9 - a.finishTime : a.progress));
+  order.forEach((r,i) => {
+    r.row.querySelector(".rank").textContent = i+1;
+    r.row.querySelector(".rank").className = "rank" + (i<3 ? " r"+(i+1) : "");
+    r.el.fill.style.width = (r.progress*100).toFixed(1)+"%";
+    r.el.pct.textContent = r.finished
+      ? "🏁 "+r.finishTime.toFixed(2)+"s"
+      : (r.progress*100).toFixed(0)+"%";
+    r.row.classList.toggle("leader", i===0 && !raceOver);
+    document.getElementById("rows").appendChild(r.row);
+  });
+  const leader = order[0];
+  if (!raceOver){
+    statusEl.textContent = leader.finished
+      ? `${leader.name} took the checkered flag!`
+      : `${leader.name} leads with ${(leader.progress*100).toFixed(0)}% of the ring complete`;
+  }
+}
+
+let bannerCountdown = null;
+function updateBanner(t){
+  const allDone = racers.every(r => r.finished);
+  if (allDone && !raceOver){
+    raceOver = true;
+    const order = [...racers].sort((a,b)=>a.finishTime-b.finishTime);
+    bannerEl.innerHTML =
+      `🏁 <b>${order[0].name}</b> wins the Martian Grand Prix!<br>` +
+      order.map((r,i)=>`${["🥇","🥈","🥉"][i]} ${r.name} — ${r.finishTime.toFixed(2)}s`).join("<br>") +
+      `<br><span style="color:var(--dim)">Restarting in <b id="cd">5</b>s…</span>`;
+    let n = 5;
+    bannerCountdown = setInterval(()=>{
+      n--; const cd = document.getElementById("cd");
+      if (n <= 0){ clearInterval(bannerCountdown); resetRace(); }
+      else if (cd) cd.textContent = n;
+    }, 1000);
+  }
+}
+
+function resetRace(){
+  raceOver = false;
+  startTime = performance.now();
+  bannerEl.textContent = "Lap 1 — GO!";
+  setTimeout(()=>{ if(!raceOver) bannerEl.textContent = "Race in progress…"; }, 2000);
+  racers.forEach(r=>{
+    r.angle = START_ANGLE; r.dist = 0; r.wheelAngle = 0;
+    r.finished = false; r.finishTime = null;
+    r.particles.forEach(p=>p.node.remove()); r.particles = [];
+  });
+}
+
+let lastT = performance.now();
+function frame(now){
+  const dt = Math.min((now-lastT)/1000, 0.05);
+  lastT = now;
+  const t = (now-startTime)/1000;
+  clockEl.textContent = t.toFixed(2)+" s";
+  racers.forEach(r => updateRacer(r, t, dt));
+  updateBoard(t);
+  updateBanner(t);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

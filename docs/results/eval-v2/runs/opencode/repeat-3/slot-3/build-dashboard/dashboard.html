@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sales Analytics Dashboard</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --panel-2: #243349;
+    --border: #334155;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --green: #4ade80;
+    --orange: #fb923c;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: radial-gradient(1200px 600px at 20% -10%, #1e293b 0%, var(--bg) 55%);
+    color: var(--text);
+    padding: 24px;
+  }
+  .dashboard { max-width: 1200px; margin: 0 auto; }
+
+  header { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+  header h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+  header p { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .header-right { display: flex; align-items: center; gap: 10px; }
+
+  .btn {
+    background: linear-gradient(180deg, #2563eb, #1d4ed8);
+    color: #fff; border: 1px solid #3b82f6; border-radius: 8px;
+    padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
+    transition: filter .15s ease, transform .05s ease;
+  }
+  .btn:hover { filter: brightness(1.12); }
+  .btn:active { transform: translateY(1px); }
+
+  .controls {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 12px 16px; margin-bottom: 18px;
+  }
+  .ctl { display: flex; align-items: center; gap: 8px; }
+  .ctl label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  select, .range-label {
+    background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 7px 10px; font-size: 13px; outline: none; cursor: pointer;
+  }
+  select:hover { border-color: #475569; }
+  .spacer { flex: 1; }
+
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
+  .kpi {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px 18px;
+  }
+  .kpi .k-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; font-weight: 600; }
+  .kpi .k-value { font-size: 26px; font-weight: 700; margin-top: 6px; letter-spacing: -0.02em; }
+  .kpi .k-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px;
+  }
+  .card h2 { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+  .card h2 small { color: var(--muted); font-weight: 400; margin-left: 8px; }
+  .chart-wrap { position: relative; width: 100%; }
+  .chart-wrap svg { display: block; width: 100%; height: auto; }
+
+  .axis text { fill: var(--muted); font-size: 10px; }
+  .grid-ln { stroke: var(--border); stroke-width: 1; stroke-dasharray: 3 3; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; font-size: 12px; color: var(--muted); }
+  .legend .lg { display: inline-flex; align-items: center; gap: 6px; }
+  .legend .sw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+  .mark { transition: opacity .12s ease, fill-opacity .12s ease; cursor: pointer; }
+  .mark:hover { opacity: 0.85; }
+
+  #tooltip {
+    position: fixed; z-index: 100; pointer-events: none;
+    background: rgba(15, 23, 42, 0.95); border: 1px solid #475569;
+    border-radius: 8px; padding: 8px 10px; font-size: 12px; line-height: 1.45;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.45); max-width: 240px; display: none;
+  }
+  #tooltip .tt-title { font-weight: 700; margin-bottom: 2px; }
+  #tooltip .tt-row { display: flex; justify-content: space-between; gap: 14px; }
+  #tooltip .tt-row span:last-child { font-weight: 600; text-align: right; }
+
+  @media (max-width: 900px) {
+    .kpis { grid-template-columns: repeat(2, 1fr); }
+    .charts { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+  <main class="dashboard">
+    <header>
+      <div>
+        <h1>Sales Analytics Dashboard</h1>
+        <p>Deterministic sample dataset &middot; regions &times; categories &times; months</p>
+      </div>
+      <div class="header-right">
+        <button id="refreshBtn" class="btn" type="button">&#8635; Refresh data</button>
+      </div>
+    </header>
+
+    <section class="controls" aria-label="Filters">
+      <div class="ctl">
+        <label for="regionSel">Region</label>
+        <select id="regionSel"></select>
+      </div>
+      <div class="ctl">
+        <label for="catSel">Category</label>
+        <select id="catSel"></select>
+      </div>
+      <div class="ctl">
+        <label for="fromSel">Period</label>
+        <select id="fromSel"></select>
+        <span style="color:var(--muted)">&ndash;</span>
+        <select id="toSel"></select>
+      </div>
+      <div class="spacer"></div>
+      <span id="filterSummary" class="range-label" style="background:transparent;border:none;padding:0;font-size:12px;color:var(--muted)"></span>
+    </section>
+
+    <section class="kpis" aria-label="Key metrics">
+      <div class="kpi" id="kpiRevenue"><div class="k-label">Revenue</div><div class="k-value" data-k="revenue">&mdash;</div><div class="k-sub" data-k="revenueSub"></div></div>
+      <div class="kpi" id="kpiOrders"><div class="k-label">Orders</div><div class="k-value" data-k="orders">&mdash;</div><div class="k-sub" data-k="ordersSub"></div></div>
+      <div class="kpi" id="kpiAov"><div class="k-label">Avg Order Value</div><div class="k-value" data-k="aov">&mdash;</div><div class="k-sub" data-k="aovSub"></div></div>
+      <div class="kpi" id="kpiProfit"><div class="k-label">Profit</div><div class="k-value" data-k="profit">&mdash;</div><div class="k-sub" data-k="profitSub"></div></div>
+    </section>
+
+    <section class="charts" aria-label="Charts">
+      <div class="card">
+        <h2>Revenue Trend<small>monthly</small></h2>
+        <div class="chart-wrap" id="chart-line"></div>
+      </div>
+      <div class="card">
+        <h2>Revenue by Category<small>bars</small></h2>
+        <div class="chart-wrap" id="chart-bars"></div>
+      </div>
+      <div class="card">
+        <h2>Regional Share<small>donut</small></h2>
+        <div class="chart-wrap" id="chart-donut"></div>
+      </div>
+      <div class="card">
+        <h2>Spend vs Revenue<small>scatter</small></h2>
+        <div class="chart-wrap" id="chart-scatter"></div>
+      </div>
+    </section>
+  </main>
+
+  <div id="tooltip"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  var REGIONS = ["North", "South", "East", "West"];
+  var CATEGORIES = ["Electronics", "Apparel", "Home", "Sports"];
+  var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  var REGION_COLORS = ["#38bdf8", "#a78bfa", "#4ade80", "#fb923c"];
+  var CAT_COLORS = ["#38bdf8", "#a78bfa", "#4ade80", "#fb923c"];
+
+  var DATA = [];
+  var seedCounter = 0;
+  var tooltipEl = document.getElementById("tooltip");
+
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function generateData(seed) {
+    var rng = mulberry32(seed);
+    var rows = [];
+    for (var r = 0; r < REGIONS.length; r++) {
+      var regionBase = 60 + rng() * 60;
+      for (var c = 0; c < CATEGORIES.length; c++) {
+        var catBase = 18 + rng() * 26;
+        var price = 20 + rng() * 180;
+        for (var m = 0; m < MONTHS.length; m++) {
+          var season = 1 + 0.35 * Math.sin(((m + r + c) / 12) * Math.PI * 2 + rng());
+          var growth = 1 + 0.05 * m;
+          var noise = 0.7 + rng() * 0.6;
+          var orders = Math.max(4, Math.round(catBase * regionBase * season * growth * noise / 120));
+          var revenue = Math.round(orders * price * (0.9 + rng() * 0.3));
+          var spend = Math.round(revenue * (0.16 + rng() * 0.1));
+          rows.push({
+            region: REGIONS[r],
+            category: CATEGORIES[c],
+            month: MONTHS[m],
+            monthIdx: m,
+            orders: orders,
+            revenue: revenue,
+            spend: spend
+          });
+        }
+      }
+    }
+    return rows;
+  }
+
+  function fmtMoney(v) {
+    if (v >= 1e6) return "$" + (v / 1e6).toFixed(2) + "M";
+    if (v >= 1e3) return "$" + (v / 1e3).toFixed(1) + "k";
+    return "$" + Math.round(v);
+  }
+  function fmtNum(v) {
+    if (v >= 1e6) return (v / 1e6).toFixed(2) + "M";
+    if (v >= 1e3) return (v / 1e3).toFixed(1) + "k";
+    return String(Math.round(v));
+  }
+  function fmtPct(v) { return (v * 100).toFixed(1) + "%"; }
+
+  function kpis(rows) {
+    var revenue = 0, orders = 0, spend = 0, count = 0, bonus = 0;
+    for (var i = 0; i < rows.length; i++) {
+      revenue += rows[i].revenue;
+      orders += rows[i].orders;
+      spend += rows[i].spend;
+      count++;
+      bonus += (rows[i].region.charCodeAt(0) + rows[i].category.length + rows[i].monthIdx) % 5;
+    }
+    var aov = orders > 0 ? revenue / orders : 0;
+    var cost = spend + revenue * 0.35 + bonus;
+    var profit = revenue - cost;
+    return {
+      revenue: revenue,
+      orders: orders,
+      aov: aov,
+      profit: profit,
+      margin: revenue > 0 ? profit / revenue : 0,
+      count: count
+    };
+  }
+
+  function aggBy(rows, key) {
+    var map = {};
+    for (var i = 0; i < rows.length; i++) {
+      var k = rows[i][key];
+      map[k] = (map[k] || 0) + rows[i].revenue;
+    }
+    return map;
+  }
+
+  function showTooltip(html, evt, offsetX, offsetY) {
+    tooltipEl.innerHTML = html;
+    tooltipEl.style.display = "block";
+    var tw = tooltipEl.offsetWidth || 200;
+    var th = tooltipEl.offsetHeight || 60;
+    var x = evt.clientX + (offsetX != null ? offsetX : 14);
+    var y = evt.clientY + (offsetY != null ? offsetY : 14);
+    if (x + tw > window.innerWidth - 8) x = evt.clientX - tw - 14;
+    if (y + th > window.innerHeight - 8) y = evt.clientY - th - 14;
+    tooltipEl.style.left = x + "px";
+    tooltipEl.style.top = y + "px";
+  }
+  function hideTooltip() { tooltipEl.style.display = "none"; }
+
+  function attachMarkPointer(evt, node, html) {
+    node.addEventListener("mouseenter", function (e) { showTooltip(html, e); });
+    node.addEventListener("mousemove", function (e) { showTooltip(html, e); });
+    node.addEventListener("mouseleave", hideTooltip);
+  }
+
+  function svgHead(width, height) {
+    var ns = "http://www.w3.org/2000/svg";
+    var svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("viewBox", "0 0 " + width + " " + height);
+    svg.setAttribute("role", "img");
+    return { ns: ns, svg: svg };
+  }
+  function makeEl(ns, tag, attrs) {
+    var el = document.createElementNS(ns, tag);
+    for (var k in attrs) el.setAttribute(k, attrs[k]);
+    return el;
+  }
+
+  function yTicks(max, count) {
+    var ticks = [];
+    var step = max / count;
+    for (var i = 0; i <= count; i++) ticks.push(i * step);
+    return ticks;
+  }
+
+  function drawLine(container, rows, months) {
+    var W = 560, H = 260, padL = 46, padR = 12, padT = 14, padB = 34;
+    var h = svgHead(W, H);
+    var svg = h.svg, ns = h.ns;
+
+    var byMonth = {};
+    months.forEach(function (m) { byMonth[m.monthIdx] = 0; });
+    rows.forEach(function (r) {
+      if (byMonth[r.monthIdx] != null) byMonth[r.monthIdx] += r.revenue;
+    });
+    var keys = Object.keys(byMonth).map(Number).sort(function (a, b) { return a - b; });
+    var vals = keys.map(function (k) { return byMonth[k]; });
+    var maxV = Math.max.apply(null, vals) || 1;
+
+    var iw = W - padL - padR, ih = H - padT - padB;
+    var x = function (i) { return padL + (keys.length > 1 ? (i / (keys.length - 1)) * iw : iw / 2); };
+    var y = function (v) { return padT + ih - (v / maxV) * ih; };
+
+    var lines = yTicks(maxV, 4);
+    lines.forEach(function (t) {
+      svg.appendChild(makeEl(ns, "line", { class: "grid-ln", x1: padL, y1: y(t), x2: W - padR, y2: y(t) }));
+      var lab = makeEl(ns, "text", { class: "axis", x: padL - 6, y: y(t) + 3, "text-anchor": "end" });
+      lab.textContent = "$" + fmtNum(t);
+      svg.appendChild(lab);
+    });
+
+    var g = makeEl(ns, "g", {});
+    var path = "";
+    vals.forEach(function (v, i) {
+      path += (i ? " L" : "M") + x(i).toFixed(1) + "," + y(v).toFixed(1);
+    });
+    g.appendChild(makeEl(ns, "path", { d: path, fill: "none", stroke: REGION_COLORS[0], "stroke-width": 2.5, "stroke-linejoin": "round", "stroke-linecap": "round" }));
+
+    keys.forEach(function (mIdx, i) {
+      var v = byMonth[mIdx];
+      var cx = x(i), cy = y(v);
+      var circle = makeEl(ns, "circle", { class: "mark", cx: cx, cy: cy, r: 4.5, fill: "#0f172a", stroke: REGION_COLORS[0], "stroke-width": 2 });
+      svg.appendChild(circle);
+      attachMarkPointer(null, circle,
+        '<div class="tt-title">' + MONTHS[mIdx] + "</div>" +
+        '<div class="tt-row"><span>Revenue</span><span>' + fmtMoney(v) + "</span></div>");
+      var lab = makeEl(ns, "text", { class: "axis", x: cx, y: H - 12, "text-anchor": "middle" });
+      lab.textContent = MONTHS[mIdx];
+      svg.appendChild(lab);
+    });
+
+    svg.appendChild(g);
+    container.innerHTML = "";
+    container.appendChild(svg);
+  }
+
+  function drawBars(container, rows) {
+    var W = 560, H = 260, padL = 46, padR = 12, padT = 14, padB = 34;
+    var h = svgHead(W, H);
+    var svg = h.svg, ns = h.ns;
+    var agg = aggBy(rows, "category");
+    var cats = CATEGORIES.slice();
+    var vals = cats.map(function (c) { return agg[c] || 0; });
+    var maxV = Math.max.apply(null, vals) || 1;
+    var iw = W - padL - padR, ih = H - padT - padB;
+    var slot = iw / cats.length;
+    var bw = Math.min(56, slot * 0.55);
+    var y = function (v) { return padT + ih - (v / maxV) * ih; };
+
+    yTicks(maxV, 4).forEach(function (t) {
+      svg.appendChild(makeEl(ns, "line", { class: "grid-ln", x1: padL, y1: y(t), x2: W - padR, y2: y(t) }));
+      var lab = makeEl(ns, "text", { class: "axis", x: padL - 6, y: y(t) + 3, "text-anchor": "end" });
+      lab.textContent = "$" + fmtNum(t);
+      svg.appendChild(lab);
+    });
+
+    cats.forEach(function (c, i) {
+      var v = agg[c] || 0;
+      var cx = padL + slot * i + slot / 2;
+      var rect = makeEl(ns, "rect", {
+        class: "mark", x: cx - bw / 2, y: y(v), width: bw, height: Math.max(1, padT + ih - y(v)),
+        rx: 3, fill: CAT_COLORS[i % CAT_COLORS.length]
+      });
+      svg.appendChild(rect);
+      attachMarkPointer(null, rect,
+        '<div class="tt-title">' + c + "</div>" +
+        '<div class="tt-row"><span>Revenue</span><span>' + fmtMoney(v) + "</span></div>");
+      var lab = makeEl(ns, "text", { class: "axis", x: cx, y: H - 12, "text-anchor": "middle" });
+      lab.textContent = c;
+      svg.appendChild(lab);
+    });
+
+    container.innerHTML = "";
+    container.appendChild(svg);
+  }
+
+  function donutArc(cx, cy, rOut, rIn, a0, a1) {
+    var large = (a1 - a0) > Math.PI ? 1 : 0;
+    var x0 = cx + rOut * Math.cos(a0), y0 = cy + rOut * Math.sin(a0);
+    var x1 = cx + rOut * Math.cos(a1), y1 = cy + rOut * Math.sin(a1);
+    var x2 = cx + rIn * Math.cos(a1), y2 = cy + rIn * Math.sin(a1);
+    var x3 = cx + rIn * Math.cos(a0), y3 = cy + rIn * Math.sin(a0);
+    return "M" + x0.toFixed(2) + "," + y0.toFixed(2) +
+      " A" + rOut + "," + rOut + " 0 " + large + " 1 " + x1.toFixed(2) + "," + y1.toFixed(2) +
+      " L" + x2.toFixed(2) + "," + y2.toFixed(2) +
+      " A" + rIn + "," + rIn + " 0 " + large + " 0 " + x3.toFixed(2) + "," + y3.toFixed(2) + " Z";
+  }
+
+  function drawDonut(container, rows) {
+    var W = 560, H = 260;
+    var h = svgHead(W, H);
+    var svg = h.svg, ns = h.ns;
+    var agg = aggBy(rows, "region");
+    var regions = REGIONS.slice();
+    var vals = regions.map(function (r) { return agg[r] || 0; });
+    var total = vals.reduce(function (a, b) { return a + b; }, 0) || 1;
+
+    var cx = W / 2, cy = H / 2, rOut = Math.min(W, H) * 0.36, rIn = rOut * 0.58;
+    var angle = -Math.PI / 2;
+    var legend = [];
+    regions.forEach(function (r, i) {
+      var v = agg[r] || 0;
+      if (v <= 0) { return; }
+      var frac = v / total;
+      var a0 = angle, a1 = angle + frac * Math.PI * 2;
+      var path = makeEl(ns, "path", { class: "mark", d: donutArc(cx, cy, rOut, rIn, a0, a1), fill: REGION_COLORS[i % REGION_COLORS.length], stroke: "#1e293b", "stroke-width": 1.5 });
+      svg.appendChild(path);
+      var mid = a0 + (a1 - a0) / 2;
+      var lx = cx + (rOut + rIn) / 2 * Math.cos(mid);
+      var ly = cy + (rOut + rIn) / 2 * Math.sin(mid);
+      if (frac > 0.06) {
+        var lab = makeEl(ns, "text", { class: "axis", x: lx, y: ly + 3, "text-anchor": "middle", fill: "#0f172a", "font-weight": "700" });
+        lab.textContent = fmtPct(frac);
+        svg.appendChild(lab);
+      }
+      attachMarkPointer(null, path,
+        '<div class="tt-title">' + r + "</div>" +
+        '<div class="tt-row"><span>Revenue</span><span>' + fmtMoney(v) + "</span></div>" +
+        '<div class="tt-row"><span>Share</span><span>' + fmtPct(frac) + "</span></div>");
+      legend.push({ c: REGION_COLORS[i % REGION_COLORS.length], name: r });
+      angle = a1;
+    });
+
+    var center = makeEl(ns, "text", { x: cx, y: cy - 2, "text-anchor": "middle", fill: "#e2e8f0", "font-size": "18", "font-weight": "700" });
+    center.textContent = fmtMoney(total);
+    svg.appendChild(center);
+    var csub = makeEl(ns, "text", { x: cx, y: cy + 16, "text-anchor": "middle", fill: "#94a3b8", "font-size": "11" });
+    csub.textContent = "Total";
+    svg.appendChild(csub);
+
+    var div = document.createElement("div");
+    div.className = "legend";
+    legend.forEach(function (l) {
+      var span = document.createElement("span");
+      span.className = "lg";
+      span.innerHTML = '<span class="sw" style="background:' + l.c + '"></span>' + l.name;
+      div.appendChild(span);
+    });
+
+    container.innerHTML = "";
+    container.appendChild(svg);
+    container.appendChild(div);
+  }
+
+  function drawScatter(container, rows) {
+    var W = 560, H = 260, padL = 52, padR = 16, padT = 16, padB = 40;
+    var h = svgHead(W, H);
+    var svg = h.svg, ns = h.ns;
+    var sp = rows.map(function (r) { return r.spend; });
+    var rv = rows.map(function (r) { return r.revenue; });
+    var maxX = Math.max.apply(null, sp) || 1;
+    var maxY = Math.max.apply(null, rv) || 1;
+    var iw = W - padL - padR, ih = H - padT - padB;
+    var x = function (v) { return padL + (v / maxX) * iw; };
+    var y = function (v) { return padT + ih - (v / maxY) * ih; };
+
+    yTicks(maxY, 4).forEach(function (t) {
+      svg.appendChild(makeEl(ns, "line", { class: "grid-ln", x1: padL, y1: y(t), x2: W - padR, y2: y(t) }));
+      var lab = makeEl(ns, "text", { class: "axis", x: padL - 6, y: y(t) + 3, "text-anchor": "end" });
+      lab.textContent = "$" + fmtNum(t);
+      svg.appendChild(lab);
+    });
+    yTicks(maxX, 4).forEach(function (t) {
+      var lab = makeEl(ns, "text", { class: "axis", x: x(t), y: H - 16, "text-anchor": "middle" });
+      lab.textContent = "$" + fmtNum(t);
+      svg.appendChild(lab);
+    });
+    svg.appendChild(makeEl(ns, "text", { class: "axis", x: padL + iw / 2, y: H - 2, "text-anchor": "middle", "font-weight": "600", fill: "#94a3b8" }));
+
+    rows.forEach(function (r) {
+      var ci = REGIONS.indexOf(r.region);
+      var circle = makeEl(ns, "circle", {
+        class: "mark", cx: x(r.spend), cy: y(r.revenue), r: 6,
+        fill: REGION_COLORS[ci % REGION_COLORS.length], "fill-opacity": 0.5,
+        stroke: REGION_COLORS[ci % REGION_COLORS.length], "stroke-width": 1.5
+      });
+      svg.appendChild(circle);
+      attachMarkPointer(null, circle,
+        '<div class="tt-title">' + r.region + " &middot; " + r.category + " &middot; " + r.month + "</div>" +
+        '<div class="tt-row"><span>Revenue</span><span>' + fmtMoney(r.revenue) + "</span></div>" +
+        '<div class="tt-row"><span>Spend</span><span>' + fmtMoney(r.spend) + "</span></div>" +
+        '<div class="tt-row"><span>Orders</span><span>' + fmtNum(r.orders) + "</span></div>");
+    });
+
+    var div = document.createElement("div");
+    div.className = "legend";
+    REGIONS.forEach(function (r, i) {
+      var span = document.createElement("span");
+      span.className = "lg";
+      span.innerHTML = '<span class="sw" style="background:' + REGION_COLORS[i] + '"></span>' + r;
+      div.appendChild(span);
+    });
+    var ax = document.createElement("span");
+    ax.className = "lg";
+    ax.style.marginLeft = "auto";
+    ax.textContent = "x: spend &middot; y: revenue";
+    div.appendChild(ax);
+
+    container.innerHTML = "";
+    container.appendChild(svg);
+    container.appendChild(div);
+  }
+
+  // ---- Controls ----
+  var regionSel = document.getElementById("regionSel");
+  var catSel = document.getElementById("catSel");
+  var fromSel = document.getElementById("fromSel");
+  var toSel = document.getElementById("toSel");
+  var refreshBtn = document.getElementById("refreshBtn");
+  var filterSummary = document.getElementById("filterSummary");
+
+  function populateSelect(el, values, allLabel) {
+    el.innerHTML = "";
+    if (allLabel) {
+      var optAll = document.createElement("option");
+      optAll.value = "__all__";
+      optAll.textContent = allLabel;
+      el.appendChild(optAll);
+    }
+    values.forEach(function (v) {
+      var o = document.createElement("option");
+      o.value = v;
+      o.textContent = v;
+      el.appendChild(o);
+    });
+  }
+  populateSelect(regionSel, REGIONS, "All regions");
+  populateSelect(catSel, CATEGORIES, "All categories");
+  populateSelect(fromSel, MONTHS);
+  populateSelect(toSel, MONTHS);
+  fromSel.value = MONTHS[0];
+  toSel.value = MONTHS[MONTHS.length - 1];
+
+  function selectedValue(el) { return el.value === "__all__" ? null : el.value; }
+
+  function filteredRows() {
+    var region = selectedValue(regionSel);
+    var category = selectedValue(catSel);
+    var from = MONTHS.indexOf(fromSel.value);
+    var to = MONTHS.indexOf(toSel.value);
+    if (from > to) { var t = from; from = to; to = t; }
+    return DATA.filter(function (r) {
+      if (region && r.region !== region) return false;
+      if (category && r.category !== category) return false;
+      if (r.monthIdx < from || r.monthIdx > to) return false;
+      return true;
+    });
+  }
+
+  function render() {
+    var rows = filteredRows();
+    var k = kpis(rows);
+    var monthKeys = [];
+    var from = MONTHS.indexOf(fromSel.value), to = MONTHS.indexOf(toSel.value);
+    if (from > to) { var t = from; from = to; to = t; }
+    for (var i = from; i <= to; i++) monthKeys.push({ monthIdx: i });
+
+    document.querySelector('[data-k="revenue"]').textContent = fmtMoney(k.revenue);
+    document.querySelector('[data-k="orders"]').textContent = fmtNum(k.orders);
+    document.querySelector('[data-k="aov"]').textContent = fmtMoney(k.aov);
+    document.querySelector('[data-k="profit"]').textContent = fmtMoney(k.profit);
+    document.querySelector('[data-k="revenueSub"]').textContent = k.margin >= 0 ? "profit margin " + fmtPct(k.margin) : "margin n/a";
+    document.querySelector('[data-k="ordersSub"]').textContent = k.count + " data points";
+    document.querySelector('[data-k="aovSub"]').textContent = "$" + (k.revenue / (k.orders || 1)).toFixed(2) + " avg";
+
+    drawLine(document.getElementById("chart-line"), rows, monthKeys);
+    drawBars(document.getElementById("chart-bars"), rows);
+    drawDonut(document.getElementById("chart-donut"), rows);
+    drawScatter(document.getElementById("chart-scatter"), rows);
+
+    var rl = selectedValue(regionSel) || "All regions";
+    var cl = selectedValue(catSel) || "All categories";
+    filterSummary.textContent = rl + " \u00b7 " + cl + " \u00b7 " + MONTHS[from] + "\u2013" + MONTHS[to];
+  }
+
+  var controls = [regionSel, catSel, fromSel, toSel];
+  controls.forEach(function (el) { el.addEventListener("change", render); });
+  refreshBtn.addEventListener("click", function () {
+    seedCounter++;
+    DATA = generateData(2024 + seedCounter * 997);
+    render();
+  });
+
+  // init
+  DATA = generateData(2024);
+  render();
+})();
+</script>
+</body>
+</html>

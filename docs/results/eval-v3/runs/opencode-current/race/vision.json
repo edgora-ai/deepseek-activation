@@ -1,0 +1,7 @@
+{
+  "status": "ok",
+  "valid": false,
+  "summary": "赛道与起终点可见，但三个角色及其载具未完整呈现，画面主体明显缺失。",
+  "model": "gpt-5.6-terra",
+  "durationMs": 5931
+}

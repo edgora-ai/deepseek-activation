@@ -1,6 +1,6 @@
 # 原理详解
 
-本仓库的规则设计源自三个 DSH 社区研究成果的移植。以下说明"为什么这些规则有效"。
+本仓库的规则设计源自三个 DSH 社区研究成果的移植。以下说明这些规则的来源、拟解决的问题以及本仓库能够支持的证据范围。
 
 ## 1. 轨迹（Trajectory）理论 — dsh-anchored-standard
 
@@ -23,11 +23,11 @@
 | Pro | spec 句 + few-shot | +5.0 |
 | Flash | neutral + classify（build/fix 自分类）| +5.7 |
 
-**rules 1（build/fix 分类）就是 Flash 最优 persona 的核心**：让模型先分类任务（build→动手、fix→先读后改），实测把开放任务完成率从 0% 提到 100%。
+**rules 1（build/fix 分类）来自该 Flash persona**：让模型先分类任务（build→动手、fix→先读后改）。`0% → 100%` 是 dsh-routing-suite 报告范围的结果，本仓库没有复测该单条规则，也不能从完整规则组 A/B 把收益单独归因给它。
 
 ## 3. 工作空间治理 — J-Space Cognition Suite V3.6
 
-推理时治理协议（不动权重），DeepSeek V4-Flash 实测：
+J-Space Cognition Suite V3.6 报告的推理时治理结果（非本仓库复测）：
 
 | 指标 | 基线 | +J-Space |
 |---|---|---|
@@ -43,9 +43,9 @@
 
 ## 4. 为什么不提示"先深度规划"就有效？（实验教训）
 
-实测（2026-08-19）：
-- "先深度规划"提示词 → thinking 放大 15-30 倍（3K → 49-94K），产出更精致，但**慢 3-5 倍 + 易超时**
-- **但 let's/let me 分布不稳定**（opencode 7/28 vs Claude Code 1/33）——**不是提示词可控**
-- **可靠收益来自规则层**（验证/分类/模式路由），不是措辞
+探索观察（2026-08-19）：
+- 个别“先深度规划”轨迹的 thinking 字段从约 3K 增至 49–94K，并伴随约 3–5 倍耗时；这是单次轨迹观察，不是稳定因果效果。
+- let's/let me 分布不稳定（OpenCode 7/28 vs Claude Code 1/33），不能当作可控激活指标。
+- 规则组的可靠收益必须由 runtime、合同、交互和独立 usage 的重复 A/B 判断，不能从 thinking 文本归因。
 
-**结论**：规则层（本仓库）是稳定可移植的；措辞层（let's 激活）不可靠。
+**结论**：规则文件格式可在三个 CLI 间移植；效果不能随格式一起假定。正式 OpenCode A/B 只在固定模型与 build/fix 范围内支持 current 规则组，candidate-v2 因 build 回退未通过。

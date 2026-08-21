@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sales Analytics Dashboard</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --panel2: #263449;
+    --border: #334155;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --teal: #2dd4bf;
+    --violet: #a78bfa;
+    --amber: #fbbf24;
+    --rose: #fb7185;
+    --green: #4ade80;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: radial-gradient(1200px 600px at 20% -10%, #1e3a5f 0%, var(--bg) 55%);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 24px;
+  }
+  h1 { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.02em; }
+  .sub { color: var(--muted); font-size: 0.8rem; margin-top: 2px; }
+  header {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    gap: 16px; flex-wrap: wrap; margin-bottom: 20px;
+  }
+  .controls {
+    display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 12px 16px;
+  }
+  .ctrl-group { display: flex; flex-direction: column; gap: 5px; }
+  .ctrl-group label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+  select, input[type="range"] { accent-color: var(--accent); }
+  select {
+    background: var(--panel2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 10px; font-size: 0.82rem; min-width: 130px;
+  }
+  .range-row { display: flex; align-items: center; gap: 8px; }
+  .range-row input[type="range"] { width: 150px; }
+  .range-val { font-size: 0.78rem; color: var(--text); min-width: 78px; text-align: center;
+    background: var(--panel2); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; }
+  .btn {
+    background: linear-gradient(135deg, var(--accent), var(--teal));
+    color: #06283d; border: none; border-radius: 8px; padding: 8px 16px;
+    font-weight: 700; font-size: 0.82rem; cursor: pointer;
+    box-shadow: 0 4px 14px rgba(56,189,248,.25);
+    transition: transform .08s ease, box-shadow .15s ease;
+  }
+  .btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(56,189,248,.4); }
+  .btn:active { transform: translateY(0); }
+
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
+  .kpi {
+    background: linear-gradient(160deg, var(--panel), var(--panel2));
+    border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px;
+    position: relative; overflow: hidden;
+  }
+  .kpi::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(200px 60px at 100% 0%, rgba(56,189,248,.12), transparent);
+  }
+  .kpi .k-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
+  .kpi .k-value { font-size: 1.65rem; font-weight: 800; margin: 6px 0 4px; font-variant-numeric: tabular-nums; }
+  .kpi .k-delta { font-size: 0.75rem; color: var(--muted); }
+  .kpi .k-delta .up { color: var(--green); font-weight: 700; }
+  .kpi .k-delta .down { color: var(--rose); font-weight: 700; }
+  .kpi svg { position: absolute; right: 14px; top: 14px; opacity: .85; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .chart {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 14px; padding: 16px;
+  }
+  .chart.wide { grid-column: 1 / -1; }
+  .chart h3 { font-size: 0.9rem; font-weight: 600; margin-bottom: 2px; }
+  .chart .c-sub { font-size: 0.72rem; color: var(--muted); margin-bottom: 10px; }
+  .chart .vis { position: relative; width: 100%; }
+  .chart .vis svg { display: block; width: 100%; height: auto; }
+  .axis text { fill: var(--muted); font-size: 10px; }
+  .axis path, .axis line { stroke: var(--border); }
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; font-size: 0.72rem; color: var(--muted); }
+  .legend .sw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; margin-right: 5px; }
+
+  #tooltip {
+    position: fixed; pointer-events: none; z-index: 50; display: none;
+    background: #0b1220; color: var(--text); border: 1px solid #475569;
+    border-radius: 8px; padding: 8px 10px; font-size: 0.75rem;
+    box-shadow: 0 8px 24px rgba(0,0,0,.5); max-width: 240px; line-height: 1.45;
+  }
+  #tooltip .tt-title { font-weight: 700; margin-bottom: 3px; }
+  #tooltip .tt-row { display: flex; justify-content: space-between; gap: 14px; }
+  #tooltip .tt-k { color: var(--muted); }
+  .mark { cursor: crosshair; }
+  .donut-seg:hover, .bar:hover { filter: brightness(1.25); }
+  .dot:hover { stroke: #fff; stroke-width: 1.5; }
+
+  @media (max-width: 900px) {
+    .kpis { grid-template-columns: repeat(2, 1fr); }
+    .grid { grid-template-columns: 1fr; }
+    .chart.wide { grid-column: auto; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Sales Analytics Dashboard</h1>
+    <div class="sub">Deterministic sample data &middot; live filters &middot; inline SVG visualizations</div>
+  </div>
+
+  <div class="controls">
+    <div class="ctrl-group">
+      <label for="fRegion">Region</label>
+      <select id="fRegion"></select>
+    </div>
+    <div class="ctrl-group">
+      <label for="fCategory">Category</label>
+      <select id="fCategory"></select>
+    </div>
+    <div class="ctrl-group">
+      <label for="fPeriod">Period range</label>
+      <div class="range-row">
+        <input type="range" id="fPeriod" min="0" max="11" value="0">
+        <span class="range-val" id="periodVal">Jan 2025 &ndash; Jan 2025</span>
+      </div>
+    </div>
+    <button class="btn" id="refreshBtn" type="button">Refresh data</button>
+  </div>
+</header>
+
+<section class="kpis" id="kpis"></section>
+
+<section class="grid">
+  <div class="chart wide">
+    <h3>Revenue Trend Over Time</h3>
+    <div class="c-sub">Monthly revenue by region (hover the line marks for details)</div>
+    <div class="vis" id="trend"></div>
+  </div>
+  <div class="chart">
+    <h3>Revenue by Category</h3>
+    <div class="c-sub">Total revenue grouped by product category (hover bars)</div>
+    <div class="vis" id="bars"></div>
+  </div>
+  <div class="chart">
+    <h3>Regional Revenue Share</h3>
+    <div class="c-sub">Share of filtered revenue by region (hover segments)</div>
+    <div class="vis" id="donut"></div>
+  </div>
+  <div class="chart wide">
+    <h3>Spend vs Revenue</h3>
+    <div class="c-sub">Each point is a region &times; category &times; month sample (hover dots)</div>
+    <div class="vis" id="scatter"></div>
+  </div>
+</section>
+
+<div id="tooltip"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  var REGIONS = ["North", "South", "East", "West"];
+  var CATS = ["Electronics", "Clothing", "Home", "Grocery"];
+  var MONTHS = [
+    "Jan 2025", "Feb 2025", "Mar 2025", "Apr 2025", "May 2025", "Jun 2025",
+    "Jul 2025", "Aug 2025", "Sep 2025", "Oct 2025", "Nov 2025", "Dec 2025"
+  ];
+
+  var style = getComputedStyle(document.documentElement);
+  var CAT_COLOR = {};
+  CATS.forEach(function (c, i) {
+    CAT_COLOR[c] = [ "--accent", "--teal", "--violet", "--amber" ][i % 4];
+  });
+  function css(k) { return style.getPropertyValue(k).trim(); }
+
+  var seedVal = 20250101;
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  var data = [];
+
+  function generate(seed) {
+    var rand = mulberry32(seed);
+    var out = [];
+    var n = 0;
+    REGIONS.forEach(function (region) {
+      CATS.forEach(function (cat) {
+        var base = 12000 + rand() * 22000;
+        var growth = 0.5 + rand() * 0.6;
+        var seasonal = 0.35 + rand() * 0.4;
+        var orderSpend = 40 + rand() * 120;
+        var marginBias = 0.18 + rand() * 0.25;
+        for (var m = 0; m < 12; m++) {
+          var wave = 1 + (seasonal * Math.sin((m / 12) * Math.PI * 2));
+          var trendF = 1 + (growth * (m / 12));
+          var jitter = 0.94 + rand() * 0.12;
+          var revenue = Math.round(base * wave * trendF * jitter);
+          var orderPrice = orderSpend * (0.9 + rand() * 0.2);
+          var orders = Math.max(8, Math.round(revenue / orderPrice));
+          var spend = Math.round(revenue * (0.52 + 0.3 * rand() - marginBias * 0.6));
+          if (spend < revenue * 0.1) spend = Math.round(revenue * 0.35);
+          out.push({
+            idx: n++, region: region, cat: cat, m: m,
+            revenue: revenue, orders: orders, spend: spend,
+            profit: revenue - spend,
+            margin: ((revenue - spend) / revenue) * 100
+          });
+        }
+      });
+    });
+    return out;
+  }
+
+  var state = { region: "All", cat: "All", periodEnd: 11, seed: seedVal };
+
+  function initSeed() { data = generate(state.seed); }
+
+  function filtered() {
+    var reg = state.region, cat = state.cat, end = state.periodEnd;
+    return data.filter(function (d) {
+      if (reg !== "All" && d.region !== reg) return false;
+      if (cat !== "All" && d.cat !== cat) return false;
+      return d.m <= end;
+    });
+  }
+
+  function fmt(n) {
+    if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
+    if (n >= 1e3) return (n / 1e3).toFixed(0) + "k";
+    return String(Math.round(n));
+  }
+  function money(n) { return "$" + fmt(n); }
+
+  function renderKPIs(list) {
+    var revenue = 0, orders = 0, spend = 0;
+    list.forEach(function (d) { revenue += d.revenue; orders += d.orders; spend += d.spend; });
+    var aov = orders ? revenue / orders : 0;
+    var marginPct = revenue ? ((revenue - spend) / revenue) * 100 : 0;
+
+    var kpiDefinitions = [
+      { label: "Revenue", value: money(revenue), delta: "+12.4% vs prev", up: true, icon: "M3 17l6-6 4 4 8-8m0 0h-5m5 0v5" },
+      { label: "Orders", value: String(orders), delta: "+8.1% vs prev", up: true, icon: "M5 8h14M5 12h14M5 16h9" },
+      { label: "Avg Order Value", value: money(aov), delta: "+3.9% vs prev", up: true, icon: "M12 8c-2.2 0-4 1.3-4 3s1.8 3 4 3 4 1.3 4 3-1.8 3-4 3m0-12V5m0 14v-1" },
+      { label: "Profit Margin", value: marginPct.toFixed(1) + "%", delta: revenue - spend, up: true, icon: "M12 2v20M17 7c0-2-2-3.5-5-3.5S7 5 7 7s2 3 5 3.5 5 1.5 5 3.5-2 3.5-5 3.5S7 17 7 15" }
+    ];
+
+    var pct = marginPct.toFixed(1) + "%";
+    kpiDefinitions[3].value = pct;
+    kpiDefinitions[3].delta = "$" + fmt(revenue - spend) + " profit";
+
+    var el = document.getElementById("kpis");
+    el.innerHTML = kpiDefinitions.map(function (k) {
+      return '<div class="kpi">' +
+        '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="' + css("--accent") + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="' + k.icon + '"/></svg>' +
+        '<div class="k-label">' + k.label + '</div>' +
+        '<div class="k-value">' + k.value + '</div>' +
+        '<div class="k-delta"><span class="up">&uarr; ' + k.delta + '</span></div>' +
+        '</div>';
+    }).join("");
+  }
+
+  // ---------- Tooltip ----------
+  var tip = document.getElementById("tooltip");
+  function showTip(html, ev) {
+    tip.innerHTML = html;
+    tip.style.display = "block";
+    moveTip(ev);
+  }
+  function moveTip(ev) {
+    var pad = 16;
+    var x = ev.clientX + pad, y = ev.clientY + pad;
+    var r = tip.getBoundingClientRect();
+    if (x + r.width > window.innerWidth - 8) x = ev.clientX - r.width - pad;
+    if (y + r.height > window.innerHeight - 8) y = ev.clientY - r.height - pad;
+    tip.style.left = x + "px";
+    tip.style.top = y + "px";
+  }
+  function hideTip() { tip.style.display = "none"; }
+  function bindTip(el, html) {
+    el.addEventListener("mousemove", function (e) { moveTip(e); });
+    el.addEventListener("mouseenter", function (e) { showTip(html, e); });
+    el.addEventListener("mouseleave", hideTip);
+  }
+
+  function mkW(name, attrs) {
+    var ns = "http://www.w3.org/2000/svg";
+    var s = document.createElementNS(ns, name);
+    if (attrs) Object.keys(attrs).forEach(function (k) { s.setAttribute(k, attrs[k]); });
+    return s;
+  }
+
+  // ---------- Line / Area trend ----------
+  function renderTrend(list) {
+    var wrap = document.getElementById("trend");
+    wrap.innerHTML = "";
+    var W = 940, H = 260, L = 54, R = 18, T = 18, B = 34;
+    var months = [];
+    for (var m = 0; m <= state.periodEnd; m++) months.push(m);
+    var minM = 0, maxM = state.periodEnd;
+
+    var all = data.filter(function (d) { return d.region === state.region || state.region === "All"; })
+      .filter(function (d) {
+        if (state.cat !== "All" && d.cat !== state.cat) return false;
+        return true;
+      });
+    var maxV = 0;
+    months.forEach(function (m) {
+      var tot = 0;
+      all.forEach(function (d) { if (d.m === m) tot += d.revenue; });
+      if (tot > maxV) maxV = tot;
+      var inSide = list.filter(function (d) { return d.m === m; });
+      var s = 0; inSide.forEach(function (d) { s += d.revenue; });
+      if (s > maxV) maxV = s;
+    });
+    maxV = maxV * 1.15 || 1;
+
+    var x = function (m) { return L + ((m - minM) / Math.max(1, maxM - minM)) * (W - L - R); };
+    var y = function (v) { return T + (1 - v / maxV) * (H - T - B); };
+
+    var svg = mkW("svg", { viewBox: "0 0 " + W + " " + H });
+    var defs = mkW("defs");
+    var grad = mkW("linearGradient", { id: "trendFill", x1: "0", y1: "0", x2: "0", y2: "1" });
+    var stop1 = mkW("stop", { offset: "0%", "stop-color": css("--accent"), "stop-opacity": "0.35" });
+    var stop2 = mkW("stop", { offset: "100%", "stop-color": css("--accent"), "stop-opacity": "0" });
+    grad.appendChild(stop1); grad.appendChild(stop2); defs.appendChild(grad); svg.appendChild(defs);
+
+    var glines = 5;
+    for (var i = 0; i <= glines; i++) {
+      var v = maxV * (i / glines);
+      var gy = y(v);
+      var gl = mkW("line", { x1: L, y1: gy, x2: W - R, y2: gy, stroke: css("--border"), "stroke-width": 1, "stroke-dasharray": "3 4" });
+      svg.appendChild(gl);
+      var gt = mkW("text", { x: L - 8, y: gy + 3, "text-anchor": "end", "class": "axis" });
+      gt.textContent = fmt(v);
+      svg.appendChild(gt);
+    }
+
+    // aggregate by month across selected region(s)
+    var byMonth = {};
+    list.forEach(function (d) { byMonth[d.m] = (byMonth[d.m] || 0) + d.revenue; });
+    var gx = L, gPath = "", aPath = "";
+    months.forEach(function (m, i) {
+      var tot = byMonth[m] || 0;
+      var px = x(m), py = y(tot);
+      if (i === 0) { gPath = "M" + px + " " + py; aPath = "M" + px + " " + (H - B); }
+      else { gPath += " L" + px + " " + py; }
+      aPath += " L" + px + " " + py;
+    });
+    aPath += " L" + x(maxM) + " " + (H - B) + " Z";
+    var area = mkW("path", { d: aPath, fill: "url(#trendFill)" });
+    svg.appendChild(area);
+    var line = mkW("path", { d: gPath, fill: "none", stroke: css("--accent"), "stroke-width": 2.5, "stroke-linejoin": "round" });
+    svg.appendChild(line);
+
+    months.forEach(function (m) {
+      var tot = byMonth[m] || 0;
+      var px = x(m), py = y(tot);
+      var c = mkW("circle", { cx: px, cy: py, r: 4.5, fill: css("--bg"), stroke: css("--accent"), "stroke-width": 2.5, "class": "mark" });
+      bindTip(c, '<div class="tt-title">' + MONTHS[m] + '</div><div class="tt-row"><span class="tt-k">Revenue</span><span>' + money(tot) + '</span></div>');
+      svg.appendChild(c);
+
+      var tg = mkW("text", { x: px, y: H - 10, "text-anchor": "middle", "class": "axis" });
+      tg.textContent = MONTHS[m].split(" ")[0];
+      svg.appendChild(tg);
+    });
+
+    wrap.appendChild(svg);
+  }
+
+  // ---------- Bars by category ----------
+  function renderBars(list) {
+    var wrap = document.getElementById("bars");
+    wrap.innerHTML = "";
+    var W = 430, H = 250, L = 52, R = 14, T = 16, B = 30;
+    var totals = {};
+    var order = [];
+    list.forEach(function (d) {
+      if (!(d.cat in totals)) { totals[d.cat] = 0; order.push(d.cat); }
+      totals[d.cat] += d.revenue;
+    });
+    order.sort(function (a, b) { return totals[b] - totals[a]; });
+    var cats = CATS.filter(function (c) { return order.indexOf(c) >= 0; });
+    if (cats.length === 0) cats = order;
+    var maxV = Math.max.apply(null, cats.map(function (c) { return totals[c]; })) * 1.1 || 1;
+
+    var n = cats.length;
+    var slot = (W - L - R) / n;
+    var bw = Math.min(48, slot * 0.55);
+
+    var svg = mkW("svg", { viewBox: "0 0 " + W + " " + H });
+    var y = function (v) { return T + (1 - v / maxV) * (H - T - B); };
+    var ticks = 4;
+    for (var i = 0; i <= ticks; i++) {
+      var v = maxV * (i / ticks);
+      var gy = y(v);
+      var gl = mkW("line", { x1: L, y1: gy, x2: W - R, y2: gy, stroke: css("--border"), "stroke-width": 1, "stroke-dasharray": "3 4" });
+      svg.appendChild(gl);
+      var gt = mkW("text", { x: L - 8, y: gy + 3, "text-anchor": "end", "class": "axis" });
+      gt.textContent = fmt(v);
+      svg.appendChild(gt);
+    }
+
+    cats.forEach(function (c, i) {
+      var cx = L + slot * i + slot / 2;
+      var h = H - B - y(totals[c]);
+      var x0 = cx - bw / 2, y0 = y(totals[c]);
+      var color = css(CAT_COLOR[c]);
+      var r = mkW("rect", { x: x0, y: y0, width: bw, height: h, rx: 6, fill: color, "class": "mark bar" });
+      bindTip(r, '<div class="tt-title">' + c + '</div>' +
+        '<div class="tt-row"><span class="tt-k">Revenue</span><span>' + money(totals[c]) + '</span></div>' +
+        '<div class="tt-row"><span class="tt-k">Share</span><span>' + ((totals[c] / (maxV / 1.1)) * 100).toFixed(1) + '%</span></div>');
+      svg.appendChild(r);
+
+      var vl = mkW("text", { x: x0 + bw / 2, y: y0 - 5, "text-anchor": "middle", "class": "axis", fill: color, "font-weight": "bold" });
+      vl.textContent = fmt(totals[c]);
+      svg.appendChild(vl);
+
+      var tg = mkW("text", { x: cx, y: H - 8, "text-anchor": "middle", "class": "axis" });
+      tg.textContent = c;
+      svg.appendChild(tg);
+    });
+
+    wrap.appendChild(svg);
+  }
+
+  // ---------- Donut ----------
+  function renderDonut(list) {
+    var wrap = document.getElementById("donut");
+    wrap.innerHTML = "";
+    var S = 230, R = 92, inner = 58, cx = S / 2, cy = S / 2;
+    var totals = {};
+    var hasRegion = false;
+    list.forEach(function (d) {
+      hasRegion = true;
+      totals[d.region] = (totals[d.region] || 0) + d.revenue;
+    });
+    var keys = REGIONS.filter(function (r) { return (totals[r] || 0) > 0; });
+    var total = 0;
+    keys.forEach(function (k) { total += totals[k]; });
+
+    var svg = mkW("svg", { viewBox: "0 0 " + S + " " + S, width: S, height: S });
+    svg.style.display = "block";
+    svg.style.margin = "0 auto";
+
+    var flat = Math.PI * 2;
+    var ang = -Math.PI / 2;
+
+    // full ring decoration
+    var ring = mkW("circle", { cx: cx, cy: cy, r: R, fill: "none", stroke: css("--border"), "stroke-width": 26 });
+    svg.appendChild(ring);
+
+    keys.forEach(function (k) {
+      var frac = total ? totals[k] / total : 0;
+      var a2 = ang + frac * flat;
+      if (frac < 0.999) {
+        var large = (a2 - ang) > Math.PI ? 1 : 0;
+        var x1 = cx + R * Math.cos(ang), y1 = cy + R * Math.sin(ang);
+        var x2 = cx + R * Math.cos(a2), y2 = cy + R * Math.sin(a2);
+        var d = "M" + x1 + " " + y1 + " A " + R + " " + R + " 0 " + large + " 1 " + x2 + " " + y2;
+        var seg = mkW("path", { d: d, fill: "none", stroke: css(["--accent","--teal","--violet","--amber"][REGIONS.indexOf(k)]), "stroke-width": 26, "class": "mark donut-seg" });
+        bindTip(seg, '<div class="tt-title">' + k + '</div>' +
+          '<div class="tt-row"><span class="tt-k">Revenue</span><span>' + money(totals[k]) + '</span></div>' +
+          '<div class="tt-row"><span class="tt-k">Share</span><span>' + (frac * 100).toFixed(1) + '%</span></div>');
+        svg.appendChild(seg);
+      } else {
+        var circ = mkW("circle", { cx: cx, cy: cy, r: R, fill: "none", stroke: css(["--accent","--teal","--violet","--amber"][REGIONS.indexOf(k)]), "stroke-width": 26, "class": "mark donut-seg" });
+        bindTip(circ, '<div class="tt-title">' + k + '</div>' +
+          '<div class="tt-row"><span class="tt-k">Revenue</span><span>' + money(totals[k]) + '</span></div>' +
+          '<div class="tt-row"><span class="tt-k">Share</span><span>100%</span></div>');
+        svg.appendChild(circ);
+      }
+      ang = a2;
+    });
+
+    var label = mkW("text", { x: cx, y: cy - 4, "text-anchor": "middle", fill: css("--text"), "font-size": "20", "font-weight": "800" });
+    label.textContent = (hasRegion && keys.length > 0) ? fmt(total) : "n/a";
+    var label2 = mkW("text", { x: cx, y: cy + 16, "text-anchor": "middle", fill: css("--muted"), "font-size": "10" });
+    label2.textContent = "REVENUE";
+    svg.appendChild(label); svg.appendChild(label2);
+
+    wrap.appendChild(svg);
+
+    var legEl = wrap.appendChild(mkW("div", null));
+    legEl = document.createElement("div");
+    legEl.className = "legend";
+    keys.forEach(function (k) {
+      var col = [ "--accent", "--teal", "--violet", "--amber" ][REGIONS.indexOf(k)];
+      var sp = document.createElement("span");
+      sp.innerHTML = '<span class="sw" style="background:' + css(col) + '"></span>' + k + " " + (total ? ((totals[k] / total) * 100).toFixed(0) : 0) + "%";
+      legEl.appendChild(sp);
+    });
+    wrap.appendChild(legEl);
+  }
+
+  // ---------- Scatter ----------
+  function renderScatter(list) {
+    var wrap = document.getElementById("scatter");
+    wrap.innerHTML = "";
+    var W = 940, H = 300, L = 60, R = 20, T = 16, B = 40;
+    var maxS = 0, maxR = 0;
+    list.forEach(function (d) { if (d.spend > maxS) maxS = d.spend; if (d.revenue > maxR) maxR = d.revenue; });
+    maxS = maxS * 1.1 || 1; maxR = maxR * 1.1 || 1;
+    var x = function (v) { return L + (v / maxS) * (W - L - R); };
+    var y = function (v) { return T + (1 - v / maxR) * (H - T - B); };
+
+    var svg = mkW("svg", { viewBox: "0 0 " + W + " " + H });
+    var ticks = 5;
+    for (var i = 0; i <= ticks; i++) {
+      var sv2 = maxS * (i / ticks), rv = maxR * (i / ticks);
+      var gx = x(sv2), gy = y(rv);
+      var gl = mkW("line", { x1: gx, y1: T, x2: gx, y2: H - B, stroke: css("--border"), "stroke-width": 1, "stroke-dasharray": "3 4" });
+      svg.appendChild(gl);
+      var gt = mkW("text", { x: gx, y: H - 8, "text-anchor": "middle", "class": "axis" });
+      gt.textContent = fmt(sv2);
+      svg.appendChild(gt);
+      var hl = mkW("line", { x1: L, y1: gy, x2: W - R, y2: gy, stroke: css("--border"), "stroke-width": 1, "stroke-dasharray": "3 4" });
+      svg.appendChild(hl);
+      var ht = mkW("text", { x: L - 8, y: gy + 3, "text-anchor": "end", "class": "axis" });
+      ht.textContent = fmt(rv);
+      svg.appendChild(ht);
+    }
+    var xl = mkW("text", { x: L + 6, y: H - 10, "class": "axis" }); xl.textContent = "Spend";
+    var yl = mkW("text", { x: 14, y: T + 6, "class": "axis" }); yl.textContent = "Revenue";
+    svg.appendChild(xl); svg.appendChild(yl);
+
+    // diagonal parity line
+    var parity = mkW("line", { x1: x(0), y1: y(0), x2: x(maxS), y2: y(maxR), stroke: css("--border"), "stroke-width": 1, "stroke-dasharray": "5 5" });
+    svg.appendChild(parity);
+
+    list.sort(function (a, b) { return a.m - b.m; });
+    list.forEach(function (d) {
+      var px = x(d.spend), py = y(d.revenue);
+      var dot = mkW("circle", { cx: px, cy: py, r: 5, fill: css(CAT_COLOR[d.cat]), "fill-opacity": 0.85, "class": "mark dot" });
+      bindTip(dot, '<div class="tt-title">' + d.region + " &middot; " + d.cat + '</div>' +
+        '<div class="tt-row"><span class="tt-k">Period</span><span>' + MONTHS[d.m] + '</span></div>' +
+        '<div class="tt-row"><span class="tt-k">Revenue</span><span>' + money(d.revenue) + '</span></div>' +
+        '<div class="tt-row"><span class="tt-k">Spend</span><span>' + money(d.spend) + '</span></div>' +
+        '<div class="tt-row"><span class="tt-k">Profit</span><span>' + money(d.revenue - d.spend) + '</span></div>');
+      svg.appendChild(dot);
+    });
+
+    wrap.appendChild(svg);
+
+    var legEl = document.createElement("div");
+    legEl.className = "legend";
+    CATS.forEach(function (c) {
+      var sp = document.createElement("span");
+      sp.innerHTML = '<span class="sw" style="background:' + css(CAT_COLOR[c]) + '"></span>' + c;
+      legEl.appendChild(sp);
+    });
+    wrap.appendChild(legEl);
+  }
+
+  // ---------- Controls ----------
+  function fillSelect(sel, values, current) {
+    sel.innerHTML = "";
+    var optAll = document.createElement("option");
+    optAll.value = "All"; optAll.textContent = "All " + sel.id.replace("f", "");
+    sel.appendChild(optAll);
+    values.forEach(function (v) {
+      var o = document.createElement("option");
+      o.value = v; o.textContent = v;
+      sel.appendChild(o);
+    });
+    sel.value = current;
+  }
+
+  function render() {
+    var list = filtered();
+    renderKPIs(list);
+    renderTrend(list);
+    renderBars(list);
+    renderDonut(list);
+    renderScatter(list);
+    updatePeriodLabel();
+  }
+
+  function updatePeriodLabel() {
+    document.getElementById("periodVal").textContent = "Jan 2025 – " + MONTHS[state.periodEnd];
+  }
+
+  function refresh() {
+    state.seed += 7919;
+    data = generate(state.seed);
+    var v = data[0];
+    render();
+  }
+
+  function init() {
+    fillSelect(document.getElementById("fRegion"), REGIONS, "All");
+    fillSelect(document.getElementById("fCategory"), CATS, "All");
+    var range = document.getElementById("fPeriod");
+    range.max = MONTHS.length - 1;
+    range.value = state.periodEnd;
+    updatePeriodLabel();
+
+    document.getElementById("fRegion").addEventListener("change", function (e) { state.region = e.target.value; render(); });
+    document.getElementById("fCategory").addEventListener("change", function (e) { state.cat = e.target.value; render(); });
+    range.addEventListener("input", function (e) { state.periodEnd = parseInt(e.target.value, 10); render(); });
+    document.getElementById("refreshBtn").addEventListener("click", refresh);
+    window.addEventListener("resize", function () { /* re-render static viewBox SVGs not needed */ });
+
+    data = generate(state.seed);
+    render();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
+</script>
+</body>
+</html>

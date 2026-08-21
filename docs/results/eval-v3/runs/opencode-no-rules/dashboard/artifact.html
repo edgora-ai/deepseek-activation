@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sales Analytics Dashboard</title>
+<style>
+  :root{
+    --bg:#f1f5f9; --card:#ffffff; --ink:#0f172a; --muted:#64748b;
+    --line:#e2e8f0; --accent:#4f46e5; --accent-2:#0ea5e9;
+    --radius:14px; --shadow:0 1px 2px rgba(15,23,42,.06), 0 6px 18px -10px rgba(15,23,42,.18);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif;background:var(--bg);color:var(--ink);}
+  header{background:linear-gradient(135deg,#1e1b4b,#312e81 55%,#4338ca);color:#fff;padding:22px 26px;}
+  header h1{margin:0;font-size:22px;font-weight:700;letter-spacing:.2px;}
+  header p{margin:4px 0 0;font-size:13px;opacity:.75;}
+  .controls{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-top:16px;}
+  .ctl{display:flex;flex-direction:column;gap:5px;}
+  .ctl .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:#c7d2fe;font-weight:600;}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;}
+  .chip{border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.08);color:#e0e7ff;border-radius:999px;padding:5px 12px;font-size:13px;cursor:pointer;transition:all .15s;user-select:none;}
+  .chip:hover{background:rgba(255,255,255,.18);}
+  .chip.active{background:#fff;color:#4338ca;border-color:#fff;font-weight:600;}
+  .ctl input[type="month"]{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:8px;padding:6px 8px;font-size:13px;font-family:inherit;}
+  .ctl input[type="month"]::-webkit-calendar-picker-indicator{filter:invert(1);opacity:.8;}
+  #refresh{background:#f59e0b;border:none;color:#1e1b4b;font-weight:700;font-size:14px;border-radius:9px;padding:9px 18px;cursor:pointer;box-shadow:0 4px 12px -4px rgba(245,158,11,.6);transition:transform .1s, filter .15s;}
+  #refresh:hover{filter:brightness(1.06);}
+  #refresh:active{transform:translateY(1px);}
+  main{padding:20px 26px 34px;max-width:1280px;margin:0 auto;}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:18px;}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px 18px;position:relative;overflow:hidden;}
+  .kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--accent);}
+  .kpi.k2::before{background:#0ea5e9;}
+  .kpi.k3::before{background:#10b981;}
+  .kpi.k4::before{background:#f59e0b;}
+  .kpi .k-label{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);}
+  .kpi .k-value{font-size:26px;font-weight:800;margin-top:6px;letter-spacing:.2px;font-variant-numeric:tabular-nums;}
+  .kpi .k-sub{font-size:12px;color:var(--muted);margin-top:4px;}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px 18px 12px;}
+  .card.span2{grid-column:1 / -1;}
+  .card h3{margin:0 0 4px;font-size:15px;font-weight:700;}
+  .card .cap{font-size:12px;color:var(--muted);margin-bottom:10px;}
+  .chart svg{width:100%;height:auto;display:block;}
+  .axis{stroke:#cbd5e1;}
+  .gridline{stroke:var(--line);stroke-dasharray:3 4;}
+  .gridlabel{font-size:10.5px;fill:var(--muted);}
+  .axislabel{font-size:11px;fill:var(--muted);font-weight:600;}
+  .mark{cursor:pointer;}
+  .mark:hover{filter:brightness(1.12);}
+  .legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px;font-size:12px;color:var(--muted);}
+  .legend .dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px;}
+  footer{text-align:center;color:var(--muted);font-size:12px;padding:6px 0 24px;}
+  #tooltip{position:fixed;pointer-events:none;background:#0f172a;color:#e2e8f0;padding:9px 11px;border-radius:9px;font-size:12.5px;line-height:1.5;box-shadow:0 10px 24px -8px rgba(0,0,0,.5);opacity:0;transition:opacity .08s;z-index:99;max-width:260px;white-space:nowrap;}
+  #tooltip b{color:#fff;font-variant-numeric:tabular-nums;}
+  #tooltip .tt{margin-top:2px;}
+  @media (max-width:900px){ .grid{grid-template-columns:1fr;} .card.span2{grid-column:auto;} }
+</style>
+</head>
+<body>
+<header>
+  <h1>Sales Analytics Dashboard</h1>
+  <p>Deterministic in-browser sample data &middot; all charts rendered with inline SVG</p>
+  <div class="controls">
+    <div class="ctl">
+      <span class="lbl">Region</span>
+      <div class="chips" id="regionChips"></div>
+    </div>
+    <div class="ctl">
+      <span class="lbl">Category</span>
+      <div class="chips" id="catChips"></div>
+    </div>
+    <div class="ctl">
+      <span class="lbl">Period</span>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="month" id="fromMonth" aria-label="From month">
+        <span style="opacity:.7">&ndash;</span>
+        <input type="month" id="toMonth" aria-label="To month">
+      </div>
+    </div>
+    <div class="ctl">
+      <span class="lbl">&nbsp;</span>
+      <button id="refresh">&#8635; Refresh data</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="kpis" id="kpis"></section>
+
+  <section class="grid">
+    <div class="card span2">
+      <h3>Revenue trend</h3>
+      <div class="cap">Monthly revenue and profit within the selected period</div>
+      <div id="lineChart" class="chart"></div>
+    </div>
+    <div class="card">
+      <h3>Sales by category</h3>
+      <div class="cap">Revenue contribution per category</div>
+      <div id="barChart" class="chart"></div>
+    </div>
+    <div class="card">
+      <h3>Regional share</h3>
+      <div class="cap">Revenue split across regions</div>
+      <div id="donutChart" class="chart"></div>
+    </div>
+    <div class="card span2">
+      <h3>Spend vs revenue</h3>
+      <div class="cap">Marketing spend (x) against revenue (y), one point per region &times; category</div>
+      <div id="scatterChart" class="chart"></div>
+    </div>
+  </section>
+</main>
+
+<footer>Generated locally &mdash; <span id="dataNote"></span></footer>
+<div id="tooltip"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- deterministic PRNG ---------- */
+  function mulberry32(seed){
+    return function(){
+      seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+      var t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  /* ---------- constants ---------- */
+  var REGIONS  = ["North","South","East","West"];
+  var CATEGORIES = ["Electronics","Apparel","Home","Sports"];
+  var MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  var REGION_COLOR = { North:"#4f46e5", South:"#0ea5e9", East:"#f59e0b", West:"#10b981" };
+  var CAT_COLOR = {
+    Electronics:"#6366f1", Apparel:"#ec4899", Home:"#f59e0b", Sports:"#10b981"
+  };
+
+  function buildMonths(){
+    var out = [];
+    for (var i = 1; i <= 12; i++) out.push("2025-" + (i < 10 ? "0" + i : i));
+    return out;
+  }
+  var MONTHS = buildMonths();
+  function mLabel(m){ return MONTH_NAMES[+m.slice(5) - 1] + " '" + m.slice(2,4); }
+
+  /* ---------- state ---------- */
+  var dataset = {};
+  var seed = 20250820;
+  var fRegions = new Set(REGIONS);
+  var fCats = new Set(CATEGORIES);
+  var fFrom = MONTHS[0];
+  var fTo = MONTHS[MONTHS.length - 1];
+
+  /* ---------- data generation ---------- */
+  function seasonalFactor(idx){
+    var i = (+MONTHS[idx].slice(5)) - 1;
+    return 0.82 + 0.30 * Math.sin(i / 12 * Math.PI * 2 + 0.6) + 0.16 * Math.cos(i / 12 * Math.PI * 2 - 0.9);
+  }
+  var COST_RATE = [0.62, 0.55, 0.58, 0.52]; // by category index
+
+  function generateData(){
+    var rnd = mulberry32(seed);
+    dataset = {};
+    for (var r = 0; r < REGIONS.length; r++){
+      for (var c = 0; c < CATEGORIES.length; c++){
+        for (var m = 0; m < MONTHS.length; m++){
+          var base = (70 + rnd() * 95) * (1 + r * 0.28) * (1 + c * 0.17) * seasonalFactor(m);
+          var revenue = Math.max(150, Math.round(base));
+          var aov = 40 + rnd() * 240;
+          var orders = Math.max(3, Math.round(revenue / aov));
+          var spend = Math.round(revenue * (0.10 + rnd() * 0.18));
+          var profit = Math.round(revenue * (1 - COST_RATE[c] - rnd() * 0.04) - spend);
+          dataset[REGIONS[r] + "|" + CATEGORIES[c] + "|" + MONTHS[m]] = { revenue:revenue, orders:orders, spend:spend, profit:profit };
+        }
+      }
+    }
+  }
+
+  /* ---------- filtering / aggregation ---------- */
+  function filteredRecords(){
+    var out = [];
+    for (var r = 0; r < REGIONS.length; r++){
+      if (!fRegions.has(REGIONS[r])) continue;
+      for (var c = 0; c < CATEGORIES.length; c++){
+        if (!fCats.has(CATEGORIES[c])) continue;
+        for (var m = 0; m < MONTHS.length; m++){
+          if (MONTHS[m] < fFrom || MONTHS[m] > fTo) continue;
+          var key = REGIONS[r] + "|" + CATEGORIES[c] + "|" + MONTHS[m];
+          var d = dataset[key];
+          if (d) out.push({ region:REGIONS[r], category:CATEGORIES[c], month:MONTHS[m],
+                            revenue:d.revenue, orders:d.orders, spend:d.spend, profit:d.profit });
+        }
+      }
+    }
+    return out;
+  }
+
+  function sumBy(recs, mapKey, pick){
+    var out = {};
+    recs.forEach(function(rec){
+      var k = mapKey(rec);
+      out[k] = (out[k] || 0) + pick(rec);
+    });
+    return out;
+  }
+
+  /* ---------- formatting ---------- */
+  function fmtMoney(n){ return "$" + Math.round(n).toLocaleString("en-US"); }
+  function fmtNum(n){ return Math.round(n).toLocaleString("en-US"); }
+  function fmtPct(n){ return (100 * n).toFixed(1) + "%"; }
+
+  /* ---------- tooltip ---------- */
+  var tip = document.getElementById("tooltip");
+  function showTip(html, ev){ tip.innerHTML = html; tip.style.opacity = "1"; positionTip(ev); }
+  function moveTip(ev){ positionTip(ev); }
+  function hideTip(){ tip.style.opacity = "0"; }
+  function positionTip(ev){
+    var pad = 14, x = ev.clientX + pad, y = ev.clientY + pad;
+    var r = tip.getBoundingClientRect();
+    if (x + r.width > window.innerWidth - 8)  x = ev.clientX - r.width - pad;
+    if (y + r.height > window.innerHeight - 8) y = ev.clientY - r.height - pad;
+    tip.style.left = x + "px"; tip.style.top = y + "px";
+  }
+  function bindTip(container){
+    Array.prototype.forEach.call(container.querySelectorAll("[data-tip]"), function(el){
+      el.addEventListener("mousemove", function(ev){ showTip(el.getAttribute("data-tip"), ev); });
+      el.addEventListener("mouseleave", hideTip);
+    });
+  }
+
+  /* ---------- KPI ---------- */
+  function renderKPIs(recs){
+    var revenue = 0, orders = 0, spend = 0, profit = 0;
+    recs.forEach(function(r){ revenue += r.revenue; orders += r.orders; spend += r.spend; profit += r.profit; });
+    var aov = orders ? revenue / orders : 0;
+    var margin = revenue ? profit / revenue : 0;
+    var cards = [
+      { cls:"k1", label:"Revenue",     value: fmtMoney(revenue), sub: revenue + " data rows summed" },
+      { cls:"k2", label:"Orders",      value: fmtNum(orders),    sub: "across selected filters" },
+      { cls:"k3", label:"Avg Order Value", value: fmtMoney(aov), sub: "revenue &divide; orders" },
+      { cls:"k4", label:"Profit margin",   value: fmtPct(margin),sub: fmtMoney(profit) + " net profit" }
+    ];
+    document.getElementById("kpis").innerHTML = cards.map(function(c){
+      return '<div class="kpi ' + c.cls + '"><div class="k-label">' + c.label +
+             '</div><div class="k-value">' + c.value +
+             '</div><div class="k-sub">' + c.sub + '</div></div>';
+    }).join("");
+    document.getElementById("dataNote").textContent =
+      "showing " + recs.length + " region/category/month cells from seed " + seed;
+  }
+
+  /* ---------- line chart ---------- */
+  function renderLine(recs){
+    var monthsIn = MONTHS.filter(function(m){ return m >= fFrom && m <= fTo; });
+    var revM = sumBy(recs, function(r){ return r.month; }, function(r){ return r.revenue; });
+    var proM = sumBy(recs, function(r){ return r.month; }, function(r){ return r.profit; });
+    var n = monthsIn.length;
+    var W = 880, H = 320, padL = 70, padR = 20, padT = 20, padB = 40;
+    var plotW = W - padL - padR, plotH = H - padT - padB;
+
+    var vals = monthsIn.map(function(m){ return revM[m] || 0; });
+    var pvals = monthsIn.map(function(m){ return proM[m] || 0; });
+    var yMax = Math.max.apply(null, vals);
+    var yMin = 0;
+    pvals.forEach(function(v){ if (v < yMin) yMin = v; });
+    if (pvals.some(function(v){ return v < 0; })) yMin = Math.min.apply(null, pvals);
+    var span = (yMax - yMin) || 1;
+
+    function X(i){ return n === 1 ? padL + plotW / 2 : padL + i * (plotW / (n - 1)); }
+    function Y(v){ return padT + plotH * (1 - (v - yMin) / span); }
+
+    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Revenue trend line chart">';
+    var g;
+    var rows = 5;
+    for (var i = 0; i <= rows; i++){
+      var v = yMin + (yMax - yMin) * i / rows;
+      g = Y(v);
+      if (i > 0) s += '<line class="gridline" x1="' + padL + '" y1="' + g + '" x2="' + (W - padR) + '" y2="' + g + '"/>';
+      s += '<text class="gridlabel" x="' + (padL - 8) + '" y="' + (g + 3) + '" text-anchor="end">$' + Math.round(v).toLocaleString() + '</text>';
+    }
+    s += '<line class="axis" x1="' + padL + '" y1="' + padT + '" x2="' + padL + '" y2="' + (padT + plotH) + '"/>';
+    s += '<line class="axis" x1="' + padL + '" y1="' + (padT + plotH) + '" x2="' + (W - padR) + '" y2="' + (padT + plotH) + '"/>';
+    for (var x = 0; x < n; x++){
+      s += '<text class="gridlabel" x="' + X(x) + '" y="' + (padT + plotH + 18) + '" text-anchor="middle">' + mLabel(monthsIn[x]) + '</text>';
+    }
+
+    // area under revenue line
+    var area = 'M' + X(0) + ',' + Y(vals[0]);
+    for (var a = 1; a < n; a++) area += ' L' + X(a) + ',' + Y(vals[a]);
+    area += ' L' + X(n-1) + ',' + (padT + plotH) + ' L' + X(0) + ',' + (padT + plotH) + ' Z';
+    s += '<path d="' + area + '" fill="#4f46e5" opacity="0.10" />';
+
+    // revenue line
+    var line = 'M' + X(0) + ',' + Y(vals[0]);
+    for (var l = 1; l < n; l++) line += ' L' + X(l) + ',' + Y(vals[l]);
+    s += '<path d="' + line + '" fill="none" stroke="#4f46e5" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>';
+
+    // profit line
+    var pline = 'M' + X(0) + ',' + Y(pvals[0]);
+    for (var p = 1; p < n; p++) pline += ' L' + X(p) + ',' + Y(pvals[p]);
+    s += '<path d="' + pline + '" fill="none" stroke="#10b981" stroke-width="2" stroke-dasharray="5 4" stroke-linejoin="round" stroke-linecap="round" opacity="0.9"/>';
+
+    // points
+    for (var pt = 0; pt < n; pt++){
+      var tipHtml = '<b>' + mLabel(monthsIn[pt]) + '</b>' +
+        '<div class="tt">Revenue: <b>' + fmtMoney(vals[pt]) + '</b></div>' +
+        '<div class="tt">Profit: <b>' + fmtMoney(pvals[pt]) + '</b></div>';
+      s += '<circle class="mark" data-tip="' + tipHtml.replace(/\"/g,"&quot;") + '" cx="' + X(pt) + '" cy="' + Y(vals[pt]) + '" r="4.5" fill="#4f46e5" stroke="#fff" stroke-width="1.5"/>';
+    }
+
+    s += '<text class="axislabel" x="' + (padL + 8) + '" y="' + (padT - 8) + '">$</text>';
+    s += '<path d="M' + (X(n-1) - 60) + ',' + (padT + 16) + ' L' + (X(n-1) - 30) + ',' + (padT + 16) + '" stroke="#4f46e5" stroke-width="2.5" fill="none"/>';
+    s += '<text class="gridlabel" x="' + (X(n-1) - 24) + '" y="' + (padT + 19) + '">Revenue</text>';
+    s += '<path d="M' + (X(n-1) - 60) + ',' + (padT + 34) + ' L' + (X(n-1) - 30) + ',' + (padT + 34) + '" stroke="#10b981" stroke-width="2" stroke-dasharray="5 4" fill="none"/>';
+    s += '<text class="gridlabel" x="' + (X(n-1) - 24) + '" y="' + (padT + 37) + '">Profit</text>';
+    s += '</svg>';
+
+    var el = document.getElementById("lineChart");
+    el.innerHTML = s;
+    bindTip(el);
+  }
+
+  /* ---------- bar chart ---------- */
+  function renderBars(recs){
+    var revC = sumBy(recs, function(r){ return r.category; }, function(r){ return r.revenue; });
+    var total = 0; CATEGORIES.forEach(function(c){ total += revC[c] || 0; });
+    var W = 560, H = 300, padL = 76, padR = 16, padT = 24, padB = 46;
+    var plotW = W - padL - padR, plotH = H - padT - padB;
+    var n = CATEGORIES.length, yMax = 1;
+    CATEGORIES.forEach(function(c){ if ((revC[c]||0) > yMax) yMax = revC[c]; });
+    var slot = plotW / n, barW = slot * 0.55;
+    function Y(v){ return padT + plotH * (1 - v / yMax); }
+
+    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Sales by category bar chart">';
+    for (var g = 0; g <= 4; g++){
+      var gy = Y(yMax * g / 4);
+      if (g > 0) s += '<line class="gridline" x1="' + padL + '" y1="' + gy + '" x2="' + (W - padR) + '" y2="' + gy + '"/>';
+      s += '<text class="gridlabel" x="' + (padL - 8) + '" y="' + (gy + 3) + '" text-anchor="end">$' + Math.round(yMax * g / 4 / 1000) + 'k</text>';
+    }
+    s += '<line class="axis" x1="' + padL + '" y1="' + padT + '" x2="' + padL + '" y2="' + (padT + plotH) + '"/>';
+    s += '<line class="axis" x1="' + padL + '" y1="' + (padT + plotH) + '" x2="' + (W - padR) + '" y2="' + (padT + plotH) + '"/>';
+
+    CATEGORIES.forEach(function(c, i){
+      var v = revC[c] || 0, share = total ? 100 * v / total : 0;
+      var x = padL + i * slot + (slot - barW) / 2;
+      var color = CAT_COLOR[c];
+      var tipHtml = '<b>' + c + '</b>' +
+        '<div class="tt">Revenue: <b>' + fmtMoney(v) + '</b></div>' +
+        '<div class="tt">Share: <b>' + share.toFixed(1) + '%</b></div>';
+      s += '<rect class="mark" data-tip="' + tipHtml.replace(/\"/g,"&quot;") + '" x="' + x + '" y="' + Y(v) + '" width="' + barW + '" height="' + Math.max(0, (padT + plotH - Y(v))) + '" rx="5" fill="' + color + '"/>';
+      s += '<text class="gridlabel" x="' + (x + barW / 2) + '" y="' + (Y(v) - 6) + '" text-anchor="middle">$' + Math.round(v / 1000) + 'k</text>';
+      s += '<text class="gridlabel" x="' + (padL + i * slot + slot / 2) + '" y="' + (padT + plotH + 20) + '" text-anchor="middle">' + c + '</text>';
+    });
+
+    s += '</svg>';
+    var el = document.getElementById("barChart");
+    el.innerHTML = s;
+    bindTip(el);
+  }
+
+  /* ---------- donut chart ---------- */
+  function renderDonut(recs){
+    var revR = sumBy(recs, function(r){ return r.region; }, function(r){ return r.revenue; });
+    var total = 0; REGIONS.forEach(function(r){ total += revR[r] || 0; });
+    var W = 560, H = 300;
+    var cx = 168, cy = H / 2, rOut = 104, rIn = 66;
+    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Regional share donut chart">';
+    var a0 = -Math.PI / 2;
+    REGIONS.forEach(function(r){
+      var v = revR[r] || 0;
+      var a1 = a0 + (total ? 2 * Math.PI * v / total : 0);
+      var large = (a1 - a0) > Math.PI ? 1 : 0;
+      var x0 = cx + rOut * Math.cos(a0), y0 = cy + rOut * Math.sin(a0);
+      var x1 = cx + rOut * Math.cos(a1), y1 = cy + rOut * Math.sin(a1);
+      var x2 = cx + rIn * Math.cos(a1), y2 = cy + rIn * Math.sin(a1);
+      var x3 = cx + rIn * Math.cos(a0), y3 = cy + rIn * Math.sin(a0);
+      var d = "M" + x0 + "," + y0 + " A" + rOut + "," + rOut + " 0 " + large + " 1 " + x1 + "," + y1 +
+              " L" + x2 + "," + y2 + " A" + rIn + "," + rIn + " 0 " + large + " 0 " + x3 + "," + y3 + " Z";
+      var share = total ? 100 * v / total : 0;
+      var tipHtml = '<b>' + r + '</b>' +
+        '<div class="tt">Revenue: <b>' + fmtMoney(v) + '</b></div>' +
+        '<div class="tt">Share: <b>' + share.toFixed(1) + '%</b></div>';
+      s += '<path class="mark" data-tip="' + tipHtml.replace(/\"/g,"&quot;") + '" d="' + d + '" fill="' + REGION_COLOR[r] + '" stroke="#fff" stroke-width="2"/>';
+      a0 = a1;
+    });
+    s += '<text x="' + cx + '" y="' + (cy - 6) + '" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">' + fmtMoney(total) + '</text>';
+    s += '<text x="' + cx + '" y="' + (cy + 14) + '" text-anchor="middle" font-size="10.5" fill="#64748b">TOTAL REVENUE</text>';
+
+    var ly = 44;
+    s += '<text class="axislabel" x="' + 320 + '" y="' + ly + '" text-anchor="start">By region</text>';
+    ly += 0;
+    REGIONS.forEach(function(r){
+      ly += 28;
+      var v = revR[r] || 0, share = total ? 100 * v / total : 0;
+      s += '<rect x="320" y="' + (ly - 13) + '" width="14" height="14" rx="3" fill="' + REGION_COLOR[r] + '"/>';
+      s += '<text class="gridlabel" x="342" y="' + (ly - 1) + '" fill="#0f172a" font-weight="600">' + r + '</text>';
+      s += '<text class="gridlabel" x="342" y="' + (ly + 12) + '">' + fmtMoney(v) + ' &middot; ' + share.toFixed(1) + '%</text>';
+    });
+    s += '</svg>';
+    var el = document.getElementById("donutChart");
+    el.innerHTML = s;
+    bindTip(el);
+  }
+
+  /* ---------- scatter chart ---------- */
+  function renderScatter(recs){
+    var agg = {};
+    recs.forEach(function(r){
+      var k = r.region + "|" + r.category;
+      if (!agg[k]) agg[k] = { region:r.region, category:r.category, spend:0, revenue:0, orders:0 };
+      agg[k].spend += r.spend; agg[k].revenue += r.revenue; agg[k].orders += r.orders;
+    });
+    var points = [];
+    for (var k in agg){ if (agg.hasOwnProperty(k)) points.push(agg[k]); }
+    var W = 880, H = 340, padL = 70, padR = 20, padT = 20, padB = 46;
+    var plotW = W - padL - padR, plotH = H - padT - padB;
+    var maxX = 1, maxY = 1, maxO = 1;
+    points.forEach(function(p){
+      if (p.spend > maxX) maxX = p.spend;
+      if (p.revenue > maxY) maxY = p.revenue;
+      if (p.orders > maxO) maxO = p.orders;
+    });
+    function X(v){ return padL + plotW * v / maxX; }
+    function Y(v){ return padT + plotH * (1 - v / maxY); }
+
+    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Spend versus revenue scatter plot">';
+    for (var g = 0; g <= 4; g++){
+      var gx = X(maxX * g / 4), gy = Y(maxY * g / 4);
+      if (g > 0){
+        s += '<line class="gridline" x1="' + gx + '" y1="' + padT + '" x2="' + gx + '" y2="' + (padT + plotH) + '"/>';
+        s += '<line class="gridline" x1="' + padL + '" y1="' + gy + '" x2="' + (W - padR) + '" y2="' + gy + '"/>';
+      }
+      s += '<text class="gridlabel" x="' + (gx - 4) + '" y="' + (padT + plotH + 16) + '" text-anchor="end">$' + Math.round(maxX * g / 4 / 1000) + 'k</text>';
+      s += '<text class="gridlabel" x="' + (padL - 8) + '" y="' + (gy + 3) + '" text-anchor="end">$' + Math.round(maxY * g / 4 / 1000) + 'k</text>';
+    }
+    s += '<line class="axis" x1="' + padL + '" y1="' + padT + '" x2="' + padL + '" y2="' + (padT + plotH) + '"/>';
+    s += '<line class="axis" x1="' + padL + '" y1="' + (padT + plotH) + '" x2="' + (W - padR) + '" y2="' + (padT + plotH) + '"/>';
+    s += '<text class="axislabel" x="' + (padL + plotW) + '" y="' + (padT + plotH + 36) + '" text-anchor="end">Marketing spend</text>';
+    s += '<text class="axislabel" x="' + (padL - 58) + '" y="' + 12 + '">Revenue</text>';
+
+    points.forEach(function(p){
+      var r = Math.max(4, 4.5 + 5 * Math.sqrt(p.orders / maxO));
+      var tipHtml = '<b>' + p.region + ' &middot; ' + p.category + '</b>' +
+        '<div class="tt">Spend: <b>' + fmtMoney(p.spend) + '</b></div>' +
+        '<div class="tt">Revenue: <b>' + fmtMoney(p.revenue) + '</b></div>' +
+        '<div class="tt">Orders: <b>' + fmtNum(p.orders) + '</b></div>';
+      s += '<circle class="mark" data-tip="' + tipHtml.replace(/\"/g,"&quot;") + '" cx="' + X(p.spend) + '" cy="' + Y(p.revenue) + '" r="' + r + '" fill="' + REGION_COLOR[p.region] + '" fill-opacity="0.8" stroke="#fff" stroke-width="1.5"/>';
+    });
+    s += '</svg>';
+    var el = document.getElementById("scatterChart");
+    el.innerHTML = s;
+    bindTip(el);
+  }
+
+  /* ---------- filters UI ---------- */
+  function buildChips(){
+    var rc = document.getElementById("regionChips");
+    rc.innerHTML = REGIONS.map(function(r){
+      return '<button class="chip active" data-value="' + r + '" type="button">' + r + '</button>';
+    }).join("");
+    var cc = document.getElementById("catChips");
+    cc.innerHTML = CATEGORIES.map(function(c){
+      return '<button class="chip active" data-value="' + c + '" type="button">' + c + '</button>';
+    }).join("");
+
+    var sets = [ [fRegions, rc], [fCats, cc] ];
+    sets.forEach(function(pair){
+      var set = pair[0], el = pair[1];
+      Array.prototype.forEach.call(el.querySelectorAll(".chip"), function(chip){
+        chip.addEventListener("click", function(){
+          var val = chip.getAttribute("data-value");
+          var on = chip.classList.toggle("active");
+          if (on){ set.add(val); }
+          else {
+            if (set.size === 1){ chip.classList.add("active"); return; }
+            set.delete(val);
+          }
+          render();
+        });
+      });
+    });
+
+    var fromInput = document.getElementById("fromMonth");
+    var toInput = document.getElementById("toMonth");
+    fromInput.min = MONTHS[0]; fromInput.max = MONTHS[MONTHS.length - 1];
+    toInput.min = MONTHS[0]; toInput.max = MONTHS[MONTHS.length - 1];
+    fromInput.value = fFrom; toInput.value = fTo;
+    fromInput.addEventListener("change", function(){
+      var v = fromInput.value;
+      if (v && v >= MONTHS[0] && v <= toInput.value){ fFrom = v; render(); }
+    });
+    toInput.addEventListener("change", function(){
+      var v = toInput.value;
+      if (v && v >= fromInput.value && v <= MONTHS[MONTHS.length - 1]){ fTo = v; render(); }
+    });
+
+    document.getElementById("refresh").addEventListener("click", function(){
+      seed = Math.floor(Math.random() * 2147483647);
+      generateData();
+      render();
+    });
+  }
+
+  /* ---------- entry ---------- */
+  function render(){ renderKPIs(filteredRecords()); renderLine(filteredRecords()); renderBars(filteredRecords()); renderDonut(filteredRecords()); renderScatter(filteredRecords()); }
+
+  generateData();
+  buildChips();
+  render();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+{
+  "status": "ok",
+  "valid": true,
+  "summary": "A recognizable 3D helicopter with fuselage, rotor, skids, terrain, and HUD is rendered correctly without a black screen, corruption, or layout collapse.",
+  "model": "gpt-5.6-terra",
+  "durationMs": 3650
+}

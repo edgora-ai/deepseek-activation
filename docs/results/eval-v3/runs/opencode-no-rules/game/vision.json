@@ -1,0 +1,7 @@
+{
+  "status": "ok",
+  "valid": true,
+  "summary": "画面清晰渲染出带星空背景的“SPACE SHOOTER”游戏开始界面及分数、波次和生命值信息。",
+  "model": "gpt-5.6-terra",
+  "durationMs": 3520
+}

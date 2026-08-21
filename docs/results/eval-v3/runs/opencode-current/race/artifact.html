@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Martian Ring Road Grand Prix</title>
+<style>
+  :root{
+    --ink:#f5e6cf;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:radial-gradient(1200px 600px at 50% -10%, #3a1410, #150604 70%);
+    color:var(--ink);
+    font-family:'Trebuchet MS','Segoe UI',system-ui,sans-serif;
+    display:flex;flex-direction:column;align-items:center;
+    min-height:100%;overflow:hidden;
+  }
+  header{
+    width:100%;text-align:center;padding:10px 12px 6px;
+    background:linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,0));
+  }
+  header h1{
+    font-size:clamp(16px,2.4vw,26px);
+    letter-spacing:.28em;text-transform:uppercase;
+    color:#ffd9a0;text-shadow:0 2px 10px #000, 0 0 22px rgba(255,120,60,.5);
+  }
+  header p{font-size:clamp(10px,1.1vw,13px);color:#e8b98a;letter-spacing:.08em;margin-top:2px}
+  .stage{flex:1;width:100%;max-width:1700px;padding:0 6px 10px;display:flex;justify-content:center}
+  svg{width:100%;height:100%;display:block;filter:drop-shadow(0 10px 30px rgba(0,0,0,.6));border-radius:12px}
+  .lbl{font:600 13px/1.1 'Trebuchet MS',sans-serif}
+
+  /* decorative CSS animations inside SVG */
+  .tw{animation:tw 3.4s ease-in-out infinite}
+  .tw2{animation:tw 2.9s ease-in-out infinite .7s}
+  .sunp{animation:sunp 5s ease-in-out infinite}
+  .flut{transform-box:fill-box;transform-origin:left center;animation:flut 0.45s ease-in-out infinite alternate}
+  .cd{animation:cd 0.62s ease-out both}
+  .annp{animation:annp 2.6s ease-in-out both}
+  .annq{animation:annp 0.18s ease-in-out both}
+  .flash{animation:flash 0.32s steps(2,jump-none) infinite}
+  .wbr{transform-box:fill-box;transform-origin:50% 8%;animation:wbr 0.5s ease-in-out infinite alternate}
+  .thr{transform-box:fill-box;transform-origin:50% 20%;animation:thr 0.55s ease-in-out infinite alternate}
+  @keyframes tw{0%,100%{opacity:.25}50%{opacity:1}}
+  @keyframes sunp{0%,100%{opacity:.75}50%{opacity:1}}
+  @keyframes flut{from{transform:skewY(-7deg)}to{transform:skewY(7deg)}}
+  @keyframes cd{0%{transform:scale(2.4);opacity:0}15%{opacity:1}70%{opacity:1}100%{transform:scale(.85);opacity:0}}
+  @keyframes annp{0%{opacity:0;transform:scale(.7) translateY(18px)}18%{opacity:1;transform:scale(1.05) translateY(0)}30%{transform:scale(1)}88%{opacity:1}100%{opacity:0;transform:translateY(-8px)}}
+  @keyframes flash{0%{opacity:1}50%{opacity:.35}100%{opacity:1}}
+  @keyframes wbr{from{transform:rotate(-7deg)}to{transform:rotate(7deg)}}
+  @keyframes thr{from{transform:rotate(-9deg)}to{transform:rotate(9deg)}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Martian Ring Road Grand Prix</h1>
+  <p>Buster the Rabbit (Bicycle) &nbsp;&bull;&nbsp; Shelly the Tortoise (Motorcycle) &nbsp;&bull;&nbsp; Aquila the Bald Eagle (Tricycle)</p>
+</header>
+
+<div class="stage">
+<svg id="scene" viewBox="0 0 1600 860" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMax meet" aria-label="Martian ring road race animation">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1c0705"/>
+      <stop offset="0.28" stop-color="#3d1208"/>
+      <stop offset="0.6" stop-color="#87341a"/>
+      <stop offset="0.86" stop-color="#e2703a"/>
+      <stop offset="1" stop-color="#f59d55"/>
+    </linearGradient>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a8492a"/>
+      <stop offset="0.35" stop-color="#7d3a1f"/>
+      <stop offset="1" stop-color="#4d2413"/>
+    </linearGradient>
+    <linearGradient id="road" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6b3f2a"/>
+      <stop offset="0.5" stop-color="#4c2a1a"/>
+      <stop offset="1" stop-color="#6b3f2a"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#fff6d8"/>
+      <stop offset="0.4" stop-color="#ffe49a"/>
+      <stop offset="1" stop-color="#ff9a3d" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="crat" cx="0.4" cy="0.4" r="0.6">
+      <stop offset="0" stop-color="#31130a"/>
+      <stop offset="0.55" stop-color="#552310"/>
+      <stop offset="1" stop-color="#31130a"/>
+    </radialGradient>
+    <filter id="blur"><feGaussianBlur stdDeviation="4"/></filter>
+    <filter id="soft"><feGaussianBlur stdDeviation="1.4"/></filter>
+    <filter id="glow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+
+  <!-- SKY -->
+  <rect width="1600" height="860" fill="url(#sky)"/>
+
+  <!-- distant pale sun -->
+  <circle cx="1320" cy="330" r="150" fill="url(#sun)" class="sunp"/>
+  <circle cx="1320" cy="330" r="46" fill="#fff6d8" opacity="0.95" class="sunp"/>
+
+  <!-- stars -->
+  <g fill="#ffe7bd">
+    <circle cx="90" cy="60" r="1.6" class="tw"/><circle cx="220" cy="110" r="1.1" class="tw2"/>
+    <circle cx="340" cy="40" r="1.4" class="tw"/><circle cx="470" cy="90" r="1.2" class="tw2"/>
+    <circle cx="600" cy="50" r="1.7" class="tw"/><circle cx="740" cy="120" r="1.1" class="tw2"/>
+    <circle cx="860" cy="34" r="1.5" class="tw"/><circle cx="980" cy="100" r="1.2" class="tw2"/>
+    <circle cx="1120" cy="56" r="1.6" class="tw"/><circle cx="1260" cy="130" r="1.1" class="tw2"/>
+    <circle cx="1420" cy="70" r="1.5" class="tw"/><circle cx="150" cy="160" r="1.2" class="tw2"/>
+    <circle cx="520" cy="170" r="1.1" class="tw"/><circle cx="960" cy="160" r="1.5" class="tw2"/>
+  </g>
+  <!-- moons: Phobos & Deimos -->
+  <g fill="#c9a98f">
+    <ellipse cx="190" cy="130" rx="15" ry="12" opacity="0.9"/>
+    <ellipse cx="176" cy="121" rx="6" ry="5" opacity="0.35"/>
+    <ellipse cx="1560" cy="160" rx="8" ry="7" opacity="0.7"/>
+    <ellipse cx="1555" cy="156" rx="3" ry="2.6" opacity="0.4"/>
+  </g>
+
+  <!-- PARALLAX mountain range (drifts to convey speed) -->
+  <g id="mounts">
+    <g fill="#521f10">
+      <path d="M0,430 L70,330 L150,420 L230,300 L330,430 L420,340 L520,430 L600,320 L700,430 L790,350 L900,430 L1010,310 L1120,430 L1200,355 L1320,430 L1420,325 L1530,430 L1600,390 L1600,520 L0,520 Z"/>
+    </g>
+    <g fill="#692714" opacity="0.9">
+      <path d="M-40,470 L60,370 L170,470 L280,385 L390,470 L500,360 L620,470 L730,400 L850,470 L960,365 L1080,470 L1200,375 L1330,470 L1460,360 L1600,440 L1600,540 L-40,540 Z"/>
+    </g>
+    <g fill="#7c2f18">
+      <ellipse cx="220" cy="505" rx="55" ry="10" fill="url(#crat)"/>
+      <ellipse cx="980" cy="500" rx="90" ry="16" fill="url(#crat)"/>
+      <ellipse cx="1380" cy="495" rx="70" ry="12" fill="url(#crat)"/>
+      <ellipse cx="640" cy="490" rx="60" ry="11" fill="url(#crat)"/>
+    </g>
+  </g>
+
+  <!-- middle dusty plain -->
+  <rect x="0" y="470" width="1600" height="390" fill="url(#ground)"/>
+  <g opacity="0.5" fill="#9c4526">
+    <circle cx="120" cy="540" r="26"/><circle cx="150" cy="528" r="18"/>
+    <circle cx="420" cy="600" r="20"/><circle cx="447" cy="590" r="14"/>
+    <circle cx="760" cy="645" r="30"/><circle cx="800" cy="630" r="20"/>
+    <circle cx="1180" cy="580" r="18"/><circle cx="1210" cy="570" r="12"/>
+    <circle cx="1520" cy="620" r="22"/><circle cx="1550" cy="608" r="15"/>
+  </g>
+  <!-- rock spires (Martian hoodoos) -->
+  <g fill="#5f2413">
+    <path d="M330,470 L348,400 L358,470 Z"/>
+    <path d="M362,470 L395,352 L400,470 Z" opacity="0.85"/>
+    <path d="M1280,470 L1295,420 L1315,470 Z"/>
+    <path d="M1305,470 L1332,380 L1338,470 Z" opacity="0.8"/>
+    <path d="M152,560 L164,505 L176,560 Z"/>
+  </g>
+
+  <!-- RING ROAD (built by JS to match the race path) -->
+  <g id="roadLayer"></g>
+
+  <!-- particle FX layer -->
+  <g id="fx"></g>
+
+  <!-- racers -->
+  <g id="racerLayer"></g>
+
+  <g id="hudLayer"></g>
+</svg>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var NS="http://www.w3.org/2000/svg";
+  var svg=document.getElementById("scene");
+  function el(name,attr,parent){
+    var e=document.createElementNS(NS,name);
+    if(attr) for(var k in attr) e.setAttribute(k,attr[k]);
+    if(parent) parent.appendChild(e);
+    return e;
+  }
+  function pathGen(d,parent,extra){
+    var a={d:d};
+    if(extra) for(var k in extra)a[k]=extra[k];
+    return el("path",a,parent);
+  }
+
+  /* ============ BEZIER RACE PATH ============ */
+  var P0={x:150,y:755}, P1={x:600,y:610}, P2={x:1150,y:505}, P3={x:1500,y:345};
+  function bez(t){
+    var u=1-t;
+    var x=u*u*u*P0.x+3*u*u*t*P1.x+3*u*t*t*P2.x+t*t*t*P3.x;
+    var y=u*u*u*P0.y+3*u*u*t*P1.y+3*u*t*t*P2.y+t*t*t*P3.y;
+    return {x:x,y:y};
+  }
+  function bezDeriv(t){
+    var u=1-t;
+    var x=3*u*u*(P1.x-P0.x)+6*u*t*(P2.x-P1.x)+3*t*t*(P3.x-P2.x);
+    var y=3*u*u*(P1.y-P0.y)+6*u*t*(P2.y-P1.y)+3*t*t*(P3.y-P2.y);
+    return {x:x,y:y};
+  }
+  // pre-sample cumulative length
+  var SAMPLE=140, samples=[], Ltot=0;
+  (function(){
+    var prev=bez(0), i;
+    for(i=0;i<=SAMPLE;i++){
+      var p=bez(i/SAMPLE);
+      var seg=Math.hypot(p.x-prev.x,p.y-prev.y);
+      Ltot+=seg; samples.push(Ltot); prev=p;
+    }
+  })();
+  function pointAtDist(d){
+    // d in px along path (0..Ltot)
+    for(var i=1;i<=SAMPLE;i++){
+      if(samples[i]>=d){
+        var t0=(i-1)/SAMPLE, t1=i/SAMPLE;
+        var f=(d-samples[i-1])/(samples[i]-samples[i-1]);
+        var t=t0+(t1-t0)*f;
+        var p=bez(t), v=bezDeriv(t);
+        var ang=Math.atan2(v.y,v.x)*180/Math.PI;
+        var scale=1-(1-0.44)*(t);
+        return {x:p.x,y:p.y,t:t,ang:ang,scale:scale,lx:v.y/Math.hypot(v.x,v.y),ly:-v.x/Math.hypot(v.x,v.y)};
+      }
+    }
+    var p=bez(1),v=bezDeriv(1);
+    return {x:p.x,y:p.y,t:1,ang:Math.atan2(v.y,v.x)*180/Math.PI,scale:0.44,lx:v.y/Math.hypot(v.x,v.y),ly:-v.x/Math.hypot(v.x,v.y)};
+  }
+
+  /* ============ BUILD ROAD ============ */
+  (function buildRoad(){
+    var road=document.getElementById("roadLayer");
+    var n=70, left=[], right=[], center=[], i;
+    var half0=185, half1=78;
+    for(i=0;i<=n;i++){
+      var t=i/n, p=bez(t), v=bezDeriv(t), L=Math.hypot(v.x,v.y);
+      var nx=-v.y/L, ny=v.x/L, w=half0+(half1-half0)*t;
+      left.push([(p.x+nx*w).toFixed(1),(p.y+ny*w).toFixed(1)]);
+      right.push([(p.x-nx*w).toFixed(1),(p.y-ny*w).toFixed(1)]);
+      center.push([p.x.toFixed(1),p.y.toFixed(1)]);
+    }
+    var d="M"+left.map(function(q){return q[0]+" "+q[1]}).join(" L");
+    for(i=n;i>=0;i--) d+=" L"+right[i][0]+" "+right[i][1];
+    d+=" Z";
+    pathGen(d,road,{fill:"url(#road)"});
+    // center dashed line
+    pathGen("M"+center.map(function(q){return q[0]+" "+q[1]}).join(" L"),road,
+      {fill:"none",stroke:"#f4e6c8",strokeWidth:5,strokeLinecap:"round","stroke-dasharray":"58 34",opacity:0.92});
+    // sand kerbs (edges)
+    var lPath="M"+left.map(function(q){return q[0]+" "+q[1]}).join(" L");
+    var rPath="M"+right.map(function(q){return q[0]+" "+q[1]}).join(" L");
+    pathGen(lPath+" L"+center[0][0]+" "+center[0][1]+" Z",road,{fill:"#e2b877",opacity:0.85});
+    pathGen(rPath+" L"+center[0][0]+" "+center[0][1]+" Z",road,{fill:"#e2b877",opacity:0.45});
+    // Start line (t=0.015) & Finish gantry (t=0.985)
+    function line(tt,label,hi){
+      var p=bez(tt), v=bezDeriv(tt), L=Math.hypot(v.x,v.y);
+      var nx=-v.y/L, ny=v.x/L, w=half0+(half1-half0)*tt;
+      var a1=[p.x+nx*w,p.y+ny*w], a0=[p.x-nx*w,p.y-ny*w];
+      var band=el("line",{x1:a0[0],y1:a0[1],x2:a1[0],y2:a1[1],stroke:"#fff",strokeWidth:Math.max(10,w*2-8),strokeLinecap:"butt",opacity:0.92},road);
+      var chk=el("line",{x1:a0[0],y1:a0[1],x2:a1[0],y2:a1[1],stroke:"#1c1c1c",strokeWidth:Math.max(10,w*2-8),"stroke-dasharray":"26 26",strokeLinecap:"butt",opacity:0.92},road);
+      var tx=el("text",{x:p.x+nx*(w+16),y:p.y+ny*(w+6),"text-anchor":"middle",fill:"#ffe9c9","font-size":hi?34:26,"font-weight":900,"letter-spacing":2,transform:"rotate("+(-Math.atan2(v.y,v.x)*180/Math.PI+180)+" "+p.x+" "+p.y+")"},road);
+      tx.textContent=label;
+      void band; void chk;
+    }
+    line(0.012,"START",false);
+    // finish gantry
+    (function(){
+      var tt=0.985, p=bez(tt), v=bezDeriv(tt), L=Math.hypot(v.x,v.y);
+      var nx=-v.y/L, ny=v.x/L, w=half0+(half1-half0)*tt;
+      var tan=Math.atan2(v.y,v.x)*180/Math.PI;
+      var g=el("g",{transform:"translate("+p.x+" "+(p.y-8)+") rotate("+(tan+90)+")"},road);
+      el("line",{x1:-w,y1:0,x2:w,y2:0,stroke:"#8a5a30",strokeWidth:10,strokeLinecap:"round"},g);
+      var pole=el("g",{transform:"translate("+(w-6)+" 0)"},g);
+      el("line",{x1:0,y1:0,x2:0,y2:-120,stroke:"#d8d8d8",strokeWidth:7},pole);
+      // checkered flag on pole
+      var fl=el("g",{transform:"translate(4 -120)"},pole);
+      var fw=72,fh=44;
+      for(var r=0;r<3;r++){
+        for(var c=0;c<5;c++){
+          el("rect",{x:c*fw/5,y:r*fh/3,width:fw/5,height:fh/3,fill:(r+c)%2? "#151515":"#ffffff"},fl);
+        }
+      }
+      fl.classList.add("flut");
+      el("text",{x:0,y:-134,fill:"#ffe9c9","font-size":40,"font-weight":900,"letter-spacing":4},pole).textContent="FINISH";
+      el("text",{x:0,y:-142,fill:"#ff9a5a","font-size":16,"text-anchor":"middle","letter-spacing":6},g).textContent="";
+    })();
+  })();
+
+  /* ============ RACER VEHICLE GEOMETRY ============ */
+  // wheel builder: centered at 0,0 draws a detailed wheel of radius r, returns {wrap,spin}
+  function wheel(r,parent,tyre,tread,hub){
+    tyre=tyre||"#2b1a12"; tread=tread||"#4a2c1a"; hub=hub||"#cfd4d8";
+    var wrap=el("g",null,parent);
+    var spin=el("g",null,wrap);
+    el("circle",{r:r,fill:tyre},spin);
+    el("circle",{r:r-4,fill:"none",stroke:tread,strokeWidth:3},spin);
+    // tread blocks
+    for(var i=0;i<12;i++){
+      var a=i/12*Math.PI*2;
+      el("path",{d:"M"+(Math.cos(a)*(r-2))+" "+(Math.sin(a)*(r-2))+" l"+(-Math.sin(a)*6)+" "+(Math.cos(a)*6),
+        stroke:tread,strokeWidth:3,strokeLinecap:"round",fill:"none"},spin);
+    }
+    el("circle",{r:r-8,fill:"none",stroke:"#6a6f74",strokeWidth:3},spin);
+    el("circle",{r:r-10,fill:"#2e3135"},spin);
+    // spokes
+    for(var s=0;s<6;s++){
+      var sa=s/6*Math.PI*2;
+      el("line",{x1:Math.cos(sa)*6,y1:Math.sin(sa)*6,x2:Math.cos(sa)*(r-8),y2:Math.sin(sa)*(r-8),stroke:hub,strokeWidth:2.4},spin);
+    }
+    el("circle",{r:6,fill:hub},spin);
+    el("circle",{r:2.4,fill:"#222"},spin);
+    // hot rim mark for motion visibility
+    el("circle",{r:r-1,fill:"none",stroke:"#ffd76a",strokeWidth:4,"stroke-dasharray":"10 0 0 130",opacity:0.9},spin);
+    return {wrap:wrap,spin:spin};
+  }
+
+  var racerLayer=document.getElementById("racerLayer");
+  var racers=[];
+
+  // ---------- RABBIT ON BICYCLE ----------
+  (function(){
+    var g=el("g",null,racerLayer);
+    var root=el("g",null,g);          // translate/scale/rotate
+    var bob=el("g",null,root);        // vertical bob
+    var body=el("g",null,bob);
+    // shadow
+    el("ellipse",{cx:5,cy:4,rx:78,ry:9,fill:"#1a0a04",opacity:0.45,filter:"url(#soft)"},body);
+
+    // wheels
+    var rw=wheel(38,body,"#2c1c11","#563421","#c9cdd1"); rw.wrap.setAttribute("transform","translate(-48 -38)");
+    var fw=wheel(38,body,"#2c1c11","#563421","#c9cdd1"); fw.wrap.setAttribute("transform","translate(58 -38)");
+
+    // frame
+    var fr=el("g",{fill:"none",stroke:"#e8663a",strokeWidth:5,strokeLinecap:"round",strokeLinejoin:"round"},body);
+    pathGen("M-48 -38 L0 -26 L-48 -38",fr);
+    pathGen("M0 -26 L-4 -96",fr);
+    pathGen("M-4 -96 L58 -82",fr);
+    pathGen("M0 -26 L58 -68",fr);
+    pathGen("M58 -82 L58 -66",fr);
+    // fork + handlebar
+    pathGen("M58 -66 C54 -56 60 -46 58 -38",fr);
+    pathGen("M58 -82 C54 -92 46 -96 42 -94",fr,{stroke:"#e8663a"});
+    el("line",{x1:38,y1:-96,x2:52,y2:-98,stroke:"#3a1710",strokeWidth:6,strokeLinecap:"round"},body);
+    // saddle
+    pathGen("M-14 -98 C-16 -106 -6 -106 -2 -98 L6 -98 C10 -92 -10 -92 -14 -98 Z",body,{fill:"#3a1710"});
+    // chain ring + crank (rotating group)
+    var crank=el("g",{transform:"translate(0 -26)"},body);
+    el("circle",{r:13,fill:"#3c4146",stroke:"#666",strokeWidth:2},crank);
+    el("circle",{r:6,fill:"#8a8f94"},crank);
+    // pedal arms
+    var pa=el("g",null,crank);
+    el("line",{x1:0,y1:0,x2:0,y2:-11,stroke:"#444",strokeWidth:5,strokeLinecap:"round"},pa);
+    el("line",{x1:0,y1:0,x2:0,y2:11,stroke:"#444",strokeWidth:5,strokeLinecap:"round"},pa);
+    el("rect",{x:-8,y:-15,width:16,height:7,rx:3,fill:"#6b7075"},pa);
+    el("rect",{x:-8,y:8,width:16,height:7,rx:3,fill:"#6b7075"},pa);
+    // legs (dynamic: foot follows spinning pedal, updated each frame)
+    var leg1=el("line",{x1:-12,y1:-92,x2:-4,y2:-24,stroke:"#c48a52",strokeWidth:7,strokeLinecap:"round"},body);
+    var leg2=el("line",{x1:-16,y1:-92,x2:3,y2:-25,stroke:"#b57a46",strokeWidth:7,strokeLinecap:"round"},body);
+    el("circle",{cx:-14,cy:-91,r:6,fill:"#c48a52"},body);
+
+    // RABBIT
+    // tail
+    el("circle",{cx:-22,cy:-96,r:8,fill:"#f4f1e8"},body);
+    // body (leaning forward)
+    pathGen("M-6 -92 C-22 -122 2 -128 20 -126 C42 -124 46 -106 40 -96 C28 -88 -2 -84 -6 -92 Z",body,{fill:"#c88f52"});
+    pathGen("M-4 -100 C6 -116 26 -116 36 -106",body,{fill:"none",stroke:"#e7b27c",strokeWidth:4,strokeLinecap:"round"});
+    // belly
+    pathGen("M0 -96 C10 -102 30 -102 36 -100 C26 -92 4 -90 0 -96 Z",body,{fill:"#f3e2c8"});
+    // front arm to bar
+    pathGen("M28 -110 C34 -112 36 -106 40 -98",body,{fill:"none",stroke:"#c88f52",strokeWidth:7,strokeLinecap:"round"});
+    pathGen("M26 -108 C30 -110 32 -104 36 -98",body,{fill:"none",stroke:"#b57a46",strokeWidth:6,strokeLinecap:"round"});
+    // head
+    var head=el("g",null,body);
+    el("circle",{cx:46,cy:-124,r:15,fill:"#c88f52"},head);
+    // ears (wiggle via JS)
+    var earL=el("g",null,head);
+    el("ellipse",{cx:44,cy:-146,rx:5,ry:17,fill:"#c88f52"},earL);
+    el("ellipse",{cx:44,cy:-145,rx:2.6,ry:12,fill:"#f2b3c2"},earL);
+    var earR=el("g",null,head);
+    el("ellipse",{cx:52,cy:-147,rx:5.5,ry:18,fill:"#c88f52",transform:"rotate(14 52 -147)"},earR);
+    el("ellipse",{cx:52,cy:-146,rx:2.8,ry:13,fill:"#f2b3c2",transform:"rotate(14 52 -147)"},earR);
+    // face
+    el("circle",{cx:40,cy:-126,r:3,fill:"#222"},head);
+    el("circle",{cx:40.6,cy:-126.6,r:1.2,fill:"#fff"},head);
+    el("ellipse",{cx:54,cy:-121,rx:6.5,ry:4.5,fill:"#f3e2c8"},head);
+    el("ellipse",{cx:58,cy:-121,rx:2.4,ry:1.8,fill:"#e98aa0"},head);
+    pathGen("M52 -119 L60 -122 L53 -124",head,{fill:"none",stroke:"#7a4630",strokeWidth:1.4,strokeLinecap:"round"});
+    el("path",{d:"M47 -117 C50 -115 54 -115 56 -118",stroke:"#7a4630",strokeWidth:1.4,fill:"none",strokeLinecap:"round"},head);
+    // scarf
+    var scarf=el("g",null,body);
+    el("path",{d:"M40 -120 C30 -122 20 -118 8 -126",stroke:"#d83a2f",strokeWidth:8,fill:"none",strokeLinecap:"round"},scarf);
+    el("path",{d:"M6 -126 C0 -130 -6 -124 -12 -130",stroke:"#d83a2f",strokeWidth:7,fill:"none",strokeLinecap:"round"},scarf);
+    el("path",{d:"M8 -124 C2 -128 -6 -122 -13 -128 C-19 -133 -24 -127 -29 -132",stroke:"#b52c22",strokeWidth:6,fill:"none",strokeLinecap:"round"},scarf);
+
+    // number plate
+    el("rect",{x:6,y:-70,width:20,height:16,rx:3,fill:"#fff",stroke:"#999",strokeWidth:1},body);
+    el("text",{x:16,y:-58,"text-anchor":"middle","font-size":11,"font-weight":900,fill:"#222"},
+      body).textContent="7";
+
+    // name tag
+    var tag=el("g",null,g);
+    el("path",{d:"M-2 0 L-7 -8 L3 -8 Z",fill:"#f7e6cc"},tag);
+    var tbg=el("rect",{x:-46,y:-24,width:100,height:22,rx:9,fill:"rgba(20,8,4,.66)",stroke:"#ffb36a",strokeWidth:1.4},tag);
+    el("text",{x:4,y:-8,"text-anchor":"middle","font-size":12,"font-weight":700,"fill":"#ffe3bd","letter-spacing":0.5},tag).textContent="BUSTER";
+    tag.setAttribute("transform","translate(5 -150)");
+    void tbg;
+
+    racers.push({key:"rabbit",root:root,bob:bob,crank:pa,rw:rw,fw:fw,earL:earL,earR:earR,scarf:scarf,tag:tag,
+      name:"Buster the Rabbit",short:"BUSTER",vehicle:"Bicycle",
+      r:38,base:158,amp:46,freq:0.55,phase:0.4,color:"#e8985a",id:"#7",lap:0,cum:0,
+      hops:1,hop:0,hopV:0,wA:0,pedal:{cx:0,cy:-26,R:11,legs:[leg1,leg2],hips:[[-12,-92],[-16,-92]]}});
+  })();
+
+  // ---------- TURTLE ON MOTORCYCLE ----------
+  (function(){
+    var g=el("g",null,racerLayer);
+    var root=el("g",null,g);
+    var bob=el("g",null,root);
+    var body=el("g",null,bob);
+    el("ellipse",{cx:8,cy:5,rx:88,ry:11,fill:"#1a0a04",opacity:0.5,filter:"url(#soft)"},body);
+
+    var rw=wheel(46,body,"#261710","#3b2415","#9ca4ab"); rw.wrap.setAttribute("transform","translate(-62 -46)");
+    var fw=wheel(46,body,"#261710","#3b2415","#9ca4ab"); fw.wrap.setAttribute("transform","translate(72 -46)");
+    // tire highlights
+    el("circle",{cx:-62,cy:-56,r:30,fill:"none",stroke:"rgba(255,255,255,.14)",strokeWidth:6},body);
+
+    // chassis (sport bike silhouette)
+    pathGen("M-46 -52 C-46 -78 -30 -86 -18 -84 L40 -82 C50 -82 54 -74 52 -66 L70 -72 C80 -74 84 -64 78 -56 L64 -46 Z",body,{fill:"#7c1f12"});
+    pathGen("M-18 -84 L40 -82",body,{fill:"none",stroke:"#e8b46a",strokeWidth:4});
+    // engine + fins
+    pathGen("M10 -52 L52 -52 L52 -26 L16 -26 Z",body,{fill:"#2c2f33"});
+    for(var f=0;f<4;f++) el("line",{x1:16+f*9,y1:-52,x2:16+f*9,y2:-26,stroke:"#555a60",strokeWidth:3},body);
+    // exhaust header -> muffler
+    pathGen("M34 -30 C40 -26 40 -18 18 -16 C-4 -14 -26 -14 -38 -18 C-52 -22 -62 -20 -70 -18",body,{fill:"none",stroke:"#777d84",strokeWidth:7,strokeLinecap:"round"});
+    el("ellipse",{cx:-70,cy:-18,rx:8,ry:7,fill:"#2b2e31"},body);
+    // muffler tip (puff origin -69,-19)
+    // seat cowl + solo seat
+    pathGen("M-56 -80 C-58 -104 -30 -112 -14 -104 C-6 -100 -4 -90 -8 -84 Z",body,{fill:"#a82617"});
+    pathGen("M-28 -106 C-40 -104 -52 -96 -54 -84",body,{fill:"none",stroke:"#f4c87a",strokeWidth:3});
+    // tank
+    pathGen("M18 -84 C14 -96 34 -100 42 -90 C50 -82 48 -74 40 -74 Z",body,{fill:"#8f2413"});
+    pathGen("M22 -84 C22 -92 34 -92 36 -84",body,{fill:"none",stroke:"#ffd98a",strokeWidth:2.5});
+    // headlight + windscreen
+    el("ellipse",{cx:88,cy:-70,rx:7,ry:9,fill:"#fff7cf",stroke:"#cdd2d6",strokeWidth:2},body);
+    el("circle",{cx:88,cy:-70,r:3,fill:"#fff",filter:"url(#glow)"},body);
+    pathGen("M66 -92 C78 -108 96 -104 100 -92 C96 -84 80 -82 70 -84",body,{fill:"rgba(180,220,255,.34)",stroke:"#bfe6ff",strokeWidth:2});
+    // fork + handlebar
+    pathGen("M68 -84 L72 -46",body,{fill:"none",stroke:"#3a3f44",strokeWidth:6});
+    pathGen("M66 -86 C64 -98 56 -100 50 -98",body,{fill:"none",stroke:"#3a3f44",strokeWidth:6});
+    el("line",{x1:46,y1:-100,x2:58,y2:-98,stroke:"#1c1c1e",strokeWidth:6,strokeLinecap:"round"},body);
+    // kickstand
+    pathGen("M-40 -48 L-52 -2 L-42 -3",body,{fill:"none",stroke:"#555a60",strokeWidth:4,strokeLinecap:"round"});
+
+    // TURTLE
+    // rear flipper on peg
+    pathGen("M-20 -40 C-32 -36 -38 -28 -42 -22 C-34 -24 -26 -32 -20 -40 Z",body,{fill:"#4c7a3a"});
+    // shell (big dome with scutes), slight wobble group
+    var shell=el("g",null,body);
+    pathGen("M-46 -78 C-60 -124 6 -138 42 -116 C64 -101 60 -84 44 -80 L-40 -76 Z",shell,{fill:"#4c7a3a",stroke:"#33572a",strokeWidth:3});
+    pathGen("M-44 -88 C-30 -128 2 -132 30 -122",shell,{fill:"none",stroke:"#6fa05a",strokeWidth:3});
+    pathGen("M-38 -92 C-6 -110 24 -104 40 -92 C20 -86 -16 -84 -38 -92 Z",shell,{fill:"#5f9149",stroke:"#3a6330",strokeWidth:2});
+    pathGen("M-38 -100 C2 -124 34 -110 42 -96",shell,{fill:"none",stroke:"#33572a",strokeWidth:2.5});
+    // shell ring
+    pathGen("M-46 -78 C-8 -88 44 -82 44 -80 L40 -76 L-44 -72 Z",shell,{fill:"#33572a"});
+    // helmet + head
+    var head=el("g",null,body);
+    pathGen("M6 -120 C2 -128 -6 -126 -10 -118 C-14 -108 -8 -100 4 -100 C14 -100 18 -108 12 -118 Z",head,{fill:"#6b8f56"});
+    el("circle",{cx:26,cy:-116,r:15,fill:"#e8f2ff",stroke:"#aac6e6",strokeWidth:2.5},head); // helmet
+    el("path",{d:"M26 -131 C16 -140 16 -128 20 -124",fill:"rgba(120,200,255,.25)",stroke:"#9fd0f5",strokeWidth:2},head);
+    el("ellipse",{cx:33,cy:-116,rx:3.4,ry:2.4,fill:"#333",transform:"rotate(-12 33 -116)"},head);
+    el("ellipse",{cx:36,cy:-114,rx:5,ry:3,fill:"#3a6330"},head);
+    el("circle",{cx:38.5,cy:-114,r:1.4,fill:"#fff7d8"},head);
+    // arms to bars
+    pathGen("M10 -104 C20 -106 30 -104 42 -100",body,{fill:"none",stroke:"#5f9149",strokeWidth:8,strokeLinecap:"round"});
+    el("circle",{cx:44,cy:-99,r:5,fill:"#6fa05a"},body);
+
+    // number plate
+    el("rect",{x:26,y:-66,width:22,height:18,rx:3,fill:"#fff",stroke:"#999",strokeWidth:1.2},body);
+    el("text",{x:37,y:-53,"text-anchor":"middle","font-size":12,"font-weight":900,fill:"#222"},body).textContent="11";
+    // exhaust puff origin marker
+    body.setAttribute("data-exhaust","-69,-19");
+
+    var tag=el("g",null,g);
+    el("path",{d:"M-2 0 L-7 -8 L3 -8 Z",fill:"#f7e6cc"},tag);
+    el("rect",{x:-52,y:-24,width:112,height:22,rx:9,fill:"rgba(20,8,4,.66)",stroke:"#7fbf6a",strokeWidth:1.4},tag);
+    el("text",{x:4,y:-8,"text-anchor":"middle","font-size":12,"font-weight":700,"fill":"#cfebc2","letter-spacing":0.5},tag).textContent="SHELLY";
+    tag.setAttribute("transform","translate(6 -164)");
+
+    racers.push({key:"turtle",root:root,bob:bob,shell:shell,head:head,rw:rw,fw:fw,tag:tag,
+      name:"Shelly the Tortoise",short:"SHELLY",vehicle:"Motorcycle",
+      r:46,base:124,amp:10,freq:0.8,phase:2.1,color:"#6fa05a",id:"#11",lap:0,cum:0,
+      offY:-164,hop:0,hopV:0,wA:0,boostT:0});
+  })();
+
+  // ---------- EAGLE ON TRICYCLE ----------
+  (function(){
+    var g=el("g",null,racerLayer);
+    var root=el("g",null,g);
+    var bob=el("g",null,root);
+    var body=el("g",null,bob);
+    el("ellipse",{cx:0,cy:5,rx:80,ry:10,fill:"#1a0a04",opacity:0.45,filter:"url(#soft)"},body);
+
+    // rear wheels (pair hint) + front wheel
+    var rw=wheel(36,body,"#2a1b10","#59401f","#d0d4d8"); rw.wrap.setAttribute("transform","translate(-64 -40)");
+    var rw2=wheel(36,body,"#241609","#4a341a","#b9bfc4"); rw2.wrap.setAttribute("transform","translate(-76 -42) scale(0.92)");
+    rw2.wrap.setAttribute("opacity","0.55");
+    var fw=wheel(42,body,"#2a1b10","#59401f","#d0d4d8"); fw.wrap.setAttribute("transform","translate(52 -42)");
+
+    // fenders
+    pathGen("M-96 -34 C-88 -70 -40 -68 -32 -36 Z",body,{fill:"#a8331f"});
+    pathGen("M-96 -76 C-88 -90 -60 -92 -46 -84",body,{fill:"none",stroke:"#e8b46a",strokeWidth:4});
+    pathGen("M28 -36 C36 -72 76 -70 74 -38 Z",body,{fill:"#a8331f"});
+
+    // frame: low step-through trike
+    pathGen("M-64 -40 L-30 -88",body,{fill:"none",stroke:"#2f9e58",strokeWidth:7,strokeLinecap:"round"});
+    pathGen("M-30 -88 L14 -30",body,{fill:"none",stroke:"#2f9e58",strokeWidth:7,strokeLinecap:"round"});
+    pathGen("M-40 -44 L-30 -88",body,{fill:"none",stroke:"#2f9e58",strokeWidth:7,strokeLinecap:"round"});
+    pathGen("M-64 -40 L20 -26",body,{fill:"none",stroke:"#2f9e58",strokeWidth:7,strokeLinecap:"round"});
+    pathGen("M14 -30 L30 -26 L52 -42",body,{fill:"none",stroke:"#2f9e58",strokeWidth:7,strokeLinecap:"round"});
+    // seat
+    pathGen("M-46 -92 C-50 -102 -26 -104 -22 -94 L-16 -86 L-54 -84 Z",body,{fill:"#5f1f10"});
+    // chain + crank (front)
+    var crank=el("g",{transform:"translate(24 -26)"},body);
+    el("circle",{r:15,fill:"#3c4146",stroke:"#666",strokeWidth:2},crank);
+    el("circle",{r:6,fill:"#8a8f94"},crank);
+    var pa=el("g",null,crank);
+    el("line",{x1:0,y1:0,x2:0,y2:-15,stroke:"#444",strokeWidth:5,strokeLinecap:"round"},pa);
+    el("line",{x1:0,y1:0,x2:0,y2:15,stroke:"#444",strokeWidth:5,strokeLinecap:"round"},pa);
+    el("rect",{x:-9,y:-19,width:18,height:8,rx:3,fill:"#6b7075"},pa);
+    el("rect",{x:-9,y:11,width:18,height:8,rx:3,fill:"#6b7075"},pa);
+    // chain to rear
+    pathGen("M11 -24 C-10 -18 -40 -24 -64 -40",body,{fill:"none",stroke:"#6b7075",strokeWidth:3,"stroke-dasharray":"6 5"});
+    // handlebar post + bar + bell
+    pathGen("M30 -46 L38 -110",body,{fill:"none",stroke:"#2f9e58",strokeWidth:6,strokeLinecap:"round"});
+    el("line",{x1:26,y1:-114,x2:56,y2:-104,stroke:"#5f1f10",strokeWidth:7,strokeLinecap:"round"},body);
+    el("circle",{cx:58,cy:-96,r:4,fill:"#ffd76a",stroke:"#c8a33a",strokeWidth:2},body);
+
+    // EAGLE (bald eagle on trike)
+    // tail feathers (white fan)
+    pathGen("M-30 -86 C-52 -78 -56 -64 -60 -52 C-52 -62 -44 -68 -34 -72 Z",body,{fill:"#f4f0e4"});
+    // body (brown, upright)
+    pathGen("M-24 -118 C-34 -108 -30 -88 -20 -78 C-6 -74 2 -88 0 -104 C-2 -116 -12 -124 -24 -118 Z",body,{fill:"#5a3a22"});
+    pathGen("M-22 -112 C-16 -118 -8 -116 -4 -110",body,{fill:"none",stroke:"#7a4f2c",strokeWidth:4});
+    // wings (flap via JS)
+    var wing=el("g",null,body);
+    pathGen("M-2 -118 C-40 -136 -74 -142 -84 -126 C-66 -118 -40 -112 -16 -106 Z",wing,{fill:"#6b4528",stroke:"#4c3018",strokeWidth:2});
+    pathGen("M-20 -120 C-46 -130 -70 -132 -80 -126",wing,{fill:"none",stroke:"#8a5c34",strokeWidth:3});
+    var wing2=el("g",null,body);
+    pathGen("M0 -108 C-20 -132 -52 -142 -66 -136 C-48 -126 -24 -114 -4 -102 Z",wing2,{fill:"#3d2a16",stroke:"#2e1f10",strokeWidth:2});
+    // legs (dynamic: talons follow spinning pedals)
+    var leg1=el("line",{x1:-8,y1:-84,x2:34,y2:-30,stroke:"#d8a83a",strokeWidth:5,strokeLinecap:"round"},body);
+    var leg2=el("line",{x1:-12,y1:-82,x2:28,y2:-12,stroke:"#c89830",strokeWidth:5,strokeLinecap:"round"},body);
+    el("path",{d:"M34 -30 l8 -2 M38 -28 l6 4 M36 -32 l4 -6",stroke:"#8a6a1c",strokeWidth:2.5,fill:"none",strokeLinecap:"round"},body);
+    el("path",{d:"M28 -12 l8 -2 M32 -10 l6 4 M30 -14 l4 -6",stroke:"#8a6a1c",strokeWidth:2.5,fill:"none",strokeLinecap:"round"},body);
+    // head (white)
+    var head=el("g",null,body);
+    pathGen("M6 -142 C-2 -150 6 -160 16 -156 C26 -152 26 -140 18 -134 C12 -130 8 -136 6 -142 Z",head,{fill:"#f6f2e6"});
+    // crest feathers
+    pathGen("M4 -148 C-2 -158 -8 -154 -10 -162 C-4 -158 0 -154 4 -150 Z",head,{fill:"#f6f2e6"});
+    pathGen("M8 -150 C2 -160 -2 -158 -6 -166 C0 -162 4 -158 8 -152 Z",head,{fill:"#efe9d8"});
+    // beak
+    pathGen("M18 -144 C24 -148 30 -144 26 -138 C24 -136 20 -138 18 -142 Z",head,{fill:"#f2b53a",stroke:"#c8912a",strokeWidth:2});
+    // eye
+    el("circle",{cx:13,cy:-148,r:2.6,fill:"#1c1c1c"},head);
+    el("circle",{cx:13.7,cy:-148.7,r:1,fill:"#fff"},head);
+    // brow
+    pathGen("M10 -152 L16 -150",head,{fill:"none",stroke:"#cfc8b2",strokeWidth:2,strokeLinecap:"round"});
+
+    // number plate
+    el("rect",{x:4,y:-62,width:20,height:16,rx:3,fill:"#fff",stroke:"#999",strokeWidth:1},body);
+    el("text",{x:14,y:-51,"text-anchor":"middle","font-size":11,"font-weight":900,fill:"#222"},body).textContent="3";
+
+    var tag=el("g",null,g);
+    el("path",{d:"M-2 0 L-7 -8 L3 -8 Z",fill:"#f7e6cc"},tag);
+    el("rect",{x:-50,y:-24,width:110,height:22,rx:9,fill:"rgba(20,8,4,.66)",stroke:"#ffd76a",strokeWidth:1.4},tag);
+    el("text",{x:5,y:-8,"text-anchor":"middle","font-size":12,"font-weight":700,"fill":"#ffe9b0","letter-spacing":0.5},tag).textContent="AQUILA";
+    tag.setAttribute("transform","translate(4 -176)");
+
+    racers.push({key:"eagle",root:root,bob:bob,crank:pa,rw:rw,fw:fw,wing:wing,wing2:wing2,head:head,tag:tag,
+      name:"Aquila the Eagle",short:"AQUILA",vehicle:"Tricycle",
+      r:42,base:140,amp:18,freq:0.5,phase:4.2,color:"#ffd76a",id:"#3",lap:0,cum:0,
+      off:{x:0,y:-30},hop:0,hopV:0,wA:0});
+  })();
+
+  /* ============ HUD / LEADERBOARD ============ */
+  var hud=document.getElementById("hudLayer");
+  (function buildHud(){
+    var g=el("g",{transform:"translate(1155 18)"},hud);
+    el("rect",{x:0,y:0,width:430,height:168,rx:14,fill:"rgba(16,6,3,.72)",stroke:"rgba(255,190,120,.45)",strokeWidth:2},g);
+    el("rect",{x:0,y:0,width:430,height:34,rx:14,fill:"rgba(120,40,20,.55)"},g);
+    el("rect",{x:0,y:20,width:430,height:14,fill:"rgba(120,40,20,.55)"},g);
+    el("text",{x:215,y:23,"text-anchor":"middle","font-size":17,"font-weight":900,"letter-spacing":3,fill:"#ffe9c2"},g).textContent="LIVE LEADERBOARD";
+    window.__lb={g:g,rank:[],bar:[]};
+    for(var i=0;i<3;i++){
+      var y=44+i*42;
+      var row=el("g",null,g);
+      el("rect",{x:10,y:y-26,width:410,height:34,rx:8,fill:"rgba(255,255,255,.05)"},row);
+      var rank=el("circle",{cx:32,cy:y-9,r:12,fill:"#222",stroke:"#666",strokeWidth:1.5},row);
+      el("text",{x:32,y:y-4,"text-anchor":"middle","font-size":14,"font-weight":900,fill:"#fff"},rank);
+      var nm=el("text",{x:52,y:y-6,"font-size":14,"font-weight":800,"fill":"#ffe9c2"},row);
+      var vh=el("text",{x:52,y:y+8,"font-size":10.5,"fill":"#d9a578"},row);
+      var bx=el("rect",{x:220,y:y-20,width:90,height:7,rx:3.5,fill:"rgba(255,255,255,.14)"},row);
+      var bf=el("rect",{x:220,y:y-20,width:0,height:7,rx:3.5,fill:"#ffb36a"},row);
+      el("text",{x:318,y:y-4,"font-size":11,"font-weight":700,fill:"#9fd8ff"},row);
+      var pc=el("text",{x:318,y:y+7,"font-size":9.5,fill:"#c9d9e0"},row);
+      window.__lb.rank.push({circle:rank,rankT:rank.firstChild||null,row:row,nm:nm,vh:vh,bf:bf,lbl:pc});
+      window.__lb.rank[i].rankT=rank.childNodes[0];
+    }
+    // lap clock
+    var lapg=el("g",null,g);
+    el("text",{x:215,y:162,"text-anchor":"middle","font-size":12,"letter-spacing":1.5,fill:"#d9a578"},lapg);
+    window.__lb.lapT=lapg.childNodes[0];
+
+    // announcement
+    var annY=250;
+    var a=el("text",{x:800,y:annY,"text-anchor":"middle","font-size":44,"font-weight":900,"letter-spacing":2,fill:"#ffe9c2",opacity:0},hud);
+    a.classList.add("annq");
+    var a2=el("text",{x:800,y:annY+46,"text-anchor":"middle","font-size":22,"font-weight":700,fill:"#ffb36a",opacity:0},hud);
+    a2.classList.add("annq");
+    window.__ann={t2:a,txt:a,sub:a2};
+    window.__ann.t3=a2;
+
+    // countdown
+    var cd=el("text",{x:800,y:300,"text-anchor":"middle","font-size":120,"font-weight":900,fill:"#ffd76a",opacity:0},hud);
+    cd.classList.add("cd");
+    var cds=el("text",{x:800,y:360,"text-anchor":"middle","font-size":22,"letter-spacing":6,fill:"#ffe9c2",opacity:0},hud);
+    window.__cd={n:cd,sub:cds};
+  })();
+
+  /* ============ PARTICLES ============ */
+  var fx=document.getElementById("fx");
+  var particles=[], MAXP=320;
+  function spawn(p){ if(particles.length<MAXP) particles.push(p); }
+  function addParticle(x,y,r,type,vx,vy,life){
+    spawn({x:x,y:y,r:r,t:type,vx:vx||0,vy:vy||0,l:life||600,age:0});
+  }
+  function renderParticles(){
+    // clear old children (rebuild cheaply)
+    while(fx.firstChild) fx.removeChild(fx.firstChild);
+    var i;
+    for(i=0;i<particles.length;i++){
+      var p=particles[i];
+      var f=1-p.age/p.l;
+      if(p.t==="dust"){ el("ellipse",{cx:p.x,cy:p.y,rx:p.r*(0.5+0.5*f)*1.6,ry:p.r*f*1.1,fill:"#c9915f",opacity:f*0.5},fx); }
+      else if(p.t==="smoke"){ el("circle",{cx:p.x,cy:p.y,r:p.r*(0.6+f*0.7),fill:"#cfd4d8",opacity:f*0.35},fx); }
+      else if(p.t==="spark"){ el("circle",{cx:p.x,cy:p.y,r:p.r*f,fill:"#ffd76a",opacity:f,filter:"url(#glow)"},fx); }
+    }
+  }
+
+  /* ============ MAIN LOOP ============ */
+  var startT=performance.now(), last=startT;
+  var state="count"; // count -> race
+  var countPhase=0, cdLast=-1;
+  var annQueue=[], annShow=false, annUntil=0;
+  var lbOrder=[0,1,2], lbHighlight=0;
+
+  function announce(sub, main, dur){
+    annQueue.push({sub:sub,main:main,dur:dur||2600});
+  }
+
+  function speedFor(r, t){
+    if(t<=1.8) return 8;
+    var s=r.base + Math.sin(t*r.freq+r.phase)*r.amp + Math.sin(t*1.7+r.phase*2)*r.amp*0.35;
+    if(r.key==="rabbit"){ s+=Math.sin(t*0.33)*26 + (Math.sin(t*2.9)>0.85 ? 40:0); }
+    if(r.key==="eagle"){ s+=Math.sin(t*0.22+1)*18; }
+    if(r.key==="turtle"){
+      if(t<1.8){ s=0; }
+      if(r.boost>0){ s=r.base+150; r.boost-=0; }
+    }
+    return s;
+  }
+
+  function frame(now){
+    var dt=Math.min((now-last)/1000, 0.05);
+    last=now;
+    var t=(now-startT)/1000;
+
+    // ---- countdown
+    if(state==="count"){
+      countPhase+=dt;
+      var n=Math.ceil(1.8-countPhase);
+      n=Math.max(n,0);
+      if(n!==cdLast){
+        cdLast=n;
+        var cd=window.__cd;
+        cd.n.setAttribute("opacity",1);
+        cd.n.textContent = n>0 ? String(n) : "GO!";
+        cd.n.classList.remove("cd"); void cd.n.offsetWidth; cd.n.classList.add("cd");
+        cd.sub.setAttribute("opacity",1);
+        cd.sub.textContent = n>0 ? "MARTIAN RING ROAD GRAND PRIX" : "";
+      }
+      if(countPhase>=1.8){ state="race"; announce("", "GO!",1200); }
+    }
+
+    // ---- update racers
+    var i,r,pos,sp;
+    for(i=0;i<racers.length;i++){
+      r=racers[i];
+      sp=speedFor(r,t);
+      r.spd=sp;
+      r.cum+=sp*dt;
+
+      // finish-line crossing (lap boundary)
+      var lap=Math.floor(r.cum/Ltot);
+      if(lap>r.lap){
+        if(lap-r.lap>0){
+          r.lap=lap;
+          annQueue.push({sub:r.vehicle+" crosses the line first!", main:r.short+" TAKES LAP "+lap+"!",dur:2400});
+        } else r.lap=lap;
+      }
+
+      var d=((r.cum%Ltot)+Ltot)%Ltot;
+      pos=pointAtDist(d);
+      var sc=pos.scale;
+      // bob
+      var crank=0, want=lspd2=0;
+      // wheel sync
+      r.wA=(r.wA+sp/(r.r)*dt*57.2958)%(360*3);
+      // bob with pedal cadence + per-character
+      var bobY=0;
+      if(r.key==="rabbit"){
+        bobY=Math.abs(Math.sin(r.wA*0.11))*7 - 3.5 + Math.sin(t*6+r.phase)*1.5;
+      } else if(r.key==="turtle"){
+        bobY=Math.abs(Math.sin(r.wA*0.10))*4 - 2 + Math.sin(t*4+r.phase)*1.2;
+      } else {
+        bobY=Math.abs(Math.sin(r.wA*0.13))*5 - 2.5 + Math.sin(t*4.3+r.phase)*1.2;
+      }
+      // rabbit hops
+      if(r.key==="rabbit" && t>1.8 && Math.sin(t*1.25+r.phase)>0.94){ r.hop=50; }
+      if(r.hop>0){ r.hop-=dt*120; bobY-=r.hop*0.5*sc; }
+
+      // translate/scale/rotate root
+      var lean=Math.sin(t*(r.key==="eagle"?1.1:0.6)+r.phase)*1.4 + (r.key==="rabbit"? (r.hop*0.2):0);
+      var ang=pos.ang+lean;
+      r.root.setAttribute("transform",
+        "translate("+pos.x.toFixed(1)+" "+pos.y.toFixed(1)+") rotate("+ang.toFixed(2)+") scale("+(sc).toFixed(3)+")");
+      r.bob.setAttribute("transform","translate(0 "+bobY.toFixed(1)+")");
+
+      // wheels spin
+      var wdeg=(r.wA%(360)).toFixed(1);
+      r.rw.spin.setAttribute("transform","rotate("+wdeg+")");
+      r.fw.spin.setAttribute("transform","rotate("+wdeg+")");
+
+      // crank (sync with wheels: crankR ~ spokes)
+      if(r.crank){
+        var ca=(-r.wA* (r.r/ (r.r*0.32)) )%360;
+        r.crank.setAttribute("transform","rotate("+ca.toFixed(1)+")");
+      }
+      // decorations
+      if(r.earL){ 
+        var ea=Math.sin(t*9+r.phase)*8; 
+        r.earL.setAttribute("transform","rotate("+ea.toFixed(1)+" 44 -146)");
+      }
+      if(r.earR){ r.earR.setAttribute("transform","rotate("+(-Math.sin(t*9+r.phase)*10+14).toFixed(1)+" 52 -147)"); }
+      if(r.scarf){ r.scarf.setAttribute("transform","rotate("+(Math.sin(t*13+r.phase)*9).toFixed(1)+" 40 -120)"); }
+      if(r.wing){ r.wing.setAttribute("transform","rotate("+(Math.sin(t*3.5+r.phase)*20).toFixed(1)+" 0 -118)"); }
+      if(r.wing2){ r.wing2.setAttribute("transform","rotate("+(Math.sin(t*3.5+r.phase+Math.PI)*26).toFixed(1)+" 0 -108)"); }
+      if(r.shell){ r.shell.setAttribute("transform","rotate("+(Math.sin(t*2.6+r.phase)*3).toFixed(1)+" 0 -104)"); }
+      if(r.head && r.key==="turtle"){ r.head.setAttribute("transform","translate("+(Math.sin(t*2.2)*2).toFixed(1)+" 0)"); }
+      if(r.tag){ r.tag.setAttribute("transform","translate("+(5).toFixed(0)+" "+(r.off&&r.off.y?r.off.y:-150)+")"); }
+
+      // ---- particles: exhaust + dust
+      var speedx=sp;
+      if(t>1.8){
+        // dust puffs behind rear wheel
+        var wx=pos.x - Math.cos(pos.ang*Math.PI/180)*(r.r*1.4)*sc;
+        var wy=pos.y - Math.sin(pos.ang*Math.PI/180)*(r.r*1.4)*sc - r.r*1.05*sc + bobY*sc;
+        if(Math.random()<0.35) addParticle(wx+(Math.random()-0.5)*10*sc, wy+(Math.random()-0.5)*4*sc, (6+Math.random()*6)*sc,"dust",0,0,420);
+        if(r.key==="rabbit" && Math.random()<0.5) addParticle(wx,wy,5*sc,"dust",0,0,300);
+        // turtle exhaust smokes
+        if(r.key==="turtle"){
+          var ex=pos.x - Math.cos(pos.ang*Math.PI/180)*(70*sc);
+          var ey=pos.y - Math.sin(pos.ang*Math.PI/180)*(70*sc) - 19*sc;
+          if(Math.random()<0.5) addParticle(ex,ey,(7+Math.random()*7)*sc,"smoke",0,-6*sc,620);
+          if(r.boost>0 && Math.random()<0.7) addParticle(ex,ey,(8+Math.random()*4)*sc,"spark",0,-10*sc,300);
+        }
+      }
+      r.dist=d; r.scale=sc; r.bobY=bobY; r.ang=pos.ang; r.pos=pos;
+    }
+
+    // ---- turtle boost timer
+    var tr=racers[1];
+    if(state==="race" && t>2){
+      var cycle=Math.sin(t*0.14);
+      if(cycle>0.72) tr.boost=1; else if(cycle<-0.5) tr.boost=0;
+    }
+
+    // ---- leaderboard + crossing order (by cumulative distance)
+    var order=racers.slice().sort(function(a,b){ return b.cum-a.cum; });
+    for(i=0;i<order.length;i++){
+      var rr=order[i]; rr.rank=i+1;
+    }
+    // reverse mapping into lb rows (row 0 = rank 1)
+    for(i=0;i<3;i++){
+      var rc=window.__lb.rank[i], r2=order[i];
+      rc.nm.textContent=r2.short+"  ·  "+r2.vehicle;
+      rc.vh.textContent=r2.name;
+      var pct=((r2.cum%Ltot)/Ltot)*100;
+      rc.bf.setAttribute("width",(90*pct/100).toFixed(1));
+      rc.lbl.textContent=(pct).toFixed(0)+"%";
+      // medal colors
+      rc.row.firstChild.setAttribute("fill", i===0?"rgba(255,215,0,.28)": i===1?"rgba(200,200,210,.22)": i===2?"rgba(205,127,50,.22)":"rgba(255,255,255,.05)");
+    }
+
+    // ---- announcement queue
+    if(!annShow && annQueue.length){
+      var a=annQueue.shift();
+      window.__ann.txt.textContent=a.main;
+      window.__ann.sub.textContent=a.sub;
+      var d1=document.createElement("div"); void(d1);
+      window.__ann.txt.setAttribute("opacity",1);
+      window.__ann.sub.setAttribute("opacity",1);
+      window.__ann.txt.style.transform="none";
+      window.__ann.txt.classList.remove("annq"); void(window.__ann.txt.getBoundingClientRect());
+      window.__ann.txt.classList.add("annp");
+      window.__ann.sub.classList.remove("annq");
+      window.__ann.sub.classList.add("annp");
+      annShow=true; annUntil=now+(a.dur||2600);
+    } else if(annShow && now>annUntil){
+      window.__ann.txt.setAttribute("opacity",0);
+      window.__ann.sub.setAttribute("opacity",0);
+      window.__ann.txt.classList.remove("annp");
+      window.__ann.sub.classList.remove("annp");
+      annShow=false;
+    }
+
+    // ---- lap counts in leaderboard
+    window.__lb.lapT.textContent = "LAP  "+(order[0].lap+1);
+    if(state==="race" && t>2.2){
+      var lbi=order.indexOf? order2=0:0;
+    }
+
+    renderParticles();
+    particles.forEach(function(p){ p.age+=dt*1000; p.x+=p.vx*dt; p.y+=p.vy*dt; if(p.age>p.l) p.dead=true; });
+    particles=particles.filter(function(p){ return !p.dead; });
+
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

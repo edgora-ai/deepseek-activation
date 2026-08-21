@@ -1,0 +1,7 @@
+{
+  "status": "ok",
+  "valid": true,
+  "summary": "画面已渲染出可辨识的太空射击游戏界面，包含玩家飞船、敌方飞船、星空背景和HUD。",
+  "model": "gpt-5.6-terra",
+  "durationMs": 3837
+}

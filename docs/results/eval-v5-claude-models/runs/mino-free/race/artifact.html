@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mars Ring Road Race</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #1a0a0a; overflow: hidden; font-family: 'Courier New', monospace; }
+  svg { display: block; width: 100vw; height: 100vh; }
+</style>
+</head>
+<body>
+<svg id="scene" viewBox="0 0 1200 700" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="marsSky" cx="50%" cy="30%">
+      <stop offset="0%" stop-color="#c04820"/>
+      <stop offset="60%" stop-color="#8b2500"/>
+      <stop offset="100%" stop-color="#2a0a00"/>
+    </radialGradient>
+    <linearGradient id="roadGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4a3a2a"/>
+      <stop offset="50%" stop-color="#3a2a1a"/>
+      <stop offset="100%" stop-color="#2a1a0a"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="50%" cy="50%">
+      <stop offset="0%" stop-color="#ffcc66"/>
+      <stop offset="60%" stop-color="#ff9933"/>
+      <stop offset="100%" stop-color="#ff660000"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Sky -->
+  <rect width="1200" height="700" fill="url(#marsSky)"/>
+
+  <!-- Stars -->
+  <g id="stars"></g>
+
+  <!-- Sun -->
+  <circle cx="950" cy="80" r="50" fill="url(#sun)" opacity="0.8"/>
+
+  <!-- Mountains -->
+  <polygon points="0,400 80,280 160,370 250,250 350,350 0,400" fill="#5a2a1a" opacity="0.6"/>
+  <polygon points="200,400 320,220 440,340 520,260 600,380 200,400" fill="#6a3a2a" opacity="0.5"/>
+  <polygon points="700,400 800,300 900,360 1000,270 1100,340 1200,380 1200,400" fill="#5a2a1a" opacity="0.4"/>
+
+  <!-- Road -->
+  <rect x="0" y="430" width="1200" height="120" fill="url(#roadGrad)" rx="4"/>
+  <!-- Road markings -->
+  <g id="roadMarkings"></g>
+
+  <!-- Start/Finish lines -->
+  <g id="startFinish"></g>
+
+  <!-- Racers container -->
+  <g id="racers"></g>
+
+  <!-- Dust particles -->
+  <g id="dust"></g>
+
+  <!-- Leaderboard -->
+  <g id="leaderboard" transform="translate(880, 30)">
+    <rect x="0" y="0" width="300" height="140" rx="10" fill="#00000088" stroke="#ff660066" stroke-width="2"/>
+    <text x="150" y="28" text-anchor="middle" fill="#ffaa44" font-size="16" font-weight="bold" font-family="Courier New">🏆 MARS RING ROAD RACE</text>
+    <line x1="10" y1="38" x2="290" y2="38" stroke="#ff660044" stroke-width="1"/>
+    <g id="lb-entries"></g>
+  </g>
+
+  <!-- HUD -->
+  <text x="30" y="30" fill="#ffaa44" font-size="14" font-family="Courier New" opacity="0.7" id="hud"></text>
+</svg>
+
+<script>
+(function() {
+  const svg = document.getElementById('scene');
+  const NS = 'http://www.w3.org/2000/svg';
+
+  // --- Stars ---
+  const starsG = document.getElementById('stars');
+  for (let i = 0; i < 60; i++) {
+    const s = document.createElementNS(NS, 'circle');
+    s.setAttribute('cx', Math.random() * 1200);
+    s.setAttribute('cy', Math.random() * 350);
+    s.setAttribute('r', Math.random() * 1.5 + 0.3);
+    s.setAttribute('fill', '#ffddaa');
+    s.setAttribute('opacity', Math.random() * 0.6 + 0.2);
+    starsG.appendChild(s);
+  }
+
+  // --- Road markings ---
+  const rm = document.getElementById('roadMarkings');
+  for (let x = -50; x < 1300; x += 60) {
+    const r = document.createElementNS(NS, 'rect');
+    r.setAttribute('x', x);
+    r.setAttribute('y', 488);
+    r.setAttribute('width', 30);
+    r.setAttribute('height', 4);
+    r.setAttribute('fill', '#ffcc66');
+    r.setAttribute('opacity', '0.5');
+    r.setAttribute('rx', '1');
+    rm.appendChild(r);
+  }
+
+  // --- Start/Finish ---
+  const sf = document.getElementById('startFinish');
+  // Start
+  const startLine = document.createElementNS(NS, 'line');
+  startLine.setAttribute('x1', 80); startLine.setAttribute('y1', 425);
+  startLine.setAttribute('x2', 80); startLine.setAttribute('y2', 555);
+  startLine.setAttribute('stroke', '#00ff00'); startLine.setAttribute('stroke-width', '4');
+  startLine.setAttribute('stroke-dasharray', '8,4');
+  sf.appendChild(startLine);
+  const stxt = document.createElementNS(NS, 'text');
+  stxt.setAttribute('x', 80); stxt.setAttribute('y', 420);
+  stxt.setAttribute('text-anchor', 'middle'); stxt.setAttribute('fill', '#00ff00');
+  stxt.setAttribute('font-size', '12'); stxt.setAttribute('font-family', 'Courier New');
+  stxt.textContent = 'START';
+  sf.appendChild(stxt);
+
+  // Finish
+  const finishLine = document.createElementNS(NS, 'line');
+  finishLine.setAttribute('x1', 1100); finishLine.setAttribute('y1', 425);
+  finishLine.setAttribute('x2', 1100); finishLine.setAttribute('y2', 555);
+  finishLine.setAttribute('stroke', '#ff0000'); finishLine.setAttribute('stroke-width', '4');
+  finishLine.setAttribute('stroke-dasharray', '8,4');
+  sf.appendChild(finishLine);
+  const ftxt = document.createElementNS(NS, 'text');
+  ftxt.setAttribute('x', 1100); ftxt.setAttribute('y', 420);
+  ftxt.setAttribute('text-anchor', 'middle'); ftxt.setAttribute('fill', '#ff0000');
+  ftxt.setAttribute('font-size', '12'); ftxt.setAttribute('font-family', 'Courier New');
+  ftxt.textContent = 'FINISH';
+  sf.appendChild(ftxt);
+
+  // Checkered finish pattern
+  for (let y = 425; y < 555; y += 10) {
+    for (let dx = 0; dx < 2; dx++) {
+      const c = document.createElementNS(NS, 'rect');
+      c.setAttribute('x', 1096 + dx * 8);
+      c.setAttribute('y', y);
+      c.setAttribute('width', 8); c.setAttribute('height', 10);
+      c.setAttribute('fill', ((y / 10 + dx) % 2 === 0) ? '#fff' : '#000');
+      sf.appendChild(c);
+    }
+  }
+
+  // --- Racers data ---
+  const racers = [
+    { id: 'rabbit', name: 'Rabbit', vehicle: 'Bicycle', color: '#ffcc00', lane: 0,
+      baseSpeed: 2.8, variance: 0.6, finished: false, finishTime: 0, x: 80, y: 452 },
+    { id: 'turtle', name: 'Turtle', vehicle: 'Motorcycle', color: '#44dd44', lane: 1,
+      baseSpeed: 2.2, variance: 0.3, finished: false, finishTime: 0, x: 80, y: 487 },
+    { id: 'eagle', name: 'Eagle', vehicle: 'Tricycle', color: '#4488ff', lane: 2,
+      baseSpeed: 2.5, variance: 0.5, finished: false, finishTime: 0, x: 80, y: 522 }
+  ];
+
+  const racersG = document.getElementById('racers');
+  const dustG = document.getElementById('dust');
+
+  // --- Create SVG racer groups ---
+  racers.forEach(r => {
+    const g = document.createElementNS(NS, 'g');
+    g.setAttribute('id', r.id + '-group');
+    racersG.appendChild(g);
+    r.group = g;
+  });
+
+  // Draw vehicles & characters
+  function drawRabbit(x, y, pedalPhase) {
+    // Bicycle
+    let s = '';
+    // Wheels
+    s += `<circle cx="${x-12}" cy="${y+12}" r="10" fill="none" stroke="#aaa" stroke-width="2"/>`;
+    s += `<circle cx="${x+12}" cy="${y+12}" r="10" fill="none" stroke="#aaa" stroke-width="2"/>`;
+    // Spokes
+    for (let a = 0; a < 360; a += 45) {
+      const rad = (a + pedalPhase * 60) * Math.PI / 180;
+      s += `<line x1="${x-12}" y1="${y+12}" x2="${x-12 + Math.cos(rad)*9}" y2="${y+12 + Math.sin(rad)*9}" stroke="#888" stroke-width="0.5"/>`;
+      s += `<line x1="${x+12}" y1="${y+12}" x2="${x+12 + Math.cos(rad)*9}" y2="${y+12 + Math.sin(rad)*9}" stroke="#888" stroke-width="0.5"/>`;
+    }
+    // Frame
+    s += `<line x1="${x-12}" y1="${y+12}" x2="${x}" y2="${y-2}" stroke="#ff4444" stroke-width="2"/>`;
+    s += `<line x1="${x}" y1="${y-2}" x2="${x+12}" y2="${y+12}" stroke="#ff4444" stroke-width="2"/>`;
+    s += `<line x1="${x}" y1="${y-2}" x2="${x-6}" y2="${y-2}" stroke="#ff4444" stroke-width="2"/>`;
+    s += `<line x1="${x-6}" y1="${y-2}" x2="${x-12}" y2="${y+12}" stroke="#ff4444" stroke-width="2"/>`;
+    // Handlebars
+    s += `<line x1="${x-6}" y1="${y-2}" x2="${x-8}" y2="${y-10}" stroke="#ccc" stroke-width="2"/>`;
+    // Seat
+    s += `<ellipse cx="${x+2}" cy="${y-6}" rx="4" ry="1.5" fill="#553300"/>`;
+    // Pedals
+    const pr = 5;
+    const ppx = x + Math.cos(pedalPhase) * pr;
+    const ppy = y + 12 + Math.sin(pedalPhase) * pr;
+    s += `<circle cx="${ppx}" cy="${ppy}" r="2" fill="#666"/>`;
+    // Rabbit body
+    s += `<ellipse cx="${x+2}" cy="${y-14}" rx="6" ry="5" fill="#eee"/>`;
+    // Head
+    s += `<circle cx="${x+7}" cy="${y-22}" r="4.5" fill="#eee"/>`;
+    // Ears
+    s += `<ellipse cx="${x+5}" cy="${y-32}" rx="1.5" ry="6" fill="#eee"/>`;
+    s += `<ellipse cx="${x+9}" cy="${y-32}" rx="1.5" ry="6" fill="#eee"/>`;
+    s += `<ellipse cx="${x+5}" cy="${y-32}" rx="0.8" ry="4" fill="#ffaaaa"/>`;
+    s += `<ellipse cx="${x+9}" cy="${y-32}" rx="0.8" ry="4" fill="#ffaaaa"/>`;
+    // Eye
+    s += `<circle cx="${x+9}" cy="${y-23}" r="1" fill="#000"/>`;
+    // Nose
+    s += `<circle cx="${x+11.5}" cy="${y-21}" r="0.8" fill="#ff8888"/>`;
+    // Legs (animated)
+    const legAngle = pedalPhase;
+    s += `<line x1="${x+2}" y1="${y-10}" x2="${x+2 + Math.sin(legAngle)*4}" y2="${y-3 + Math.abs(Math.cos(legAngle))*2}" stroke="#eee" stroke-width="2"/>`;
+    // Arms holding handlebars
+    s += `<line x1="${x+4}" y1="${y-16}" x2="${x-7}" y2="${y-8}" stroke="#eee" stroke-width="1.5"/>`;
+    return s;
+  }
+
+  function drawTurtle(x, y, wheelPhase) {
+    let s = '';
+    // Motorcycle body
+    s += `<rect x="${x-14}" y="${y+2}" width="28" height="10" rx="4" fill="#228822"/>`;
+    // Tank
+    s += `<ellipse cx="${x}" cy="${y+4}" rx="8" ry="4" fill="#33aa33"/>`;
+    // Exhaust
+    s += `<rect x="${x-16}" y="${y+8}" width="12" height="2" rx="1" fill="#888"/>`;
+    // Exhaust smoke
+    s += `<circle cx="${x-18}" cy="${y+6}" r="2" fill="#aaa" opacity="0.4"/>`;
+    // Seat
+    s += `<ellipse cx="${x+4}" cy="${y}" rx="5" ry="2" fill="#332200"/>`;
+    // Handlebars
+    s += `<line x1="${x-10}" y1="${y}" x2="${x-12}" y2="${y-8}" stroke="#ccc" stroke-width="2"/>`;
+    s += `<line x1="${x-12}" y1="${y-8}" x2="${x-8}" y2="${y-8}" stroke="#ccc" stroke-width="2.5"/>`;
+    // Headlight
+    s += `<circle cx="${x-14}" cy="${y+4}" r="2" fill="#ffff44" opacity="0.8"/>`;
+    // Wheels
+    s += `<circle cx="${x-12}" cy="${y+14}" r="9" fill="none" stroke="#444" stroke-width="3"/>`;
+    s += `<circle cx="${x+12}" cy="${y+14}" r="9" fill="none" stroke="#444" stroke-width="3"/>`;
+    s += `<circle cx="${x-12}" cy="${y+14}" r="6" fill="none" stroke="#666" stroke-width="1"/>`;
+    s += `<circle cx="${x+12}" cy="${y+14}" r="6" fill="none" stroke="#666" stroke-width="1"/>`;
+    // Wheel spokes
+    for (let a = 0; a < 360; a += 60) {
+      const r = (a + wheelPhase * 100) * Math.PI / 180;
+      s += `<line x1="${x-12}" y1="${y+14}" x2="${x-12 + Math.cos(r)*8}" y2="${y+14 + Math.sin(r)*8}" stroke="#555" stroke-width="0.5"/>`;
+      s += `<line x1="${x+12}" y1="${y+14}" x2="${x+12 + Math.cos(r)*8}" y2="${y+14 + Math.sin(r)*8}" stroke="#555" stroke-width="0.5"/>`;
+    }
+    // Turtle body (shell)
+    s += `<ellipse cx="${x+2}" cy="${y-4}" rx="8" ry="7" fill="#2d8b2d"/>`;
+    s += `<ellipse cx="${x+2}" cy="${y-4}" rx="6" ry="5" fill="#3aaf3a"/>`;
+    // Shell pattern
+    s += `<path d="M${x-2},${y-4} L${x+2},${y-8} L${x+6},${y-4} L${x+2},${y} Z" fill="none" stroke="#228822" stroke-width="1"/>`;
+    // Head
+    s += `<circle cx="${x-6}" cy="${y-6}" r="4" fill="#44bb44"/>`;
+    // Eye
+    s += `<circle cx="${x-8}" cy="${y-7}" r="1.2" fill="#000"/>`;
+    s += `<circle cx="${x-8.4}" cy="${y-7.3}" r="0.4" fill="#fff"/>`;
+    // Mouth (smile)
+    s += `<path d="M${x-9},${y-4.5} Q${x-7},${y-3.5} ${x-5},${y-4.5}" fill="none" stroke="#225522" stroke-width="0.8"/>`;
+    // Arms on handlebars
+    s += `<line x1="${x-4}" y1="${y-2}" x2="${x-10}" y2="${y-7}" stroke="#44bb44" stroke-width="1.5"/>`;
+    // Legs (on pegs)
+    s += `<line x1="${x+2}" y1="${y+2}" x2="${x+2}" y2="${y+7}" stroke="#44bb44" stroke-width="1.5"/>`;
+    // Tail
+    s += `<line x1="${x+10}" y1="${y-4}" x2="${x+13}" y2="${y-2}" stroke="#44bb44" stroke-width="1.5"/>`;
+    return s;
+  }
+
+  function drawEagle(x, y, pedalPhase) {
+    let s = '';
+    // Tricycle frame
+    // Front wheel
+    s += `<circle cx="${x-18}" cy="${y+12}" r="9" fill="none" stroke="#aaa" stroke-width="2"/>`;
+    // Back wheels (two)
+    s += `<circle cx="${x+10}" cy="${y+14}" r="8" fill="none" stroke="#aaa" stroke-width="2"/>`;
+    s += `<circle cx="${x+10}" cy="${y+14}" r="5" fill="none" stroke="#888" stroke-width="1"/>`;
+    // Spokes
+    for (let a = 0; a < 360; a += 45) {
+      const r = (a + pedalPhase * 80) * Math.PI / 180;
+      s += `<line x1="${x-18}" y1="${y+12}" x2="${x-18 + Math.cos(r)*8}" y2="${y+12 + Math.sin(r)*8}" stroke="#777" stroke-width="0.5"/>`;
+      s += `<line x1="${x+10}" y1="${y+14}" x2="${x+10 + Math.cos(r)*7}" y2="${y+14 + Math.sin(r)*7}" stroke="#777" stroke-width="0.5"/>`;
+    }
+    // Frame
+    s += `<line x1="${x-18}" y1="${y+12}" x2="${x}" y2="${y-2}" stroke="#4488ff" stroke-width="2.5"/>`;
+    s += `<line x1="${x}" y1="${y-2}" x2="${x+10}" y2="${y+14}" stroke="#4488ff" stroke-width="2.5"/>`;
+    s += `<line x1="${x-5}" y1="${y-2}" x2="${x-18}" y2="${y+12}" stroke="#4488ff" stroke-width="2"/>`;
+    // Cross bar
+    s += `<line x1="${x-5}" y1="${y+6}" x2="${x+10}" y2="${y+6}" stroke="#4488ff" stroke-width="2"/>`;
+    // Handlebars
+    s += `<line x1="${x-5}" y1="${y-2}" x2="${x-8}" y2="${y-10}" stroke="#ccc" stroke-width="2"/>`;
+    s += `<line x1="${x-10}" y1="${y-10}" x2="${x-6}" y2="${y-10}" stroke="#ccc" stroke-width="2.5"/>`;
+    // Seat
+    s += `<ellipse cx="${x+5}" cy="${y}" rx="5" ry="2" fill="#332200"/>`;
+    // Pedals
+    const ppx = x + Math.cos(pedalPhase) * 5;
+    const ppy = y + 12 + Math.sin(pedalPhase) * 5;
+    s += `<circle cx="${ppx}" cy="${ppy}" r="2" fill="#666"/>`;
+    // Eagle body
+    s += `<ellipse cx="${x+5}" cy="${y-10}" rx="7" ry="6" fill="#8B4513"/>`;
+    // Breast feathers (white)
+    s += `<ellipse cx="${x+2}" cy="${y-8}" rx="4" ry="5" fill="#f5f5dc"/>`;
+    // Head
+    s += `<circle cx="${x-2}" cy="${y-20}" r="5" fill="#fff"/>`;
+    // Beak
+    s += `<polygon points="${x-7},${y-20} ${x-12},${y-18} ${x-7},${y-17}" fill="#ffaa00"/>`;
+    s += `<line x1="${x-7}" y1="${y-19}" x2="${x-11}" y2="${y-18}" stroke="#cc8800" stroke-width="0.5"/>`;
+    // Eye
+    s += `<circle cx="${x-4}" cy="${y-21}" r="1.2" fill="#000"/>`;
+    s += `<circle cx="${x-4.3}" cy="${y-21.3}" r="0.4" fill="#fff"/>`;
+    // Brow ridge
+    s += `<line x1="${x-6}" y1="${y-23}" x2="${x-2}" y2="${y-22.5}" stroke="#888" stroke-width="1"/>`;
+    // Wings (folded, slightly ruffled)
+    s += `<path d="M${x+10},${y-14} Q${x+16},${y-10} ${x+14},${y-4}" fill="none" stroke="#6B3410" stroke-width="1.5"/>`;
+    s += `<path d="M${x+10},${y-12} Q${x+15},${y-8} ${x+13},${y-3}" fill="none" stroke="#7B4420" stroke-width="1"/>`;
+    // Tail feathers
+    s += `<line x1="${x+12}" y1="${y-10}" x2="${x+20}" y2="${y-14}" stroke="#8B4513" stroke-width="1.5"/>`;
+    s += `<line x1="${x+12}" y1="${y-9}" x2="${x+19}" y2="${y-11}" stroke="#6B3410" stroke-width="1.5"/>`;
+    s += `<line x1="${x+12}" y1="${y-8}" x2="${x+18}" y2="${y-8}" stroke="#8B4513" stroke-width="1"/>`;
+    // Human pedaling (below eagle, legs moving)
+    // Human torso
+    s += `<ellipse cx="${x+5}" cy="${y+4}" rx="3" ry="4" fill="#c4956a"/>`;
+    // Human head (small, below seat)
+    s += `<circle cx="${x+5}" cy="${y-2}" r="2.5" fill="#c4956a"/>`;
+    s += `<circle cx="${x+5}" cy="${y-3}" r="2.5" fill="#332"/>`; // hair
+    // Human legs (pedaling)
+    const legX = Math.cos(pedalPhase) * 4;
+    const legY = Math.sin(pedalPhase) * 4;
+    s += `<line x1="${x+4}" y1="${y+6}" x2="${x+4 + legX}" y2="${y+12 + legY}" stroke="#c4956a" stroke-width="2"/>`;
+    s += `<line x1="${x+6}" y1="${y+6}" x2="${x+6 - legX}" y2="${y+12 - legY}" stroke="#c4956a" stroke-width="2"/>`;
+    // Shoes
+    s += `<ellipse cx="${x+4 + legX}" cy="${y+14 + legY}" rx="2" ry="1" fill="#222"/>`;
+    s += `<ellipse cx="${x+6 - legX}" cy="${y+14 - legY}" rx="2" ry="1" fill="#222"/>`;
+    // Arms from human to handlebars
+    s += `<line x1="${x+4}" y1="${y+1}" x2="${x-7}" y2="${y-9}" stroke="#c4956a" stroke-width="1.5"/>`;
+    return s;
+  }
+
+  // --- Dust particles ---
+  let dustParticles = [];
+  function spawnDust(x, y) {
+    for (let i = 0; i < 2; i++) {
+      dustParticles.push({
+        x: x + (Math.random() - 0.5) * 10,
+        y: y + Math.random() * 5,
+        vx: -Math.random() * 2 - 0.5,
+        vy: -Math.random() * 1.5,
+        life: 1,
+        size: Math.random() * 3 + 1
+      });
+    }
+  }
+
+  function updateDust() {
+    dustParticles.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.life -= 0.03;
+      p.size *= 0.98;
+    });
+    dustParticles = dustParticles.filter(p => p.life > 0);
+    let ds = '';
+    dustParticles.forEach(p => {
+      ds += `<circle cx="${p.x}" cy="${p.y}" r="${p.size}" fill="#aa8866" opacity="${p.life * 0.5}"/>`;
+    });
+    dustG.innerHTML = ds;
+  }
+
+  // --- Leaderboard ---
+  function updateLeaderboard(sorted) {
+    const lb = document.getElementById('lb-entries');
+    let s = '';
+    sorted.forEach((r, i) => {
+      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉';
+      const yy = 58 + i * 30;
+      s += `<text x="15" y="${yy}" fill="${r.color}" font-size="13" font-family="Courier New" font-weight="bold">${medal} ${r.name}</text>`;
+      s += `<text x="150" y="${yy}" fill="#ccc" font-size="12" font-family="Courier New">${r.vehicle}</text>`;
+      const pct = Math.min(100, ((r.x - 80) / 1020) * 100).toFixed(0);
+      if (r.finished) {
+        s += `<text x="280" y="${yy}" fill="#ffcc00" font-size="12" font-family="Courier New" text-anchor="end">DONE</text>`;
+      } else {
+        s += `<text x="280" y="${yy}" fill="#aaa" font-size="12" font-family="Courier New" text-anchor="end">${pct}%</text>`;
+      }
+      // Progress bar
+      s += `<rect x="15" y="${yy + 4}" width="265" height="4" rx="2" fill="#333"/>`;
+      s += `<rect x="15" y="${yy + 4}" width="${265 * Math.min(1, (r.x - 80) / 1020)}" height="4" rx="2" fill="${r.color}" opacity="0.7"/>`;
+    });
+    lb.innerHTML = s;
+  }
+
+  // --- Animation ---
+  let time = 0;
+  let raceFinished = false;
+  const finishX = 1100;
+  let finishCount = 0;
+
+  function animate() {
+    time += 0.016; // ~60fps
+
+    // Update racers
+    racers.forEach(r => {
+      if (r.finished) return;
+      // Speed varies naturally
+      const speed = r.baseSpeed + Math.sin(time * 2 + r.lane) * r.variance
+        + Math.sin(time * 0.7 + r.lane * 3) * r.variance * 0.5;
+      r.x += speed;
+
+      if (r.x >= finishX) {
+        r.x = finishX;
+        r.finished = true;
+        r.finishTime = time;
+        finishCount++;
+      }
+    });
+
+    // Draw each racer
+    racers.forEach(r => {
+      let inner = '';
+      if (r.id === 'rabbit') {
+        inner = drawRabbit(r.x, r.y, time * 8);
+      } else if (r.id === 'turtle') {
+        inner = drawTurtle(r.x, r.y, time * 3);
+      } else if (r.id === 'eagle') {
+        inner = drawEagle(r.x, r.y, time * 6);
+      }
+
+      // Name tag
+      inner += `<text x="${r.x}" y="${r.y - 40}" text-anchor="middle" fill="${r.color}" font-size="10" font-family="Courier New" font-weight="bold">${r.name}</text>`;
+
+      // Dust behind moving vehicles
+      if (!r.finished && Math.random() < 0.3) {
+        spawnDust(r.x - 20, r.y + 10);
+      }
+
+      r.group.innerHTML = inner;
+    });
+
+    // Update dust
+    updateDust();
+
+    // Sort for leaderboard
+    const sorted = [...racers].sort((a, b) => {
+      if (a.finished && b.finished) return a.finishTime - b.finishTime;
+      if (a.finished) return -1;
+      if (b.finished) return 1;
+      return b.x - a.x;
+    });
+    updateLeaderboard(sorted);
+
+    // HUD
+    document.getElementById('hud').textContent = `T+${time.toFixed(1)}s | Racers: ${racers.filter(r => r.finished).length}/3 finished`;
+
+    // Check race end
+    if (finishCount >= 3 && !raceFinished) {
+      raceFinished = true;
+      // Show final results after a moment
+      setTimeout(() => {
+        const announcement = document.createElementNS(NS, 'text');
+        announcement.setAttribute('x', '600');
+        announcement.setAttribute('y', '380');
+        announcement.setAttribute('text-anchor', 'middle');
+        announcement.setAttribute('fill', '#ffcc00');
+        announcement.setAttribute('font-size', '28');
+        announcement.setAttribute('font-family', 'Courier New');
+        announcement.setAttribute('font-weight', 'bold');
+        announcement.textContent = `🏁 ${sorted[0].name} WINS! 🏁`;
+        svg.appendChild(announcement);
+      }, 500);
+    }
+
+    requestAnimationFrame(animate);
+  }
+
+  animate();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,695 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-20T14:38:19.903Z",
+  "evaluationMethodVersion": 5,
+  "results": [
+    {
+      "id": "hover-group-listener-build",
+      "source": "docs/results/eval-v2/pilot-runs-hover-target-false-negative/opencode/repeat-1/slot-1/build-dashboard/dashboard.html",
+      "sourceTransform": null,
+      "methodVersion": 5,
+      "contractPassed": 11,
+      "contractTotal": 11,
+      "runtimePass": true,
+      "interactionPass": true,
+      "fullPass": true,
+      "controlCounts": {
+        "region": 1,
+        "category": 1,
+        "period": 2
+      },
+      "targets": {
+        "region": {
+          "kind": "region",
+          "tag": "select",
+          "type": "select-one",
+          "id": "region-filter",
+          "name": null,
+          "text": "All RegionsNorthSouthWestEast"
+        },
+        "category": {
+          "kind": "category",
+          "tag": "select",
+          "type": "select-one",
+          "id": "category-filter",
+          "name": null,
+          "text": "All CategoriesElectronicsApparelHomeGrocery"
+        },
+        "period": {
+          "kind": "period",
+          "tag": "input",
+          "type": "range",
+          "id": "period-from",
+          "name": null,
+          "text": ""
+        }
+      },
+      "postMutationKpis": {
+        "region": [
+          "$399,687",
+          "1,135",
+          "$352",
+          "16.3%"
+        ],
+        "category": [
+          "$428,560",
+          "1,029",
+          "$416",
+          "15.7%"
+        ],
+        "period": [
+          "$1,749,804",
+          "3,436",
+          "$509",
+          "13.5%"
+        ]
+      },
+      "hover": {
+        "target": true,
+        "candidateCount": 38,
+        "attempts": 3,
+        "nativeTitle": false,
+        "detailAttribute": false,
+        "appeared": true,
+        "marked": false,
+        "selected": {
+          "x": 97.4515609741211,
+          "y": 479.4828643798828,
+          "source": "svg-mark",
+          "tag": "circle",
+          "id": null,
+          "nativeTitle": false,
+          "detailAttribute": false
+        },
+        "before": {
+          "visibleText": "",
+          "hoverMarks": 0
+        },
+        "after": {
+          "visibleText": "JanRevenue: $354,851Orders: 646|Jan|Revenue: $354,851|Orders: 646",
+          "hoverMarks": 0
+        }
+      },
+      "failedChecks": []
+    },
+    {
+      "id": "visible-charts-with-hover-disabled",
+      "source": "docs/results/eval-v2/pilot-runs-hover-target-false-negative/opencode/repeat-1/slot-1/build-dashboard/dashboard.html",
+      "sourceTransform": "replace all four bindTip calls with no-op statements",
+      "methodVersion": 5,
+      "contractPassed": 10,
+      "contractTotal": 11,
+      "runtimePass": true,
+      "interactionPass": true,
+      "fullPass": false,
+      "controlCounts": {
+        "region": 1,
+        "category": 1,
+        "period": 2
+      },
+      "targets": {
+        "region": {
+          "kind": "region",
+          "tag": "select",
+          "type": "select-one",
+          "id": "region-filter",
+          "name": null,
+          "text": "All RegionsNorthSouthWestEast"
+        },
+        "category": {
+          "kind": "category",
+          "tag": "select",
+          "type": "select-one",
+          "id": "category-filter",
+          "name": null,
+          "text": "All CategoriesElectronicsApparelHomeGrocery"
+        },
+        "period": {
+          "kind": "period",
+          "tag": "input",
+          "type": "range",
+          "id": "period-from",
+          "name": null,
+          "text": ""
+        }
+      },
+      "postMutationKpis": {
+        "region": [
+          "$399,687",
+          "1,135",
+          "$352",
+          "16.3%"
+        ],
+        "category": [
+          "$428,560",
+          "1,029",
+          "$416",
+          "15.7%"
+        ],
+        "period": [
+          "$1,749,804",
+          "3,436",
+          "$509",
+          "13.5%"
+        ]
+      },
+      "hover": {
+        "target": true,
+        "candidateCount": 38,
+        "attempts": 38,
+        "attemptedTargets": [
+          {
+            "x": 345.16638946533203,
+            "y": 503.1109924316406,
+            "source": "svg-mark",
+            "tag": "path",
+            "id": null,
+            "nativeTitle": false,
+            "detailAttribute": false
+          },
+          {
+            "x": 345.16638946533203,
+            "y": 492.0937805175781,
+            "source": "svg-mark",
+            "tag": "path",
+            "id": null,
+            "nativeTitle": false,
+            "detailAttribute": false
+          },
+          {
+            "x": 97.4515609741211,
+            "y": 479.4828643798828,
+            "source": "svg-mark",
+            "tag": "circle",
+            "id": null,
+            "nativeTitle": false,
+            "detailAttribute": false
+          },
+          {
+            "x": 196.5374984741211,
+            "y": 418.6454315185547,
+            "source": "svg-mark",
+            "tag": "circle",
+            "id": null,
+            "nativeTitle": false,
+            "detailAttribute": false
+          },
+          {
+            "x": 295.6234436035156,
+            "y": 447.8194274902344,
+            "source": "svg-mark",
+            "tag": "circle",
+            "id": null,
+            "nativeTitle": false,
+            "detailAttribute": false
+          },
+          {
+            "x": 394.7093811035156,
+            "y": 435.0316925048828,
+            "source": "svg-mark",
+            "tag": "circle",
+            "id": null,
+            "nativeTitle": false,
+            "detailAttribute": false
+          },
+          {
+            "x": 493.7953186035156,
+            "y": 551.5050048828125,
+            "source": "svg-mark",
+            "tag": "circle",
+            "id": null,
+            "nativeTitle": false,
+            "detailAttribute": false
+          },
+          {
+            "x": 592.8812561035156,
+            "y": 565.5420837402344,
+            "source": "svg-mark",
+            "tag": "circle",
+            "id": null,
+            "nativeTitle": false,
+            "detailAttribute": false
+          },
+          {
+            "x": 771.8802795410156,
+            "y": 529.4642333984375,
+            "source": "svg-mark",
+            "tag": "rect",
+            "id": null,
+            "nativeTitle": false,
+            "detailAttribute": false
+          },
+          {
+            "x": 895.7377014160156,
+            "y": 496.96815490722656,
+            "source": "svg-mark",
+            "tag": "rect",
+            "id": null,
+            "nativeTitle": false,
+            "detailAttribute": false
+          },
+          {
+            "x": 1019.5950927734375,
+            "y": 519.4541931152344,
+            "source": "svg-mark",
+            "tag": "rect",
+            "id": null,
+            "nativeTitle": false,
+            "detailAttribute": false
+          },
+          {
+            "x": 1143.4525146484375,
+            "y": 519.0303039550781,
+            "source": "svg-mark",
+            "tag": "rect",
+            "id": null,
+            "nativeTitle": false,
+            "detailAttribute": false
+          },
+          {
+            "x": 364.7671661376953,
+            "y": 755.1654663085938,
+            "source": "svg-mark",
+            "tag": "path",
+            "id": null,
+            "nativeTitle": false,
+            "detailAttribute": false
+          },
+          {
+            "x": 379.8716125488281,
+            "y": 799,
+            "source": "svg-mark",
+            "tag": "path",
+            "id": null,
+            "nativeTitle": false,
+            "detailAttribute": false
+          },
+          {
+            "x": 284.81404876708984,
+            "y": 783.8650512695312,
+            "source": "svg-mark",
+            "tag": "path",
+            "id": null,
+            "nativeTitle": false,
+            "detailAttribute": false
+          },
+          {
+            "x": 475.7796936035156,
+            "y": 712.21875,
+            "source": "svg-mark",
+            "tag": "rect",
+            "id": null,
+            "nativeTitle": false,
+            "detailAttribute": false
+          },
+          {
+            "x": 475.7796936035156,
+            "y": 732.0359191894531,
+            "source": "svg-mark",
+            "tag": "rect",
+            "id": null,
+            "nativeTitle": false,
+            "detailAttribute": false
+          },
+          {
+            "x": 475.7796936035156,
+            "y": 751.8531188964844,
+            "source": "svg-mark",
+            "tag": "rect",
+            "id": null,
+            "nativeTitle": false,
+            "detailAttribute": false
+          },
+          {
+            "x": 475.7796936035156,
+            "y": 771.6703186035156,
+            "source": "svg-mark",
+            "tag": "rect",
+            "id": null,
+            "nativeTitle": false,
+            "detailAttribute": false
+          },
+          {
+            "x": 781.8279418945312,
+            "y": 793.15478515625,
+            "source": "svg-mark",
+            "tag": "circle",
+            "id": null,
+            "nativeTitle": false,
+            "detailAttribute": false
+          }
+        ],
+        "nativeTitle": false,
+        "detailAttribute": false,
+        "appeared": false,
+        "marked": false,
+        "before": {
+          "visibleText": "",
+          "hoverMarks": 0
+        },
+        "after": {
+          "visibleText": "",
+          "hoverMarks": 0
+        }
+      },
+      "failedChecks": [
+        "hover-behavior"
+      ]
+    },
+    {
+      "id": "shared-filter-card-build",
+      "source": "docs/results/eval-v2/pilot-runs-semantic-control-cross-contamination/opencode/repeat-1/slot-1/build-dashboard/dashboard.html",
+      "sourceTransform": null,
+      "methodVersion": 5,
+      "contractPassed": 11,
+      "contractTotal": 11,
+      "runtimePass": true,
+      "interactionPass": true,
+      "fullPass": true,
+      "controlCounts": {
+        "region": 3,
+        "category": 3,
+        "period": 2
+      },
+      "targets": {
+        "region": {
+          "kind": "region",
+          "tag": "button",
+          "type": "button",
+          "id": null,
+          "name": null,
+          "text": "North"
+        },
+        "category": {
+          "kind": "category",
+          "tag": "button",
+          "type": "button",
+          "id": null,
+          "name": null,
+          "text": "Electronics"
+        },
+        "period": {
+          "kind": "period",
+          "tag": "input",
+          "type": "range",
+          "id": "rFrom",
+          "name": null,
+          "text": ""
+        }
+      },
+      "postMutationKpis": {
+        "region": [
+          "36",
+          "11,1521,859",
+          "$148.80",
+          "$530.8K"
+        ],
+        "category": [
+          "36",
+          "12,2482,041",
+          "$124.68",
+          "$529.1K"
+        ],
+        "period": [
+          "45",
+          "13,6302,726",
+          "$158.84",
+          "$744.1K"
+        ]
+      },
+      "hover": {
+        "target": true,
+        "candidateCount": 24,
+        "attempts": 1,
+        "nativeTitle": false,
+        "detailAttribute": true,
+        "appeared": true,
+        "marked": false,
+        "selected": {
+          "x": 123.8582992553711,
+          "y": 516.6700439453125,
+          "source": "explicit",
+          "tag": "circle",
+          "id": null,
+          "nativeTitle": false,
+          "detailAttribute": true
+        },
+        "before": {
+          "visibleText": "",
+          "hoverMarks": 0
+        },
+        "after": {
+          "visibleText": "Jan 2026 · NorthRevenue$167.9KOrders917",
+          "hoverMarks": 0
+        }
+      },
+      "failedChecks": []
+    },
+    {
+      "id": "hidden-label-build",
+      "source": "docs/results/eval-v2/pilot-runs-control-discovery-false-negative/opencode/repeat-1/slot-1/build-dashboard/dashboard.html",
+      "sourceTransform": null,
+      "methodVersion": 5,
+      "contractPassed": 11,
+      "contractTotal": 11,
+      "runtimePass": true,
+      "interactionPass": true,
+      "fullPass": true,
+      "controlCounts": {
+        "region": 4,
+        "category": 3,
+        "period": 2
+      },
+      "targets": {
+        "region": {
+          "kind": "region",
+          "tag": "input",
+          "type": "checkbox",
+          "id": null,
+          "name": null,
+          "text": ""
+        },
+        "category": {
+          "kind": "category",
+          "tag": "input",
+          "type": "checkbox",
+          "id": null,
+          "name": null,
+          "text": ""
+        },
+        "period": {
+          "kind": "period",
+          "tag": "select",
+          "type": "select-one",
+          "id": "fromSel",
+          "name": null,
+          "text": "Jan 2026Feb 2026Mar 2026Apr 2026May 2026Jun 2026"
+        }
+      },
+      "postMutationKpis": {
+        "region": [
+          "$1,826,195",
+          "23,534",
+          "$78",
+          "34.1%"
+        ],
+        "category": [
+          "$1,510,913",
+          "24,905",
+          "$61",
+          "33.1%"
+        ],
+        "period": [
+          "$2,243,934",
+          "28,866",
+          "$78",
+          "34.4%"
+        ]
+      },
+      "hover": {
+        "target": true,
+        "candidateCount": 21,
+        "attempts": 1,
+        "nativeTitle": false,
+        "detailAttribute": true,
+        "appeared": true,
+        "marked": false,
+        "selected": {
+          "x": 85.22031021118164,
+          "y": 442.1532440185547,
+          "source": "explicit",
+          "tag": "circle",
+          "id": null,
+          "nativeTitle": false,
+          "detailAttribute": true
+        },
+        "before": {
+          "visibleText": "",
+          "hoverMarks": 0
+        },
+        "after": {
+          "visibleText": "Jan 2026 - Revenue $341,142 - Spend $232,604",
+          "hoverMarks": 0
+        }
+      },
+      "failedChecks": []
+    },
+    {
+      "id": "repaired-fix",
+      "source": "docs/results/eval-v2/pilot-runs-path-confounded/opencode/fix-dashboard/repeat-1/current/dashboard.html",
+      "sourceTransform": null,
+      "methodVersion": 5,
+      "contractPassed": 10,
+      "contractTotal": 10,
+      "runtimePass": true,
+      "interactionPass": true,
+      "fullPass": true,
+      "controlCounts": {
+        "region": 1,
+        "category": 1,
+        "period": 1
+      },
+      "targets": {
+        "region": {
+          "kind": "region",
+          "tag": "select",
+          "type": "select-one",
+          "id": "region",
+          "name": null,
+          "text": "All regionsEastWest"
+        },
+        "category": {
+          "kind": "category",
+          "tag": "select",
+          "type": "select-one",
+          "id": "category",
+          "name": null,
+          "text": "All categoriesHardwareSoftwareServices"
+        },
+        "period": {
+          "kind": "period",
+          "tag": "input",
+          "type": "range",
+          "id": "periods",
+          "name": null,
+          "text": ""
+        }
+      },
+      "postMutationKpis": {
+        "region": [
+          "$282,999",
+          "1,585",
+          "$179",
+          "42%"
+        ],
+        "category": [
+          "$100,042",
+          "923",
+          "$108",
+          "44%"
+        ],
+        "period": [
+          "$482,815",
+          "2,665",
+          "$181",
+          "42%"
+        ]
+      },
+      "hover": {
+        "target": true,
+        "candidateCount": 44,
+        "attempts": 1,
+        "nativeTitle": false,
+        "detailAttribute": true,
+        "appeared": true,
+        "marked": false,
+        "selected": {
+          "x": 104.90909194946289,
+          "y": 378.90293884277344,
+          "source": "explicit",
+          "tag": "circle",
+          "id": null,
+          "nativeTitle": false,
+          "detailAttribute": true
+        },
+        "before": {
+          "visibleText": "",
+          "hoverMarks": 0
+        },
+        "after": {
+          "visibleText": "Jan: $66,464",
+          "hoverMarks": 0
+        }
+      },
+      "failedChecks": []
+    },
+    {
+      "id": "broken-fixture",
+      "source": "eval/fixtures/fix-dashboard-broken.html",
+      "sourceTransform": null,
+      "methodVersion": 5,
+      "contractPassed": 5,
+      "contractTotal": 10,
+      "runtimePass": false,
+      "interactionPass": false,
+      "fullPass": false,
+      "controlCounts": {
+        "region": 1,
+        "category": 1,
+        "period": 1
+      },
+      "targets": {
+        "region": {
+          "kind": "region",
+          "tag": "select",
+          "type": "select-one",
+          "id": "region",
+          "name": null,
+          "text": "All regionsEastWest"
+        },
+        "category": {
+          "kind": "category",
+          "tag": "select",
+          "type": "select-one",
+          "id": "category",
+          "name": null,
+          "text": "All categoriesHardwareSoftwareServices"
+        },
+        "period": {
+          "kind": "period",
+          "tag": "input",
+          "type": "range",
+          "id": "periods",
+          "name": null,
+          "text": ""
+        }
+      },
+      "postMutationKpis": {
+        "region": [],
+        "category": [
+          "$0",
+          "0",
+          "$0",
+          "0%"
+        ],
+        "period": [
+          "$482,815",
+          "2,665",
+          "$181",
+          "42%"
+        ]
+      },
+      "hover": {
+        "target": false,
+        "candidateCount": 0
+      },
+      "failedChecks": [
+        "four-kpis",
+        "four-populated-charts",
+        "region-filter-updates",
+        "category-filter-updates",
+        "hover-behavior"
+      ]
+    }
+  ]
+}

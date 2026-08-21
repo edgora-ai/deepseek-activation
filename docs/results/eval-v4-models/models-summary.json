@@ -1,0 +1,562 @@
+{
+  "generatedAt": "2026-08-21T04:47:59.295Z",
+  "experiment": "DSH headless standard × 5 free models × 6 tasks",
+  "total": 30,
+  "completed": 9,
+  "fullPass": 0,
+  "rows": [
+    {
+      "runId": "nv3-blackhole",
+      "model": "nv3",
+      "task": "blackhole",
+      "status": "missing",
+      "completed": false
+    },
+    {
+      "runId": "nv3-helicopter",
+      "model": "nv3",
+      "task": "helicopter",
+      "status": "missing",
+      "completed": false
+    },
+    {
+      "runId": "nv3-race",
+      "model": "nv3",
+      "task": "race",
+      "status": "missing",
+      "completed": false
+    },
+    {
+      "runId": "nv3-game",
+      "model": "nv3",
+      "task": "game",
+      "status": "missing",
+      "completed": false
+    },
+    {
+      "runId": "nv3-music",
+      "model": "nv3",
+      "task": "music",
+      "status": "missing",
+      "completed": false
+    },
+    {
+      "runId": "nv3-dashboard",
+      "model": "nv3",
+      "task": "dashboard",
+      "status": "missing",
+      "completed": false
+    },
+    {
+      "runId": "hy3-blackhole",
+      "model": "hy3",
+      "task": "blackhole",
+      "completed": true,
+      "durMs": 542824,
+      "exitCode": 0,
+      "timedOut": false,
+      "stderrSample": "",
+      "fullPass": false,
+      "runtimePass": false,
+      "syntaxPass": false,
+      "interactionPass": false,
+      "visualSanity": false,
+      "contractPassed": 0,
+      "contractTotal": 0,
+      "runtimeErrors": 0,
+      "browserFailure": "target artifact was not generated",
+      "artifactBytes": null,
+      "visionStatus": "not-run",
+      "visionValid": null,
+      "visionSummary": null
+    },
+    {
+      "runId": "hy3-helicopter",
+      "model": "hy3",
+      "task": "helicopter",
+      "status": "missing",
+      "completed": false
+    },
+    {
+      "runId": "hy3-race",
+      "model": "hy3",
+      "task": "race",
+      "status": "missing",
+      "completed": false
+    },
+    {
+      "runId": "hy3-game",
+      "model": "hy3",
+      "task": "game",
+      "status": "missing",
+      "completed": false
+    },
+    {
+      "runId": "hy3-music",
+      "model": "hy3",
+      "task": "music",
+      "status": "missing",
+      "completed": false
+    },
+    {
+      "runId": "hy3-dashboard",
+      "model": "hy3",
+      "task": "dashboard",
+      "status": "missing",
+      "completed": false
+    },
+    {
+      "runId": "mino-free-blackhole",
+      "model": "mino-free",
+      "task": "blackhole",
+      "completed": true,
+      "durMs": 309006,
+      "exitCode": 0,
+      "timedOut": false,
+      "stderrSample": "",
+      "fullPass": false,
+      "runtimePass": false,
+      "syntaxPass": false,
+      "interactionPass": false,
+      "visualSanity": false,
+      "contractPassed": 0,
+      "contractTotal": 0,
+      "runtimeErrors": 0,
+      "browserFailure": "target artifact was not generated",
+      "artifactBytes": null,
+      "visionStatus": "not-run",
+      "visionValid": null,
+      "visionSummary": null
+    },
+    {
+      "runId": "mino-free-helicopter",
+      "model": "mino-free",
+      "task": "helicopter",
+      "completed": true,
+      "durMs": 325227,
+      "exitCode": 0,
+      "timedOut": false,
+      "stderrSample": "",
+      "fullPass": false,
+      "runtimePass": false,
+      "syntaxPass": false,
+      "interactionPass": false,
+      "visualSanity": false,
+      "contractPassed": 0,
+      "contractTotal": 0,
+      "runtimeErrors": 0,
+      "browserFailure": "target artifact was not generated",
+      "artifactBytes": null,
+      "visionStatus": "not-run",
+      "visionValid": null,
+      "visionSummary": null
+    },
+    {
+      "runId": "mino-free-race",
+      "model": "mino-free",
+      "task": "race",
+      "completed": true,
+      "durMs": 430401,
+      "exitCode": 0,
+      "timedOut": false,
+      "stderrSample": "",
+      "fullPass": false,
+      "runtimePass": false,
+      "syntaxPass": false,
+      "interactionPass": false,
+      "visualSanity": false,
+      "contractPassed": 0,
+      "contractTotal": 0,
+      "runtimeErrors": 0,
+      "browserFailure": "target artifact was not generated",
+      "artifactBytes": null,
+      "visionStatus": "not-run",
+      "visionValid": null,
+      "visionSummary": null
+    },
+    {
+      "runId": "mino-free-game",
+      "model": "mino-free",
+      "task": "game",
+      "completed": true,
+      "durMs": 60663,
+      "exitCode": 0,
+      "timedOut": false,
+      "stderrSample": "",
+      "fullPass": false,
+      "runtimePass": false,
+      "syntaxPass": false,
+      "interactionPass": false,
+      "visualSanity": false,
+      "contractPassed": 0,
+      "contractTotal": 0,
+      "runtimeErrors": 0,
+      "browserFailure": "target artifact was not generated",
+      "artifactBytes": null,
+      "visionStatus": "not-run",
+      "visionValid": null,
+      "visionSummary": null
+    },
+    {
+      "runId": "mino-free-music",
+      "model": "mino-free",
+      "task": "music",
+      "status": "missing",
+      "completed": false
+    },
+    {
+      "runId": "mino-free-dashboard",
+      "model": "mino-free",
+      "task": "dashboard",
+      "status": "missing",
+      "completed": false
+    },
+    {
+      "runId": "muse-free-blackhole",
+      "model": "muse-free",
+      "task": "blackhole",
+      "status": "missing",
+      "completed": false
+    },
+    {
+      "runId": "muse-free-helicopter",
+      "model": "muse-free",
+      "task": "helicopter",
+      "status": "missing",
+      "completed": false
+    },
+    {
+      "runId": "muse-free-race",
+      "model": "muse-free",
+      "task": "race",
+      "status": "missing",
+      "completed": false
+    },
+    {
+      "runId": "muse-free-game",
+      "model": "muse-free",
+      "task": "game",
+      "status": "missing",
+      "completed": false
+    },
+    {
+      "runId": "muse-free-music",
+      "model": "muse-free",
+      "task": "music",
+      "status": "missing",
+      "completed": false
+    },
+    {
+      "runId": "muse-free-dashboard",
+      "model": "muse-free",
+      "task": "dashboard",
+      "status": "missing",
+      "completed": false
+    },
+    {
+      "runId": "opencode-free-blackhole",
+      "model": "opencode-free",
+      "task": "blackhole",
+      "completed": true,
+      "durMs": 328874,
+      "exitCode": 0,
+      "timedOut": false,
+      "stderrSample": "",
+      "fullPass": false,
+      "runtimePass": false,
+      "syntaxPass": false,
+      "interactionPass": false,
+      "visualSanity": false,
+      "contractPassed": 0,
+      "contractTotal": 0,
+      "runtimeErrors": 0,
+      "browserFailure": "target artifact was not generated",
+      "artifactBytes": null,
+      "visionStatus": "not-run",
+      "visionValid": null,
+      "visionSummary": null
+    },
+    {
+      "runId": "opencode-free-helicopter",
+      "model": "opencode-free",
+      "task": "helicopter",
+      "completed": true,
+      "durMs": 371107,
+      "exitCode": 0,
+      "timedOut": false,
+      "stderrSample": "",
+      "fullPass": false,
+      "runtimePass": false,
+      "syntaxPass": false,
+      "interactionPass": false,
+      "visualSanity": false,
+      "contractPassed": 0,
+      "contractTotal": 0,
+      "runtimeErrors": 0,
+      "browserFailure": "target artifact was not generated",
+      "artifactBytes": null,
+      "visionStatus": "not-run",
+      "visionValid": null,
+      "visionSummary": null
+    },
+    {
+      "runId": "opencode-free-race",
+      "model": "opencode-free",
+      "task": "race",
+      "completed": true,
+      "durMs": 242209,
+      "exitCode": 0,
+      "timedOut": false,
+      "stderrSample": "",
+      "fullPass": false,
+      "runtimePass": false,
+      "syntaxPass": false,
+      "interactionPass": false,
+      "visualSanity": false,
+      "contractPassed": 0,
+      "contractTotal": 0,
+      "runtimeErrors": 0,
+      "browserFailure": "target artifact was not generated",
+      "artifactBytes": null,
+      "visionStatus": "not-run",
+      "visionValid": null,
+      "visionSummary": null
+    },
+    {
+      "runId": "opencode-free-game",
+      "model": "opencode-free",
+      "task": "game",
+      "completed": true,
+      "durMs": 176859,
+      "exitCode": 0,
+      "timedOut": false,
+      "stderrSample": "",
+      "fullPass": false,
+      "runtimePass": false,
+      "syntaxPass": false,
+      "interactionPass": false,
+      "visualSanity": false,
+      "contractPassed": 0,
+      "contractTotal": 0,
+      "runtimeErrors": 0,
+      "browserFailure": "target artifact was not generated",
+      "artifactBytes": null,
+      "visionStatus": "not-run",
+      "visionValid": null,
+      "visionSummary": null
+    },
+    {
+      "runId": "opencode-free-music",
+      "model": "opencode-free",
+      "task": "music",
+      "status": "missing",
+      "completed": false
+    },
+    {
+      "runId": "opencode-free-dashboard",
+      "model": "opencode-free",
+      "task": "dashboard",
+      "status": "missing",
+      "completed": false
+    }
+  ],
+  "models": [
+    {
+      "model": "nv3",
+      "completed": 0,
+      "fullPass": 0,
+      "runtimePass": 0,
+      "syntaxPass": 0,
+      "interactionPass": 0,
+      "visualSanity": 0,
+      "visionOk": 0,
+      "totalArtifactBytes": 0,
+      "medianDurationMs": null,
+      "meanContract": 0,
+      "providerFailures": 0,
+      "noArtifact": 0
+    },
+    {
+      "model": "hy3",
+      "completed": 1,
+      "fullPass": 0,
+      "runtimePass": 0,
+      "syntaxPass": 0,
+      "interactionPass": 0,
+      "visualSanity": 0,
+      "visionOk": 0,
+      "totalArtifactBytes": 0,
+      "medianDurationMs": 542824,
+      "meanContract": 0,
+      "providerFailures": 0,
+      "noArtifact": 0
+    },
+    {
+      "model": "mino-free",
+      "completed": 4,
+      "fullPass": 0,
+      "runtimePass": 0,
+      "syntaxPass": 0,
+      "interactionPass": 0,
+      "visualSanity": 0,
+      "visionOk": 0,
+      "totalArtifactBytes": 0,
+      "medianDurationMs": 317116.5,
+      "meanContract": 0,
+      "providerFailures": 0,
+      "noArtifact": 0
+    },
+    {
+      "model": "muse-free",
+      "completed": 0,
+      "fullPass": 0,
+      "runtimePass": 0,
+      "syntaxPass": 0,
+      "interactionPass": 0,
+      "visualSanity": 0,
+      "visionOk": 0,
+      "totalArtifactBytes": 0,
+      "medianDurationMs": null,
+      "meanContract": 0,
+      "providerFailures": 0,
+      "noArtifact": 0
+    },
+    {
+      "model": "opencode-free",
+      "completed": 4,
+      "fullPass": 0,
+      "runtimePass": 0,
+      "syntaxPass": 0,
+      "interactionPass": 0,
+      "visualSanity": 0,
+      "visionOk": 0,
+      "totalArtifactBytes": 0,
+      "medianDurationMs": 285541.5,
+      "meanContract": 0,
+      "providerFailures": 0,
+      "noArtifact": 0
+    }
+  ],
+  "tasks": [
+    {
+      "task": "blackhole",
+      "completed": 3,
+      "fullPassList": "hy3:❌ mino-free:❌ opencode-free:❌",
+      "bestModel": null,
+      "contractByModel": {
+        "nv3": "—",
+        "hy3": "0/0",
+        "mino-free": "0/0",
+        "muse-free": "—",
+        "opencode-free": "0/0"
+      },
+      "visionByModel": {
+        "nv3": "—",
+        "hy3": "—",
+        "mino-free": "—",
+        "muse-free": "—",
+        "opencode-free": "—"
+      }
+    },
+    {
+      "task": "helicopter",
+      "completed": 2,
+      "fullPassList": "mino-free:❌ opencode-free:❌",
+      "bestModel": null,
+      "contractByModel": {
+        "nv3": "—",
+        "hy3": "—",
+        "mino-free": "0/0",
+        "muse-free": "—",
+        "opencode-free": "0/0"
+      },
+      "visionByModel": {
+        "nv3": "—",
+        "hy3": "—",
+        "mino-free": "—",
+        "muse-free": "—",
+        "opencode-free": "—"
+      }
+    },
+    {
+      "task": "race",
+      "completed": 2,
+      "fullPassList": "mino-free:❌ opencode-free:❌",
+      "bestModel": null,
+      "contractByModel": {
+        "nv3": "—",
+        "hy3": "—",
+        "mino-free": "0/0",
+        "muse-free": "—",
+        "opencode-free": "0/0"
+      },
+      "visionByModel": {
+        "nv3": "—",
+        "hy3": "—",
+        "mino-free": "—",
+        "muse-free": "—",
+        "opencode-free": "—"
+      }
+    },
+    {
+      "task": "game",
+      "completed": 2,
+      "fullPassList": "mino-free:❌ opencode-free:❌",
+      "bestModel": null,
+      "contractByModel": {
+        "nv3": "—",
+        "hy3": "—",
+        "mino-free": "0/0",
+        "muse-free": "—",
+        "opencode-free": "0/0"
+      },
+      "visionByModel": {
+        "nv3": "—",
+        "hy3": "—",
+        "mino-free": "—",
+        "muse-free": "—",
+        "opencode-free": "—"
+      }
+    },
+    {
+      "task": "music",
+      "completed": 0,
+      "fullPassList": "",
+      "bestModel": null,
+      "contractByModel": {
+        "nv3": "—",
+        "hy3": "—",
+        "mino-free": "—",
+        "muse-free": "—",
+        "opencode-free": "—"
+      },
+      "visionByModel": {
+        "nv3": "—",
+        "hy3": "—",
+        "mino-free": "—",
+        "muse-free": "—",
+        "opencode-free": "—"
+      }
+    },
+    {
+      "task": "dashboard",
+      "completed": 0,
+      "fullPassList": "",
+      "bestModel": null,
+      "contractByModel": {
+        "nv3": "—",
+        "hy3": "—",
+        "mino-free": "—",
+        "muse-free": "—",
+        "opencode-free": "—"
+      },
+      "visionByModel": {
+        "nv3": "—",
+        "hy3": "—",
+        "mino-free": "—",
+        "muse-free": "—",
+        "opencode-free": "—"
+      }
+    }
+  ]
+}

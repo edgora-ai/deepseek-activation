@@ -1,0 +1,7 @@
+{
+  "status": "ok",
+  "valid": true,
+  "summary": "A recognizable blue 3D helicopter with fuselage, main rotor, tail, terrain/helipad, and functional-looking HUD panels is clearly rendered without black screen or layout corruption.",
+  "model": "gpt-5.6-terra",
+  "durationMs": 3631
+}

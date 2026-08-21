@@ -1,0 +1,81 @@
+{
+  "generatedAt": "2026-08-20T13:37:36.584Z",
+  "canaries": [
+    {
+      "title": "opencode-provider-dir-canary-20260820",
+      "requestedModel": "opencode/deepseek-v4-flash-free",
+      "exitCode": 1,
+      "timedOut": false,
+      "logBytes": 713,
+      "parsedEvents": 1,
+      "readyObserved": false,
+      "providerError": {
+        "name": "APIError",
+        "statusCode": 429,
+        "retryable": true,
+        "rateLimited": true
+      },
+      "sessions": [
+        {
+          "id": "ses_fe09f1c14ffeKJnW5CYdICTjeo",
+          "title": "opencode-provider-dir-canary-20260820",
+          "directory": "/tmp/deepseek-activation-provider-canary-dir",
+          "model": {
+            "id": "deepseek-v4-flash-free",
+            "providerID": "opencode",
+            "variant": "default"
+          },
+          "cost": 0,
+          "tokens_input": 0,
+          "tokens_output": 0,
+          "tokens_reasoning": 0,
+          "tokens_cache_read": 0,
+          "tokens_cache_write": 0,
+          "time_created": 1787232838636,
+          "time_updated": 1787232839613
+        }
+      ]
+    },
+    {
+      "title": "opencode-provider-dir-canary-hroze-20260820",
+      "requestedModel": "hroze-sp/deepseek-free",
+      "exitCode": 124,
+      "timedOut": true,
+      "logBytes": 0,
+      "parsedEvents": 0,
+      "readyObserved": false,
+      "providerError": null,
+      "sessions": []
+    },
+    {
+      "title": "opencode-provider-dir-canary-hroze-v4-20260820",
+      "requestedModel": "hroze-sp/deepseek-v4-flash",
+      "exitCode": 0,
+      "timedOut": false,
+      "logBytes": 924,
+      "parsedEvents": 3,
+      "readyObserved": true,
+      "providerError": null,
+      "sessions": [
+        {
+          "id": "ses_fe09d776effeyI8dfUtjZNSLs9",
+          "title": "opencode-provider-dir-canary-hroze-v4-20260820",
+          "directory": "/tmp/deepseek-activation-provider-canary-hroze-v4",
+          "model": {
+            "id": "deepseek-v4-flash",
+            "providerID": "hroze-sp",
+            "variant": "default"
+          },
+          "cost": 0,
+          "tokens_input": 11460,
+          "tokens_output": 3,
+          "tokens_reasoning": 0,
+          "tokens_cache_read": 0,
+          "tokens_cache_write": 0,
+          "time_created": 1787232946322,
+          "time_updated": 1787232950705
+        }
+      ]
+    }
+  ]
+}

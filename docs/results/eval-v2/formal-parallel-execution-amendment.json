@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "createdOn": "2026-08-20",
+  "priorAmendment": {
+    "path": "docs/results/eval-v2/formal-method5-infrastructure-amendment.json",
+    "sha256": "0dd9db722ac3095b0fb9bc6422a83e87d25073d1bec1dca9114be97e2add5895"
+  },
+  "reason": "The remaining matrix needed shorter elapsed time, but an uncoordinated companion collided with the serial parent at one neutral run directory. Concurrency is now owned by the batch and constrained within one active treatment.",
+  "effect": {
+    "promptChanged": false,
+    "treatmentMappingChanged": false,
+    "ruleFilesChanged": false,
+    "modelAliasChanged": false,
+    "artifactEvaluationChanged": false,
+    "infrastructureClassificationChanged": false,
+    "usageAttributionChanged": false,
+    "caseSchedulingChanged": true,
+    "executionMetadataAdded": true
+  },
+  "sourceSegments": [
+    {
+      "runs": "formal runs 1-8",
+      "executionMode": "serial-cases",
+      "runnerSha256": "8bb69e3a1c2aa4cf7a410e42dbddc2253a33ac19aa649da23fc9c7fc2f5f4a96"
+    },
+    {
+      "runs": "formal run 9, opencode-build-dashboard-r2-candidate-v2",
+      "executionMode": "serial-cases-overlapped",
+      "runnerSha256": "8fc1c2e9e4c957c106d756d8c28a91660f7f359daff2b4d7888395bc62b2d8bc",
+      "note": "The build remained valid and independently attributable, but an uncoordinated excluded companion overlapped its final 450 seconds. Its wall time is not treated as serial-comparable."
+    },
+    {
+      "runs": "formal runs 10-18",
+      "executionMode": "resume-single or parallel-cases",
+      "runnerSha256": "3225fa6af3f34c185ebb2c8c992f83dae30b6177223c06858ac73007770107b7",
+      "batchSha256": "dcc74b64b53495824964de46943f8250de98398f28aeda973d53e6e0191c7edf"
+    }
+  ],
+  "parallelSafety": {
+    "scope": "build-dashboard and fix-dashboard may overlap only within the same repeat and slot while one rule hash is active",
+    "preflight": "Both case directories are checked before either process starts; completed runs require strict validation and incomplete directories fail loud.",
+    "barrier": "Both child runners are joined before the active rule hash is verified and before another treatment can be activated.",
+    "failure": "A failing child sends SIGTERM to its sibling runner; the sibling runner forwards termination to the detached OpenCode process group and is joined before return.",
+    "blinding": "The parent runner receives only repeat, slot, execution mode, and neutral rN-slot-N concurrency group values. Treatment names remain internal to the repeat-slot mapping."
+  },
+  "comparisonPolicy": {
+    "wallTime": "descriptive-only across mixed serial, resume-single, overlapped, and parallel execution modes",
+    "tokens": "eligible for cost comparison because each run is attributed to one distinct SQLite session and token totals are not shared across concurrent sessions",
+    "quality": "eligible after the same method-5 runtime, contract, interaction, visual, and full-pass checks"
+  },
+  "changedFiles": {
+    "eval/run-ab.mjs": "3225fa6af3f34c185ebb2c8c992f83dae30b6177223c06858ac73007770107b7",
+    "eval/validate-existing-run.mjs": "be94ab26ac8e2187fc126180341025877d046e6f2e7bcc81beb7d5c762625e61",
+    "eval/recheck-execution.mjs": "aebd89706dcf6437a25b80954e7b1d0ada0f1cab14b15ff20fdbd02b002f6f67",
+    "eval/report.mjs": "3667b4cca4e47309e0102018e7db8f20655a8b3409bd45b14d1abfaf39d03090",
+    "eval/verify-usage.mjs": "d0dfcbce267e673ddfee3479242d8466ebdced2541e11e10beec8dc78674e16b",
+    "scripts/eval.sh": "dcc74b64b53495824964de46943f8250de98398f28aeda973d53e6e0191c7edf"
+  },
+  "preservedEvidence": {
+    "incidentReadmeSha256": "9e5145b802e7c8d0e50f8dc291294814b22c2ecbfcafe12f8354fa9225bf8753",
+    "incidentJsonSha256": "0b21846ec81386905da5de80a9db22d64d39265051d7439a5507a3a00ed35758",
+    "annotatedRun9MetaSha256": "e2d0218b764fd9bfa3ba11df6874d957a60239309908b665b683d8e26ab1d9ce"
+  },
+  "verification": {
+    "shellSyntaxPass": true,
+    "nodeSyntaxPass": true,
+    "parallelDryRunExit": 0,
+    "parallelDryRunRuns": 18,
+    "parallelDryRunNeutralGroups": 18,
+    "parallelDryRunPromptHashes": 2,
+    "parallelDryRunModelVisibleTreatmentLeaks": 0,
+    "ruleHashBeforeDryRun": "94b1fb18e45afcb0892078e9924b1355e0601f557ae2fd51aa322105888c4213",
+    "ruleHashAfterDryRun": "94b1fb18e45afcb0892078e9924b1355e0601f557ae2fd51aa322105888c4213",
+    "existingExecutionAnnotations": {
+      "serial-cases": 8,
+      "serial-cases-overlapped": 1
+    }
+  }
+}

@@ -1,0 +1,331 @@
+{
+  "schemaVersion": 1,
+  "runId": "opencode-fix-dashboard-r1-no-rules",
+  "client": "opencode",
+  "model": "opencode/deepseek-v4-flash-free",
+  "rules": "no-rules",
+  "ruleHash": null,
+  "ruleState": "absent",
+  "promptHash": "1d10775360b558379fa1bb267dba86ebff3310cb5f55b079bc0fadb32d0a58f3",
+  "fixtureHash": "fbd60ec30bb13c6b6182201bf9275f47a4c871708d925c79e28b7fbbb7a06026",
+  "caseId": "fix-dashboard",
+  "repeat": 1,
+  "startedAt": "2026-08-20T12:42:13.641Z",
+  "finishedAt": "2026-08-20T12:44:33.944Z",
+  "startedEpochMs": 1787229733641,
+  "finishedEpochMs": 1787229873944,
+  "durationMs": 140302,
+  "evaluationDurationMs": 8641,
+  "totalDurationMs": 148943,
+  "exitCode": 0,
+  "signal": null,
+  "timedOut": false,
+  "command": [
+    "opencode",
+    "run",
+    "--model",
+    "opencode/deepseek-v4-flash-free",
+    "--format",
+    "json",
+    "--title",
+    "opencode-fix-dashboard-r1-no-rules",
+    "<PROMPT>"
+  ],
+  "stdout": "stdout.log",
+  "stderr": "stderr.log",
+  "artifact": "dashboard.html",
+  "usage": {
+    "status": "attributed",
+    "match": "title-and-time",
+    "source": ".local/share/opencode/opencode.db",
+    "sessionId": "ses_fe0ce7554ffedZmpI4nMvHH7WA",
+    "inputTokens": 53240,
+    "outputTokens": 8776,
+    "thinkingTokens": 2431,
+    "cacheReadTokens": 448896,
+    "cacheWriteTokens": 0,
+    "cost": 0,
+    "model": {
+      "id": "deepseek-v4-flash-free",
+      "providerID": "opencode",
+      "variant": "default"
+    },
+    "timeCreated": 1787229735596,
+    "timeUpdated": 1787229873865
+  },
+  "evaluation": {
+    "generated": true,
+    "artifactChanged": true,
+    "artifactHash": "566ffcb9642ddab5f3b0721cf4ced179707c2c2cb51fe31ea1dbe836d73ad825",
+    "bytes": 11081,
+    "syntaxPass": true,
+    "syntaxFailures": [],
+    "runtimePass": true,
+    "runtimeErrors": [],
+    "browserFailure": null,
+    "contractPassed": 10,
+    "contractTotal": 10,
+    "contractChecks": [
+      {
+        "id": "four-kpis",
+        "pass": true,
+        "observed": [
+          "$549,279",
+          "3,032",
+          "$181",
+          "42%"
+        ]
+      },
+      {
+        "id": "four-populated-charts",
+        "pass": true,
+        "observed": {
+          "populated": 4,
+          "hosts": 4
+        }
+      },
+      {
+        "id": "two-filters",
+        "pass": true,
+        "observed": 2
+      },
+      {
+        "id": "period-control",
+        "pass": true,
+        "observed": 1
+      },
+      {
+        "id": "refresh-control",
+        "pass": true,
+        "observed": true
+      },
+      {
+        "id": "refresh-changes-data",
+        "pass": true,
+        "observed": {
+          "before": [
+            "$549,279",
+            "3,032",
+            "$181",
+            "42%"
+          ],
+          "after": [
+            "$572,598",
+            "3,178",
+            "$180",
+            "41%"
+          ]
+        }
+      },
+      {
+        "id": "region-filter-updates",
+        "pass": true,
+        "observed": {
+          "changed": true,
+          "before": [
+            "$572,598",
+            "3,178",
+            "$180",
+            "41%"
+          ],
+          "after": [
+            "$281,802",
+            "1,621",
+            "$174",
+            "44%"
+          ],
+          "positiveKpis": 4
+        }
+      },
+      {
+        "id": "category-filter-updates",
+        "pass": true,
+        "observed": {
+          "changed": true,
+          "before": [
+            "$572,598",
+            "3,178",
+            "$180",
+            "41%"
+          ],
+          "after": [
+            "$116,924",
+            "1,075",
+            "$109",
+            "40%"
+          ],
+          "positiveKpis": 4
+        }
+      },
+      {
+        "id": "period-updates",
+        "pass": true,
+        "observed": {
+          "changed": true,
+          "before": [
+            "$572,598",
+            "3,178",
+            "$180",
+            "41%"
+          ],
+          "after": [
+            "$509,100",
+            "2,815",
+            "$181",
+            "42%"
+          ]
+        }
+      },
+      {
+        "id": "hover-behavior",
+        "pass": true,
+        "observed": {
+          "hoverTargets": 49,
+          "tooltipElements": 1
+        }
+      }
+    ],
+    "interactionPass": true,
+    "visualSanity": true,
+    "screenshot": "screenshot.png",
+    "screenshotBytes": 163733,
+    "externalResources": [],
+    "placeholderCount": 0,
+    "runtimeSnapshot": {
+      "title": "Northstar Sales",
+      "text": "Northstar Sales Deterministic operating dashboard Region All regions East West Category All categories Hardware Software Services Periods 6 Refresh data REVENUE $549,279 ORDERS 3,032 AVERAGE ORDER VALUE $181 MARGIN 42% Monthly revenue trend Revenue by category Hardware Software Services Regional share East 52% West 48% Spend vs revenue",
+      "textLength": 337,
+      "buttons": [
+        "Refresh data"
+      ],
+      "inputs": [
+        {
+          "type": "select-one",
+          "value": "all"
+        },
+        {
+          "type": "select-one",
+          "value": "all"
+        },
+        {
+          "type": "range",
+          "value": "6"
+        }
+      ],
+      "canvasCount": 0,
+      "svgCount": 4,
+      "nonEmptySvgCount": 4,
+      "kpiLikeCount": 5,
+      "bodyWidth": 1265,
+      "bodyHeight": 795
+    },
+    "visualStats": {
+      "meanLuma": 31.52965670138727,
+      "lumaVariance": 850.5012748584581,
+      "nonDarkRatio": 0.9987847222222223,
+      "centerNonDarkRatio": 0.9976782752902156,
+      "colorfulRatio": 0.9831597222222223,
+      "colorBuckets": 116
+    },
+    "benchmark": {
+      "initial": {
+        "kpis": [
+          "$549,279",
+          "3,032",
+          "$181",
+          "42%"
+        ],
+        "positiveKpis": 4,
+        "populatedCharts": 4,
+        "chartHosts": 4,
+        "selects": 2,
+        "ranges": 1,
+        "hoverTargets": 49,
+        "tooltipElements": 1
+      },
+      "refreshed": {
+        "kpis": [
+          "$572,598",
+          "3,178",
+          "$180",
+          "41%"
+        ],
+        "positiveKpis": 4,
+        "populatedCharts": 4,
+        "chartHosts": 4,
+        "selects": 2,
+        "ranges": 1,
+        "hoverTargets": 49,
+        "tooltipElements": 1
+      },
+      "selectResults": [
+        {
+          "changed": true,
+          "before": [
+            "$572,598",
+            "3,178",
+            "$180",
+            "41%"
+          ],
+          "after": [
+            "$281,802",
+            "1,621",
+            "$174",
+            "44%"
+          ],
+          "positiveKpis": 4
+        },
+        {
+          "changed": true,
+          "before": [
+            "$572,598",
+            "3,178",
+            "$180",
+            "41%"
+          ],
+          "after": [
+            "$116,924",
+            "1,075",
+            "$109",
+            "40%"
+          ],
+          "positiveKpis": 4
+        }
+      ],
+      "range": {
+        "changed": true,
+        "before": {
+          "kpis": [
+            "$572,598",
+            "3,178",
+            "$180",
+            "41%"
+          ],
+          "positiveKpis": 4,
+          "populatedCharts": 4,
+          "chartHosts": 4,
+          "selects": 2,
+          "ranges": 1,
+          "hoverTargets": 49,
+          "tooltipElements": 1
+        },
+        "after": {
+          "kpis": [
+            "$509,100",
+            "2,815",
+            "$181",
+            "42%"
+          ],
+          "positiveKpis": 4,
+          "populatedCharts": 4,
+          "chartHosts": 4,
+          "selects": 2,
+          "ranges": 1,
+          "hoverTargets": 43,
+          "tooltipElements": 1
+        }
+      }
+    },
+    "fullPass": true
+  }
+}

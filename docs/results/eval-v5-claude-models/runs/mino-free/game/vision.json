@@ -1,0 +1,7 @@
+{
+  "status": "ok",
+  "valid": true,
+  "summary": "画面显示了带星空背景和“SPACE SHOOTER”启动提示的可辨识游戏开始界面。",
+  "model": "gpt-5.6-terra",
+  "durationMs": 2789
+}

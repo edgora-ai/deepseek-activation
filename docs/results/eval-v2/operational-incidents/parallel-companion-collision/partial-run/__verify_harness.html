@@ -1,0 +1,99 @@
+<!doctype html>
+<html><body>
+<iframe id="f" src="dashboard.html" width="1200" height="900"></iframe>
+<pre id="out"></pre>
+<script>
+const out = []
+const log = (k, v) => out.push(JSON.stringify({ [k]: v }))
+const $ = (doc, s) => doc.querySelector(s)
+const read = (iw) => ({
+  revenue: $('#revenue', iw.document).textContent,
+  orders: $('#orders', iw.document).textContent,
+  aov: $('#aov', iw.document).textContent,
+  margin: $('#margin', iw.document).textContent,
+  trendMarks: iw.document.querySelectorAll('#trend .mark').length,
+  barMarks: iw.document.querySelectorAll('#bars .mark').length,
+  donutMarks: iw.document.querySelectorAll('#donut .mark').length,
+  scatterMarks: iw.document.querySelectorAll('#scatter .mark').length,
+})
+const setSelect = (iw, id, value) => {
+  const el = $(`#${id}`, iw.document)
+  el.value = value
+  el.dispatchEvent(new iw.window.Event('change'))
+}
+setTimeout(() => {
+  try {
+    const f = document.getElementById('f')
+    const iw = f.contentWindow
+    const errors = []
+    iw.onerror = (msg) => errors.push(String(msg))
+
+    const initial = read(iw)
+    log('initial', initial)
+    log('errors0', errors)
+
+    if (initial.revenue !== '$549,279') log('FAIL initial revenue', initial.revenue)
+    if (initial.trendMarks < 1 || initial.barMarks < 1 || initial.donutMarks < 1 || initial.scatterMarks < 1)
+      log('FAIL empty chart', { trendMarks: initial.trendMarks, barMarks: initial.barMarks, donutMarks: initial.donutMarks, scatterMarks: initial.scatterMarks })
+
+    setSelect(iw, 'region', 'East')
+    const east = read(iw)
+    log('regionEast', east)
+    if (east.revenue === initial.revenue) log('FAIL region filter did not update KPIs')
+    if (east.revenue === '$0') log('FAIL region filter: zero result')
+
+    setSelect(iw, 'region', 'all')
+    setSelect(iw, 'category', 'Hardware')
+    const hw = read(iw)
+    log('categoryHardware', hw)
+    if (hw.revenue === initial.revenue) log('FAIL category filter did not update KPIs')
+    if (hw.revenue === '$0') log('FAIL category filter: zero result')
+
+    setSelect(iw, 'category', 'all')
+    const before = read(iw)
+    const r1 = $(`#refresh`, iw.document)
+    r1.click()
+    const after1 = read(iw)
+    log('afterRefresh1', after1)
+    if (after1.revenue === before.revenue) log('FAIL refresh did not change dataset')
+
+    r1.click()
+    const after2 = read(iw)
+    log('afterRefresh2', after2)
+    if (after2.revenue === after1.revenue) log('FAIL refresh2 not different')
+
+    const reloaded = awaitReload(initial)
+    if (reloaded && reloaded.revenue !== initial.revenue) log('FAIL determinism: reload differs', reloaded)
+
+    const tooltipEl = $('#tooltip', iw.document)
+    const mark = iw.document.querySelector('#trend .mark')
+    mark.dispatchEvent(new iw.window.PointerEvent('pointermove', { clientX: 100, clientY: 100, bubbles: true }))
+    log('tooltip shown', tooltipEl.style.display, tooltipEl.textContent)
+    if (tooltipEl.style.display !== 'block' || !tooltipEl.textContent.length) log('FAIL tooltip not shown')
+    mark.dispatchEvent(new iw.window.PointerEvent('pointerleave', { bubbles: true }))
+    log('tooltip hidden', tooltipEl.style.display)
+    if (tooltipEl.style.display !== 'none') log('FAIL tooltip not hidden')
+    log('errors', errors)
+
+    document.getElementById('out').textContent = out.join('\n')
+  } catch (e) {
+    document.getElementById('out').textContent = 'HARNESS CRASH: ' + e.message + '\n' + out.join('\n')
+  }
+}, 600)
+
+function awaitReload(initial) {
+  const f = document.getElementById('f')
+  f.src = 'dashboard.html'
+  const iw = f.contentWindow
+  const read = (doc) => ({
+    revenue: $('#revenue', doc).textContent,
+    orders: $('#orders', doc).textContent,
+    aov: $('#aov', doc).textContent,
+    margin: $('#margin', doc).textContent,
+  })
+  return new Promise((resolve) => {
+    f.onload = () => setTimeout(() => { const d = read(f.contentDocument); log('afterReload', d); resolve(d) }, 100)
+  })
+}
+</script>
+</body></html>

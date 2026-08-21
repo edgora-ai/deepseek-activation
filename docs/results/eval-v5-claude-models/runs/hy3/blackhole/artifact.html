@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Black Hole — WebGL Render</title>
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; padding: 0; height: 100%; background: #000; overflow: hidden; }
+  #gl { display: block; width: 100vw; height: 100vh; touch-action: none; cursor: grab; }
+  #gl:active { cursor: grabbing; }
+  #hud {
+    position: fixed; left: 14px; bottom: 12px; z-index: 10;
+    font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color: rgba(180, 200, 230, 0.75); text-shadow: 0 1px 2px rgba(0,0,0,0.9);
+    pointer-events: none; user-select: none;
+  }
+  #hud b { color: rgba(255, 200, 140, 0.9); font-weight: 600; }
+  #err {
+    position: fixed; inset: 0; z-index: 20; display: none;
+    align-items: center; justify-content: center; padding: 24px;
+    font: 14px/1.6 ui-monospace, monospace; color: #ffb4b4; text-align: center;
+    background: #000;
+  }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="hud"><b>Black Hole</b> &mdash; drag / touch to orbit &middot; scroll to zoom &middot; auto-rotating</div>
+<div id="err"></div>
+<script>
+"use strict";
+(function () {
+  const canvas = document.getElementById("gl");
+  const errEl = document.getElementById("err");
+  function fail(msg) {
+    errEl.style.display = "flex";
+    errEl.textContent = msg;
+    console.error(msg);
+  }
+
+  const gl = canvas.getContext("webgl2", { antialias: false, alpha: false, preserveDrawingBuffer: true, powerPreference: "high-performance" });
+  if (!gl) { fail("WebGL2 is required but not available in this browser."); return; }
+
+  /* ---------- tiny mat4 / vec helpers ---------- */
+  const M = {
+    ident: () => [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],
+    perspective(out, fovy, aspect, near, far) {
+      const f = 1 / Math.tan(fovy / 2), nf = 1 / (near - far);
+      out[0]=f/aspect; out[1]=0; out[2]=0; out[3]=0;
+      out[4]=0; out[5]=f; out[6]=0; out[7]=0;
+      out[8]=0; out[9]=0; out[10]=(far+near)*nf; out[11]=-1;
+      out[12]=0; out[13]=0; out[14]=2*far*near*nf; out[15]=0;
+      return out;
+    },
+    lookAt(out, eye, center, up) {
+      let z0=eye[0]-center[0], z1=eye[1]-center[1], z2=eye[2]-center[2];
+      let zl=1/Math.hypot(z0,z1,z2); z0*=zl; z1*=zl; z2*=zl;
+      let x0=up[1]*z2-up[2]*z1, x1=up[2]*z0-up[0]*z2, x2=up[0]*z1-up[1]*z0;
+      let xl=Math.hypot(x0,x1,x2); if (xl===0){x0=0;x1=0;x2=0;} else {xl=1/xl; x0*=xl;x1*=xl;x2*=xl;}
+      let y0=z1*x2-z2*x1, y1=z2*x0-z0*x2, y2=z0*x1-z1*x0;
+      out[0]=x0; out[1]=y0; out[2]=z0; out[3]=0;
+      out[4]=x1; out[5]=y1; out[6]=z1; out[7]=0;
+      out[8]=x2; out[9]=y2; out[10]=z2; out[11]=0;
+      out[12]=-(x0*eye[0]+x1*eye[1]+x2*eye[2]);
+      out[13]=-(y0*eye[0]+y1*eye[1]+y2*eye[2]);
+      out[14]=-(z0*eye[0]+z1*eye[1]+z2*eye[2]);
+      out[15]=1;
+      return out;
+    },
+    mul(out, a, b) {
+      for (let c=0;c<4;c++){
+        const b0=b[c*4],b1=b[c*4+1],b2=b[c*4+2],b3=b[c*4+3];
+        out[c*4]  =a[0]*b0+a[4]*b1+a[8]*b2+a[12]*b3;
+        out[c*4+1]=a[1]*b0+a[5]*b1+a[9]*b2+a[13]*b3;
+        out[c*4+2]=a[2]*b0+a[6]*b1+a[10]*b2+a[14]*b3;
+        out[c*4+3]=a[3]*b0+a[7]*b1+a[11]*b2+a[15]*b3;
+      }
+      return out;
+    }
+  };
+
+  /* ---------- shader helpers ---------- */
+  function compile(type, src) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+      const log = gl.getShaderInfoLog(s);
+      gl.deleteShader(s);
+      throw new Error("Shader compile error: " + log + "\n" + src);
+    }
+    return s;
+  }
+  function program(vsSrc, fsSrc) {
+    const p = gl.createProgram();
+    gl.attachShader(p, compile(gl.VERTEX_SHADER, vsSrc));
+    gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fsSrc));
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+      throw new Error("Program link error: " + gl.getProgramInfoLog(p));
+    }
+    return p;
+  }
+  function uniforms(p) {
+    const u = {}; const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+    for (let i=0;i<n;i++){ const info = gl.getActiveUniform(p, i); u[info.name] = gl.getUniformLocation(p, info.name); }
+    return u;
+  }
+
+  /* ---------- shaders ---------- */
+  const VS_FULL = `#version 300 es
+  in vec2 a_pos; out vec2 v_uv;
+  void main(){ v_uv = a_pos*0.5+0.5; gl_Position = vec4(a_pos,0.0,1.0); }`;
+
+  // Starfield: 3D points on a huge sphere, lensed around the hole's screen center.
+  const VS_STARS = `#version 300 es
+  precision highp float;
+  in vec3 a_pos; in vec3 a_color; in float a_size; in float a_phase;
+  uniform mat4 u_proj, u_view;
+  uniform vec2 u_hole; uniform float u_lens; uniform float u_time; uniform float u_pr;
+  out vec3 v_color; out float v_tw;
+  void main(){
+    vec4 clip = u_proj * u_view * vec4(a_pos,1.0);
+    vec3 ndc = clip.xyz / clip.w;
+    vec2 s = ndc.xy;
+    vec2 d = s - u_hole;
+    float r = length(d);
+    float R = 0.55;
+    if (r < R && r > 1e-4) {
+      float pull = u_lens * (R - r) * (R - r) / R;
+      s += normalize(d) * pull;        // bend stars outward -> Einstein-ring clustering
+    }
+    clip.xy = s * clip.w;
+    gl_Position = clip;
+    float dist = -((u_view*vec4(a_pos,1.0)).z);
+    gl_PointSize = max(1.0, a_size * u_pr / max(dist,0.5));
+    v_color = a_color;
+    v_tw = 0.55 + 0.45 * sin(u_time*1.3 + a_phase);
+  }`;
+  const FS_STARS = `#version 300 es
+  precision highp float;
+  in vec3 v_color; in float v_tw; out vec4 o;
+  void main(){
+    float c = length(gl_PointCoord - 0.5);
+    float a = smoothstep(0.5, 0.0, c);
+    if (a <= 0.001) discard;
+    o = vec4(v_color * a * v_tw, 1.0);
+  }`;
+
+  // Black sphere (event horizon) + warm photon-ring rim glow.
+  const VS_SPHERE = `#version 300 es
+  precision highp float;
+  in vec3 a_pos; in vec3 a_norm;
+  uniform mat4 u_proj, u_view;
+  out vec3 v_n; out vec3 v_view;
+  void main(){
+    vec4 vp = u_view * vec4(a_pos,1.0);
+    v_view = vp.xyz;
+    v_n = mat3(u_view) * a_norm;
+    gl_Position = u_proj * vp;
+  }`;
+  const FS_SPHERE = `#version 300 es
+  precision highp float;
+  in vec3 v_n; in vec3 v_view; out vec4 o;
+  uniform float u_time;
+  void main(){
+    vec3 N = normalize(v_n);
+    vec3 V = normalize(-v_view);
+    float rim = pow(1.0 - max(dot(N, V), 0.0), 3.0);
+    rim = clamp(rim, 0.0, 1.0);
+    // subtle flicker on the photon ring
+    float fl = 0.85 + 0.15 * sin(u_time*2.0 + v_view.y*3.0);
+    vec3 ring = vec3(1.0, 0.72, 0.42) * rim * 1.6 * fl;
+    o = vec4(ring, 1.0);   // center stays black (ring->0)
+  }`;
+
+  // Accretion disk: orbiting glowing particles, Keplerian shear + Doppler shift.
+  const VS_DISK = `#version 300 es
+  precision highp float;
+  in vec3 a_pos;        // base position in disk plane (x,z), y≈0
+  in vec3 a_color;      // temperature color
+  in float a_radius;    // orbital radius
+  in float a_angle;     // phase
+  in float a_size;
+  uniform mat4 u_proj, u_view;
+  uniform float u_time; uniform float u_pr;
+  out vec3 v_color; out float v_a;
+  void main(){
+    float speed = 1.6 / pow(a_radius, 1.5);          // Keplerian
+    float ang = a_angle + u_time * speed;
+    vec3 p = vec3(cos(ang)*a_radius, a_pos.y, sin(ang)*a_radius);
+    vec4 vp = u_view * vec4(p,1.0);
+    vec4 clip = u_proj * vp;
+    gl_Position = clip;
+    // velocity direction (tangential) for Doppler brightening toward camera
+    vec3 vel = vec3(-sin(ang), 0.0, cos(ang));
+    vec3 toCam = normalize(-vp.xyz);
+    float dopp = dot(vel, toCam);                    // +toward camera
+    float bright = 0.6 + 0.9 * smoothstep(-0.3, 0.6, dopp);
+    v_color = a_color * bright;
+    float dist = -vp.z;
+    gl_PointSize = max(1.0, a_size * u_pr / max(dist,0.5));
+    v_a = 1.0;
+  }`;
+  const FS_DISK = `#version 300 es
+  precision highp float;
+  in vec3 v_color; in float v_a; out vec4 o;
+  void main(){
+    float c = length(gl_PointCoord - 0.5);
+    float a = smoothstep(0.5, 0.0, c);
+    if (a <= 0.001) discard;
+    o = vec4(v_color * a, 1.0);
+  }`;
+
+  // Bright-pass extraction for bloom.
+  const FS_BRIGHT = `#version 300 es
+  precision highp float;
+  in vec2 v_uv; out vec4 o;
+  uniform sampler2D u_tex; uniform float u_threshold;
+  void main(){
+    vec3 c = texture(u_tex, v_uv).rgb;
+    float l = max(max(c.r,c.g),c.b);
+    float k = max(l - u_threshold, 0.0) / max(l, 1e-4);
+    o = vec4(c * k, 1.0);
+  }`;
+
+  // Separable Gaussian blur.
+  const FS_BLUR = `#version 300 es
+  precision highp float;
+  in vec2 v_uv; out vec4 o;
+  uniform sampler2D u_tex; uniform vec2 u_dir;
+  void main(){
+    vec3 sum = vec3(0.0);
+    float w[5]; w[0]=0.227027; w[1]=0.1945946; w[2]=0.1216216; w[3]=0.054054; w[4]=0.016216;
+    sum += texture(u_tex, v_uv).rgb * w[0];
+    for (int i=1;i<5;i++){
+      vec2 off = u_dir * float(i);
+      sum += texture(u_tex, v_uv + off).rgb * w[i];
+      sum += texture(u_tex, v_uv - off).rgb * w[i];
+    }
+    o = vec4(sum, 1.0);
+  }`;
+
+  // Final composite: scene + bloom, tone-mapped, vignette.
+  const FS_COMPOSITE = `#version 300 es
+  precision highp float;
+  in vec2 v_uv; out vec4 o;
+  uniform sampler2D u_scene; uniform sampler2D u_bloom; uniform float u_bloomStr;
+  void main(){
+    vec3 scene = texture(u_scene, v_uv).rgb;
+    vec3 bloom = texture(u_bloom, v_uv).rgb;
+    vec3 col = scene + bloom * u_bloomStr;
+    // ACES-ish filmic tone map
+    col = (col*(2.51*col+0.03))/(col*(2.43*col+0.59)+0.14);
+    col = clamp(col, 0.0, 1.0);
+    // vignette
+    vec2 d = v_uv - 0.5;
+    float vig = smoothstep(0.95, 0.35, length(d));
+    col *= mix(0.55, 1.0, vig);
+    col = pow(col, vec3(0.4545)); // gamma
+    o = vec4(col, 1.0);
+  }`;
+
+  /* ---------- build programs ---------- */
+  let progStars, progSphere, progDisk, progBright, progBlur, progComposite;
+  try {
+    progStars     = program(VS_STARS, FS_STARS);
+    progSphere    = program(VS_SPHERE, FS_SPHERE);
+    progDisk      = program(VS_DISK, FS_DISK);
+    progBright    = program(VS_FULL, FS_BRIGHT);
+    progBlur      = program(VS_FULL, FS_BLUR);
+    progComposite = program(VS_FULL, FS_COMPOSITE);
+  } catch (e) { fail(String(e.message || e)); return; }
+
+  const uStars = uniforms(progStars);
+  const uSphere = uniforms(progSphere);
+  const uDisk = uniforms(progDisk);
+  const uBright = uniforms(progBright);
+  const uBlur = uniforms(progBlur);
+  const uComposite = uniforms(progComposite);
+
+  /* ---------- geometry: fullscreen quad ---------- */
+  const quadVAO = gl.createVertexArray();
+  gl.bindVertexArray(quadVAO);
+  const quadBuf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
+  const aPosFull = gl.getAttribLocation(progBright, "a_pos");
+  gl.enableVertexAttribArray(aPosFull);
+  gl.vertexAttribPointer(aPosFull, 2, gl.FLOAT, false, 0, 0);
+  gl.bindVertexArray(null);
+
+  /* ---------- geometry: starfield ---------- */
+  function buildStars(count) {
+    const pos = new Float32Array(count*3);
+    const col = new Float32Array(count*3);
+    const size = new Float32Array(count);
+    const phase = new Float32Array(count);
+    const R = 90;
+    for (let i=0;i<count;i++){
+      // uniform on sphere
+      const u = Math.random()*2-1, t = Math.random()*Math.PI*2;
+      const r = Math.sqrt(1-u*u);
+      const x = r*Math.cos(t), y = u, z = r*Math.sin(t);
+      pos[i*3]=x*R; pos[i*3+1]=y*R; pos[i*3+2]=z*R;
+      // subtle color temperature variation (blue-white to warm)
+      const w = Math.random();
+      const cr = 0.7 + 0.3*w, cg = 0.8 + 0.2*Math.random(), cb = 1.0 - 0.25*w;
+      const b = 0.6 + 0.8*Math.random();
+      col[i*3]=cr*b; col[i*3+1]=cg*b; col[i*3+2]=cb*b;
+      size[i] = 1.0 + Math.random()*2.5;
+      phase[i] = Math.random()*Math.PI*2;
+    }
+    return { pos, col, size, phase, count };
+  }
+  const stars = buildStars(6000);
+  const starVAO = gl.createVertexArray();
+  gl.bindVertexArray(starVAO);
+  function buf(data){ const b=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,b); gl.bufferData(gl.ARRAY_BUFFER,data,gl.STATIC_DRAW); return b; }
+  buf(stars.pos);   gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0,3,gl.FLOAT,false,0,0);
+  buf(stars.col);   gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1,3,gl.FLOAT,false,0,0);
+  buf(stars.size);  gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2,1,gl.FLOAT,false,0,0);
+  buf(stars.phase); gl.enableVertexAttribArray(3); gl.vertexAttribPointer(3,1,gl.FLOAT,false,0,0);
+  gl.bindVertexArray(null);
+
+  /* ---------- geometry: black-hole sphere ---------- */
+  function buildSphere(radius, lat, lon) {
+    const pos=[], norm=[], idx=[];
+    for (let i=0;i<=lat;i++){
+      const theta = i*Math.PI/lat;
+      const st=Math.sin(theta), ct=Math.cos(theta);
+      for (let j=0;j<=lon;j++){
+        const phi = j*2*Math.PI/lon;
+        const sp=Math.sin(phi), cp=Math.cos(phi);
+        const x=cp*st, y=ct, z=sp*st;
+        pos.push(x*radius, y*radius, z*radius);
+        norm.push(x,y,z);
+      }
+    }
+    for (let i=0;i<lat;i++){
+      for (let j=0;j<lon;j++){
+        const a=i*(lon+1)+j, b=a+lon+1;
+        idx.push(a,b,a+1, b,b+1,a+1);
+      }
+    }
+    return { pos:new Float32Array(pos), norm:new Float32Array(norm), idx:new Uint16Array(idx) };
+  }
+  const sph = buildSphere(2.2, 48, 64);
+  const sphereVAO = gl.createVertexArray();
+  gl.bindVertexArray(sphereVAO);
+  buf(sph.pos);   gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0,3,gl.FLOAT,false,0,0);
+  buf(sph.norm);  gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1,3,gl.FLOAT,false,0,0);
+  const sphIdxBuf = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, sphIdxBuf);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, sph.idx, gl.STATIC_DRAW);
+  gl.bindVertexArray(null);
+
+  /* ---------- geometry: accretion disk particles ---------- */
+  function buildDisk(count) {
+    const pos=new Float32Array(count*3);
+    const col=new Float32Array(count*3);
+    const radius=new Float32Array(count);
+    const angle=new Float32Array(count);
+    const size=new Float32Array(count);
+    const rIn=3.0, rOut=11.0;
+    for (let i=0;i<count;i++){
+      const r = rIn + (rOut-rIn)*Math.pow(Math.random(), 0.6);
+      const a = Math.random()*Math.PI*2;
+      const yJ = (Math.random()*2-1) * 0.18 * (1.0 - (r-rIn)/(rOut-rIn)*0.7);
+      pos[i*3]=Math.cos(a)*r; pos[i*3+1]=yJ; pos[i*3+2]=Math.sin(a)*r;
+      // temperature gradient: hot blue-white inner -> orange outer
+      const t = (r-rIn)/(rOut-rIn);
+      const cr = 1.0;
+      const cg = 0.65 + 0.30*(1.0-t);
+      const cb = 0.35 + 0.55*(1.0-t);
+      const b = 0.7 + 0.6*(1.0-t);
+      col[i*3]=cr*b; col[i*3+1]=cg*b; col[i*3+2]=cb*b;
+      radius[i]=r; angle[i]=a;
+      size[i]= 1.4 + Math.random()*2.2;
+    }
+    return { pos, col, radius, angle, size, count };
+  }
+  const disk = buildDisk(26000);
+  const diskVAO = gl.createVertexArray();
+  gl.bindVertexArray(diskVAO);
+  buf(disk.pos);     gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0,3,gl.FLOAT,false,0,0);
+  buf(disk.col);     gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1,3,gl.FLOAT,false,0,0);
+  buf(disk.radius);  gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2,1,gl.FLOAT,false,0,0);
+  buf(disk.angle);   gl.enableVertexAttribArray(3); gl.vertexAttribPointer(3,1,gl.FLOAT,false,0,0);
+  buf(disk.size);    gl.enableVertexAttribArray(4); gl.vertexAttribPointer(4,1,gl.FLOAT,false,0,0);
+  gl.bindVertexArray(null);
+
+  /* ---------- framebuffers ---------- */
+  let useFloat = false;
+  const floatExt = gl.getExtension("EXT_color_buffer_float");
+  if (floatExt) useFloat = true;
+  const SCENE_TYPE = useFloat ? gl.RGBA16F : gl.RGBA8;
+
+  function makeTex(w, h, internalFormat) {
+    const t = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    const type = (internalFormat === gl.RGBA16F) ? gl.HALF_FLOAT : gl.UNSIGNED_BYTE;
+    gl.texImage2D(gl.TEXTURE_2D, 0, internalFormat, w, h, 0, gl.RGBA, type, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    return t;
+  }
+  function makeFBO(w, h, type) {
+    const tex = makeTex(w, h, type);
+    const fb = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+    let depth = null;
+    if (type === SCENE_TYPE) { // only scene needs depth
+      depth = gl.createRenderbuffer();
+      gl.bindRenderbuffer(gl.RENDERBUFFER, depth);
+      gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT24, w, h);
+      gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depth);
+    }
+    const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    if (!ok) { gl.deleteFramebuffer(fb); gl.deleteTexture(tex); return null; }
+    return { fb, tex, depth, w, h };
+  }
+
+  let sceneFBO=null, brightFBO=null, blurA=null, blurB=null;
+  let W=0, H=0, bw=0, bh=0;
+  function resize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = Math.max(2, Math.floor(window.innerWidth * dpr));
+    H = Math.max(2, Math.floor(window.innerHeight * dpr));
+    canvas.width = W; canvas.height = H;
+    canvas.style.width = window.innerWidth + "px";
+    canvas.style.height = window.innerHeight + "px";
+    const bw2 = Math.max(2, W >> 1), bh2 = Math.max(2, H >> 1);
+    // (re)create FBOs
+    [sceneFBO, brightFBO, blurA, blurB].forEach(f => { if (f){ gl.deleteFramebuffer(f.fb); gl.deleteTexture(f.tex); if(f.depth) gl.deleteRenderbuffer(f.depth);} });
+    sceneFBO = makeFBO(W, H, SCENE_TYPE);
+    if (!sceneFBO) { // float unsupported at this size -> fallback to RGBA8
+      useFloat = false;
+      sceneFBO = makeFBO(W, H, gl.RGBA8);
+    }
+    brightFBO = makeFBO(bw2, bh2, gl.RGBA8);
+    blurA = makeFBO(bw2, bh2, gl.RGBA8);
+    blurB = makeFBO(bw2, bh2, gl.RGBA8);
+    bw = bw2; bh = bh2;
+  }
+  window.addEventListener("resize", resize);
+  resize();
+
+  /* ---------- camera (orbit + drag) ---------- */
+  const cam = { az: 0.7, el: 0.45, rad: 26, target: [0,0,0], auto: true };
+  let dragging = false, lastX=0, lastY=0;
+  canvas.addEventListener("pointerdown", (e) => { dragging=true; cam.auto=false; lastX=e.clientX; lastY=e.clientY; canvas.setPointerCapture(e.pointerId); });
+  canvas.addEventListener("pointerup", (e) => { dragging=false; });
+  canvas.addEventListener("pointermove", (e) => {
+    if (!dragging) return;
+    const dx = e.clientX-lastX, dy = e.clientY-lastY; lastX=e.clientX; lastY=e.clientY;
+    cam.az -= dx*0.005; cam.el += dy*0.005;
+    cam.el = Math.max(-1.45, Math.min(1.45, cam.el));
+  });
+  canvas.addEventListener("wheel", (e) => { e.preventDefault(); cam.rad *= (1 + Math.sign(e.deltaY)*0.08); cam.rad = Math.max(7, Math.min(60, cam.rad)); }, { passive:false });
+
+  /* ---------- render loop ---------- */
+  const proj = M.ident(), view = M.ident(), viewProj = M.ident();
+  const start = performance.now();
+  let holeScreen = [0,0];
+
+  function frame() {
+    const time = (performance.now() - start) / 1000;
+    if (cam.auto) cam.az += 0.0016;
+
+    const aspect = W / H;
+    M.perspective(proj, Math.PI/3.4, aspect, 0.1, 400);
+    const ce = Math.cos(cam.el), se = Math.sin(cam.el);
+    const ca = Math.cos(cam.az), sa = Math.sin(cam.az);
+    const eye = [cam.rad*ce*sa, cam.rad*se, cam.rad*ce*ca];
+    M.lookAt(view, eye, cam.target, [0,1,0]);
+    M.mul(viewProj, proj, view);
+
+    // project hole center (origin) to screen for star lensing
+    const hx = viewProj[0]*0 + viewProj[4]*0 + viewProj[8]*0 + viewProj[12];
+    const hy = viewProj[1]*0 + viewProj[5]*0 + viewProj[9]*0 + viewProj[13];
+    const hw = viewProj[3]*0 + viewProj[7]*0 + viewProj[11]*0 + viewProj[15];
+    const hxc = hx/hw, hyc = hy/hw;
+    holeScreen[0] = hxc; holeScreen[1] = hyc;
+
+    const pr = Math.min(W, H); // pixel-ratio proxy for point sizing
+
+    // ---- pass 1: scene ----
+    gl.bindFramebuffer(gl.FRAMEBUFFER, sceneFBO.fb);
+    gl.viewport(0,0,W,H);
+    gl.clearColor(0,0,0,1);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    // stars (background, no depth)
+    gl.disable(gl.DEPTH_TEST);
+    gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE); // additive
+    gl.useProgram(progStars);
+    gl.uniformMatrix4fv(uStars.u_proj, false, proj);
+    gl.uniformMatrix4fv(uStars.u_view, false, view);
+    gl.uniform2f(uStars.u_hole, holeScreen[0], holeScreen[1]);
+    gl.uniform1f(uStars.u_lens, 0.9);
+    gl.uniform1f(uStars.u_time, time);
+    gl.uniform1f(uStars.u_pr, pr);
+    gl.bindVertexArray(starVAO);
+    gl.drawArrays(gl.POINTS, 0, stars.count);
+
+    // black sphere (opaque, writes depth) — overpaints stars behind it
+    gl.depthMask(true); gl.enable(gl.DEPTH_TEST);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.useProgram(progSphere);
+    gl.uniformMatrix4fv(uSphere.u_proj, false, proj);
+    gl.uniformMatrix4fv(uSphere.u_view, false, view);
+    gl.uniform1f(uSphere.u_time, time);
+    gl.bindVertexArray(sphereVAO);
+    gl.drawElements(gl.TRIANGLES, sph.idx.length, gl.UNSIGNED_SHORT, 0);
+
+    // accretion disk (additive, depth-tested so far side hides behind sphere)
+    gl.depthMask(false);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+    gl.useProgram(progDisk);
+    gl.uniformMatrix4fv(uDisk.u_proj, false, proj);
+    gl.uniformMatrix4fv(uDisk.u_view, false, view);
+    gl.uniform1f(uDisk.u_time, time);
+    gl.uniform1f(uDisk.u_pr, pr);
+    gl.bindVertexArray(diskVAO);
+    gl.drawArrays(gl.POINTS, 0, disk.count);
+
+    gl.disable(gl.BLEND);
+    gl.depthMask(true);
+
+    // ---- pass 2: bright extract ----
+    gl.bindFramebuffer(gl.FRAMEBUFFER, brightFBO.fb);
+    gl.viewport(0,0,bw,bh);
+    gl.useProgram(progBright);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, sceneFBO.tex);
+    gl.uniform1i(uBright.u_tex, 0);
+    gl.uniform1f(uBright.u_threshold, 0.55);
+    gl.bindVertexArray(quadVAO);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+    // ---- pass 3: blur ping-pong ----
+    gl.useProgram(progBlur);
+    gl.uniform1i(uBlur.u_tex, 0);
+    let src = brightFBO;
+    const texel = [1/bw, 1/bh];
+    for (let i=0;i<5;i++){
+      // horizontal
+      gl.bindFramebuffer(gl.FRAMEBUFFER, blurA.fb);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, src.tex);
+      gl.uniform2f(uBlur.u_dir, texel[0]* (1.0+ i*0.6), 0);
+      gl.bindVertexArray(quadVAO); gl.drawArrays(gl.TRIANGLES, 0, 3);
+      // vertical
+      gl.bindFramebuffer(gl.FRAMEBUFFER, blurB.fb);
+      gl.bindTexture(gl.TEXTURE_2D, blurA.tex);
+      gl.uniform2f(uBlur.u_dir, 0, texel[1]*(1.0+ i*0.6));
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      src = blurB;
+    }
+
+    // ---- pass 4: composite to screen ----
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0,0,W,H);
+    gl.useProgram(progComposite);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, sceneFBO.tex);
+    gl.uniform1i(uComposite.u_scene, 0);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, blurB.tex);
+    gl.uniform1i(uComposite.u_bloom, 1);
+    gl.uniform1f(uComposite.u_bloomStr, 1.25);
+    gl.bindVertexArray(quadVAO);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+Open the existing file /home/ubuntu/deepseek-activation/docs/results/eval-v5-claude-models/runs/muse-free/blackhole/artifact.html and fix it in place (do not create other files).
+
+The existing artifact.html already passes requirements. Optimize the visual quality: richer accretion disk detail, smoother bloom, more visible starfield, or better camera motion. Do not break anything that already works.
+
+After fixing, verify it loads without errors and stop. Write the fixed file to the SAME path /home/ubuntu/deepseek-activation/docs/results/eval-v5-claude-models/runs/muse-free/blackhole/artifact.html.

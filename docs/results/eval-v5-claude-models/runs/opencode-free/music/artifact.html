@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Music Visualizer</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; background: #0a0a12; color: #e8e8f0;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
+  #app { display: flex; flex-direction: column; height: 100%; }
+  #stage { flex: 1; position: relative; min-height: 0; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #controls {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+    padding: 12px 16px; background: rgba(18,18,30,.95);
+    border-top: 1px solid #26263a;
+  }
+  button, label.filebtn {
+    background: #1d1d30; color: #e8e8f0; border: 1px solid #34345a;
+    border-radius: 8px; padding: 8px 14px; font-size: 14px; cursor: pointer;
+    transition: background .15s, border-color .15s;
+    user-select: none;
+  }
+  button:hover, label.filebtn:hover { background: #2a2a48; border-color: #4a4a80; }
+  button.active { background: #3b3b7a; border-color: #6c6cff; color: #fff; }
+  input[type=file], input[type=range] { display: none; }
+  #seek { display: inline !important; flex: 1; min-width: 120px; cursor: pointer; accent-color: #6c6cff; }
+  .group { display: flex; gap: 6px; align-items: center; }
+  .sep { width: 1px; height: 24px; background: #34345a; margin: 0 4px; }
+  #time { font-variant-numeric: tabular-nums; font-size: 13px; color: #9a9ab8; min-width: 96px; text-align: center; }
+  #status { font-size: 13px; color: #7a7aa0; margin-left: auto; }
+  #vol { width: 90px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage"><canvas id="canvas"></canvas></div>
+  <div id="controls">
+    <div class="group">
+      <button id="btnPlay" title="Play / Pause">▶ Play</button>
+      <button id="btnStop" title="Stop">⏹ Stop</button>
+      <input type="range" id="seek" min="0" max="1000" value="0">
+      <span id="time">0:00 / 0:00</span>
+      <input type="range" id="vol" class="vol" min="0" max="100" value="80" title="Volume">
+    </div>
+    <div class="sep"></div>
+    <div class="group">
+      <label class="filebtn" for="fileInput">📁 Load File</label>
+      <input type="file" id="fileInput" accept="audio/*">
+      <button id="btnMic">🎙 Microphone</button>
+    </div>
+    <div class="sep"></div>
+    <div class="group" id="modeGroup">
+      <button class="mode active" data-mode="bars">Bars</button>
+      <button class="mode" data-mode="rings">Rings</button>
+      <button class="mode" data-mode="particles">Particles</button>
+    </div>
+    <span id="status">Idle — press Play or load a file</span>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---------- Constants ----------
+  var FFT_SIZE = 512;                 // => 256 bins (>= 60 required)
+  var BINS = 64;                      // visual bands drawn from analyser
+  var SMOOTHING = 0.8;
+
+  // ---------- State ----------
+  var audioCtx = null;
+  var analyser = null;
+  var gainNode = null;
+  var sourceNode = null;              // current MediaElementSource or MicSource
+  var micStream = null;
+  var usingMic = false;
+
+  var audioEl = new Audio();
+  audioEl.crossOrigin = 'anonymous';
+  audioEl.loop = false;
+
+  var mode = 'bars';
+  var freqData = null;
+  var smoothed = new Float32Array(BINS);
+
+  // Particles state
+  var particles = [];
+  var PARTICLE_COUNT = 160;
+
+  // ---------- DOM ----------
+  var canvas = document.getElementById('canvas');
+  var ctx = canvas.getContext('2d');
+  var btnPlay = document.getElementById('btnPlay');
+  var btnStop = document.getElementById('btnStop');
+  var seek = document.getElementById('seek');
+  var vol = document.getElementById('vol');
+  var timeLabel = document.getElementById('time');
+  var statusLabel = document.getElementById('status');
+  var fileInput = document.getElementById('fileInput');
+  var btnMic = document.getElementById('btnMic');
+
+  function setStatus(t) { statusLabel.textContent = t; }
+
+  // ---------- Canvas sizing ----------
+  var W = 0, H = 0, DPR = Math.min(window.devicePixelRatio || 1, 2);
+  function resize() {
+    var rect = canvas.parentElement.getBoundingClientRect();
+    W = Math.max(1, Math.floor(rect.width));
+    H = Math.max(1, Math.floor(rect.height));
+    canvas.width = W * DPR;
+    canvas.height = H * DPR;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // ---------- Audio graph ----------
+  function ensureCtx() {
+    if (!audioCtx) {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) throw new Error('WebAudio not supported');
+      audioCtx = new AC();
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = FFT_SIZE;
+      analyser.smoothingTimeConstant = SMOOTHING;
+      gainNode = audioCtx.createGain();
+      gainNode.gain.value = vol.value / 100;
+      analyser.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      freqData = new Uint8Array(analyser.frequencyBinCount);
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }
+
+  function disconnectSource() {
+    stopMic();
+    try { if (sourceNode) sourceNode.disconnect(); } catch (e) {}
+    sourceNode = null;
+  }
+
+  function connectElement() {
+    ensureCtx();
+    disconnectSource();
+    sourceNode = audioCtx.createMediaElementSource(audioEl);
+    sourceNode.connect(analyser);
+    usingMic = false;
+  }
+
+  function stopMic() {
+    if (micStream) {
+      micStream.getTracks().forEach(function (t) { t.stop(); });
+      micStream = null;
+    }
+    usingMic = false;
+    btnMic.classList.remove('active');
+  }
+
+  async function startMic() {
+    try {
+      ensureCtx();
+      var stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      disconnectSource();
+      micStream = stream;
+      sourceNode = audioCtx.createMediaStreamSource(stream);
+      // Do NOT route mic to destination (feedback); analyse only.
+      sourceNode.connect(analyser);
+      usingMic = true;
+      btnMic.classList.add('active');
+      btnPlay.textContent = '▶ Play';
+      setStatus('Microphone live — speak or play music nearby');
+    } catch (err) {
+      setStatus('Mic denied/unavailable: ' + err.name);
+    }
+  }
+
+  // ---------- Playback controls ----------
+  function fmt(s) {
+    s = Math.max(0, Math.floor(s || 0));
+    return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2);
+  }
+
+  function updatePlayBtn() {
+    btnPlay.textContent = (!audioEl.paused && !audioEl.ended) ? '⏸ Pause' : '▶ Play';
+  }
+
+  btnPlay.addEventListener('click', function () {
+    if (usingMic) { stopMic(); setStatus('Mic stopped'); return; }
+    ensureCtx();
+    if (!sourceNode) connectElement();
+    if (audioEl.paused) {
+      if (!audioEl.src) { setStatus('No file loaded — pick one first'); return; }
+      audioEl.play().then(function () {
+        setStatus('Playing ' + (audioEl.fileName || 'file'));
+        updatePlayBtn();
+      }).catch(function (e) { setStatus('Play failed: ' + e.message); });
+    } else {
+      audioEl.pause();
+      updatePlayBtn();
+      setStatus('Paused');
+    }
+  });
+
+  btnStop.addEventListener('click', function () {
+    if (usingMic) { stopMic(); setStatus('Mic stopped'); return; }
+    audioEl.pause();
+    audioEl.currentTime = 0;
+    seek.value = 0;
+    updatePlayBtn();
+    setStatus('Stopped');
+  });
+
+  seek.addEventListener('input', function () {
+    if (isFinite(audioEl.duration) && audioEl.duration > 0) {
+      audioEl.currentTime = (seek.value / 1000) * audioEl.duration;
+    }
+  });
+
+  vol.addEventListener('input', function () {
+    if (gainNode) gainNode.gain.value = vol.value / 100;
+  });
+
+  fileInput.addEventListener('change', function () {
+    var f = fileInput.files && fileInput.files[0];
+    if (!f) return;
+    ensureCtx();
+    if (!sourceNode || usingMic) connectElement();
+    audioEl.src = URL.createObjectURL(f);
+    audioEl.fileName = f.name;
+    audioEl.load();
+    audioEl.play().then(function () {
+      setStatus('Playing ' + f.name);
+      updatePlayBtn();
+    }).catch(function (e) { setStatus('Loaded but autoplay blocked — press Play'); });
+  });
+
+  btnMic.addEventListener('click', startMic);
+
+  audioEl.addEventListener('timeupdate', function () {
+    if (isFinite(audioEl.duration) && audioEl.duration > 0) {
+      seek.value = Math.round((audioEl.currentTime / audioEl.duration) * 1000);
+    }
+    timeLabel.textContent = fmt(audioEl.currentTime) + ' / ' + fmt(audioEl.duration);
+  });
+  audioEl.addEventListener('ended', function () { updatePlayBtn(); setStatus('Ended'); });
+  audioEl.addEventListener('error', function () {
+    if (audioEl.src) setStatus('Audio error — unsupported format?');
+  });
+
+  // ---------- Analysis ----------
+  function sampleLevels(t) {
+    var levels = new Float32Array(BINS);
+    if (analyser && (usingMic || (!audioEl.paused && !audioEl.ended))) {
+      analyser.getByteFrequencyData(freqData);
+      // Log-ish grouping over usable range (skip top ~15% which is usually empty)
+      var usable = Math.floor(freqData.length * 0.85);
+      for (var i = 0; i < BINS; i++) {
+        var lo = Math.floor(Math.pow(i / BINS, 1.6) * usable);
+        var hi = Math.max(lo + 1, Math.floor(Math.pow((i + 1) / BINS, 1.6) * usable));
+        var sum = 0;
+        for (var j = lo; j < hi; j++) sum += freqData[j];
+        levels[i] = sum / (hi - lo) / 255;
+      }
+    }
+    for (var k = 0; k < BINS; k++) {
+      // Idle animation when no signal: gentle synthetic wave
+      var idle = 0.06 + 0.05 * Math.sin(t * 0.0016 + k * 0.35) * Math.sin(t * 0.0009 + k * 0.11);
+      var target = Math.max(levels[k], idle);
+      smoothed[k] += (target - smoothed[k]) * (target > smoothed[k] ? 0.5 : 0.12);
+    }
+    return smoothed;
+  }
+
+  function overallLevel(levels) {
+    var s = 0;
+    for (var i = 0; i < levels.length; i++) s += levels[i];
+    return s / levels.length;
+  }
+
+  // ---------- Color helper ----------
+  function hueColor(h, s, l, a) {
+    return 'hsla(' + h + ',' + s + '%,' + l + '%,' + a + ')';
+  }
+
+  // ---------- Modes ----------
+  function drawBars(levels, t) {
+    var n = BINS;
+    var gap = 3;
+    var bw = (W - gap * (n - 1)) / n;
+    var baseY = H * 0.78;
+    for (var i = 0; i < n; i++) {
+      var v = levels[i];
+      var bh = Math.max(2, v * H * 0.62);
+      var x = i * (bw + gap);
+      var hue = 200 + (i / n) * 140 + t * 0.01;
+      var grad = ctx.createLinearGradient(0, baseY - bh, 0, baseY);
+      grad.addColorStop(0, hueColor(hue % 360, 95, 65, 0.95));
+      grad.addColorStop(1, hueColor((hue + 40) % 360, 85, 45, 0.55));
+      ctx.fillStyle = grad;
+      // rounded-ish bar via simple rect + cap glow
+      ctx.fillRect(x, baseY - bh, bw, bh);
+      ctx.fillStyle = hueColor(hue % 360, 100, 75, 0.9);
+      ctx.fillRect(x, baseY - bh - 3, bw, 3);
+      // reflection
+      ctx.fillStyle = hueColor(hue % 360, 90, 55, 0.12);
+      ctx.fillRect(x, baseY + 4, bw, bh * 0.25);
+    }
+    // baseline
+    ctx.fillStyle = 'rgba(120,120,180,0.25)';
+    ctx.fillRect(0, baseY, W, 1);
+  }
+
+  function drawRings(levels, t) {
+    var cx = W / 2, cy = H / 2;
+    var baseR = Math.min(W, H) * 0.18;
+    var maxR = Math.min(W, H) * 0.42;
+    var n = BINS;
+    // central pulsing circle
+    var lvl = overallLevel(levels);
+    ctx.beginPath();
+    ctx.arc(cx, cy, baseR * (0.9 + lvl * 0.5), 0, Math.PI * 2);
+    var g = ctx.createRadialGradient(cx, cy, 0, cx, cy, baseR * 1.4);
+    g.addColorStop(0, hueColor((t * 0.02) % 360, 90, 60, 0.8));
+    g.addColorStop(1, hueColor((t * 0.02 + 60) % 360, 90, 40, 0.05));
+    ctx.fillStyle = g;
+    ctx.fill();
+
+    ctx.lineWidth = Math.max(2, Math.min(W, H) / 220);
+    for (var i = 0; i < n; i++) {
+      var v = levels[i];
+      var ang = (i / n) * Math.PI * 2 + t * 0.0004;
+      var len = baseR + v * (maxR - baseR);
+      var x1 = cx + Math.cos(ang) * baseR;
+      var y1 = cy + Math.sin(ang) * baseR;
+      var x2 = cx + Math.cos(ang) * len;
+      var y2 = cy + Math.sin(ang) * len;
+      ctx.strokeStyle = hueColor((200 + (i / n) * 160 + t * 0.015) % 360, 90, 60, 0.85);
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+      // mirrored inner ring accents
+      var ang2 = -ang;
+      ctx.strokeStyle = hueColor((300 + (i / n) * 60 + t * 0.01) % 360, 85, 65, 0.35);
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(ang2) * baseR * 0.92, cy + Math.sin(ang2) * baseR * 0.92);
+      ctx.lineTo(cx + Math.cos(ang2) * (baseR * 0.92 + v * baseR * 0.5), cy + Math.sin(ang2) * (baseR * 0.92 + v * baseR * 0.5));
+      ctx.stroke();
+    }
+  }
+
+  function initParticles() {
+    particles.length = 0;
+    for (var i = 0; i < PARTICLE_COUNT; i++) {
+      particles.push({
+        x: Math.random(), y: Math.random(),
+        vx: (Math.random() - 0.5) * 0.002,
+        vy: (Math.random() - 0.5) * 0.002,
+        size: 1 + Math.random() * 2.5,
+        bin: Math.floor(Math.random() * BINS),
+        phase: Math.random() * Math.PI * 2
+      });
+    }
+  }
+  initParticles();
+
+  function drawParticles(levels, t, dt) {
+    var cx = W / 2, cy = H / 2;
+    var lvl = overallLevel(levels);
+    for (var i = 0; i < particles.length; i++) {
+      var p = particles[i];
+      var energy = levels[p.bin];
+      // drift outward from center proportional to band energy
+      var dx = p.x * W - cx, dy = p.y * H - cy;
+      var dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      var push = energy * dt * 0.35;
+      p.x += (p.vx + (dx / dist) * push / W) * dt * 60 * 0.016;
+      p.y += (p.vy + (dy / dist) * push / H) * dt * 60 * 0.016;
+      // wrap
+      if (p.x < -0.02) p.x = 1.02; if (p.x > 1.02) p.x = -0.02;
+      if (p.y < -0.02) p.y = 1.02; if (p.y > 1.02) p.y = -0.02;
+      var r = p.size * (1 + energy * 4);
+      var hue = (200 + (p.bin / BINS) * 160 + t * 0.02) % 360;
+      ctx.beginPath();
+      ctx.arc(p.x * W, p.y * H, r, 0, Math.PI * 2);
+      ctx.fillStyle = hueColor(hue, 90, 55 + energy * 30, 0.35 + energy * 0.6);
+      ctx.fill();
+    }
+    // soft center glow reacting to level
+    var gr = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.min(W, H) * (0.15 + lvl * 0.3));
+    gr.addColorStop(0, hueColor((t * 0.03) % 360, 80, 50, 0.10 + lvl * 0.15));
+    gr.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = gr;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // ---------- Render loop ----------
+  var lastT = performance.now();
+  function frame(now) {
+    var dt = Math.min(0.05, (now - lastT) / 1000);
+    lastT = now;
+    var levels = sampleLevels(now);
+
+    // trail fade for smooth motion
+    ctx.fillStyle = 'rgba(10,10,18,0.28)';
+    ctx.fillRect(0, 0, W, H);
+
+    if (mode === 'bars') drawBars(levels, now);
+    else if (mode === 'rings') drawRings(levels, now);
+    else drawParticles(levels, now, dt);
+
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  // ---------- Mode switching ----------
+  var modeButtons = document.querySelectorAll('.mode');
+  modeButtons.forEach(function (b) {
+    b.addEventListener('click', function () {
+      modeButtons.forEach(function (x) { x.classList.remove('active'); });
+      b.classList.add('active');
+      mode = b.getAttribute('data-mode');
+      // clear trails on switch
+      ctx.fillStyle = '#0a0a12';
+      ctx.fillRect(0, 0, W, H);
+    });
+  });
+
+  setStatus('Ready — animation running. Load a file or use the mic.');
+})();
+</script>
+</body>
+</html>

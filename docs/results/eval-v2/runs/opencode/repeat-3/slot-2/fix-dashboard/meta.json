@@ -1,0 +1,449 @@
+{
+  "schemaVersion": 1,
+  "runId": "opencode-fix-dashboard-r3-no-rules",
+  "sessionTitle": "opencode-fix-dashboard-r3-slot-2",
+  "client": "opencode",
+  "model": "hroze-sp/deepseek-v4-flash",
+  "rules": "no-rules",
+  "slot": 2,
+  "executionMode": "parallel-cases",
+  "concurrencyGroup": "r3-slot-2",
+  "ruleHash": null,
+  "ruleState": "absent",
+  "promptHash": "bc69b59c078bb8094af6f2c41d063f36f53d71cc4d49871430376ba33f348a49",
+  "fixtureHash": "fbd60ec30bb13c6b6182201bf9275f47a4c871708d925c79e28b7fbbb7a06026",
+  "caseId": "fix-dashboard",
+  "repeat": 3,
+  "startedAt": "2026-08-20T16:21:48.228Z",
+  "finishedAt": "2026-08-20T16:25:10.027Z",
+  "startedEpochMs": 1787242908228,
+  "finishedEpochMs": 1787243110027,
+  "durationMs": 201798,
+  "evaluationDurationMs": 6456,
+  "totalDurationMs": 208254,
+  "exitCode": 0,
+  "signal": null,
+  "timedOut": false,
+  "infrastructureMethodVersion": 2,
+  "infrastructureFailure": null,
+  "command": [
+    "opencode",
+    "run",
+    "--model",
+    "hroze-sp/deepseek-v4-flash",
+    "--format",
+    "json",
+    "--title",
+    "opencode-fix-dashboard-r3-slot-2",
+    "--dir",
+    "<RUN_DIR>",
+    "<PROMPT>"
+  ],
+  "stdout": "stdout.log",
+  "stderr": "stderr.log",
+  "artifact": "dashboard.html",
+  "usage": {
+    "status": "attributed",
+    "match": "title-directory-model-and-time",
+    "source": ".local/share/opencode/opencode.db",
+    "sessionId": "ses_fe0056e0cffe4VONcrU7m2lbyw",
+    "sessionDirectory": "/home/ubuntu/deepseek-activation/docs/results/eval-v2/runs/opencode/repeat-3/slot-2/fix-dashboard",
+    "inputTokens": 24448,
+    "outputTokens": 7523,
+    "thinkingTokens": 0,
+    "cacheReadTokens": 415232,
+    "cacheWriteTokens": 0,
+    "cost": 0,
+    "model": {
+      "id": "deepseek-v4-flash",
+      "providerID": "hroze-sp",
+      "variant": "default"
+    },
+    "timeCreated": 1787242910196,
+    "timeUpdated": 1787243109886
+  },
+  "evaluation": {
+    "methodVersion": 5,
+    "generated": true,
+    "artifactChanged": true,
+    "artifactHash": "1043b1b6d6ee715afe24a785ca41e5a0a068967dafb9d39d78ac20036e519116",
+    "bytes": 11101,
+    "syntaxPass": true,
+    "syntaxFailures": [],
+    "runtimePass": true,
+    "runtimeErrors": [],
+    "browserFailure": null,
+    "contractPassed": 10,
+    "contractTotal": 10,
+    "contractChecks": [
+      {
+        "id": "four-kpis",
+        "pass": true,
+        "observed": [
+          "$549,279",
+          "3,032",
+          "$181",
+          "42%"
+        ]
+      },
+      {
+        "id": "four-populated-charts",
+        "pass": true,
+        "observed": {
+          "populated": 4,
+          "hosts": 4
+        }
+      },
+      {
+        "id": "two-filters",
+        "pass": true,
+        "observed": {
+          "region": 1,
+          "category": 1,
+          "period": 1
+        }
+      },
+      {
+        "id": "period-control",
+        "pass": true,
+        "observed": {
+          "region": 1,
+          "category": 1,
+          "period": 1
+        }
+      },
+      {
+        "id": "refresh-control",
+        "pass": true,
+        "observed": true
+      },
+      {
+        "id": "refresh-changes-data",
+        "pass": true,
+        "observed": {
+          "before": [
+            "$549,279",
+            "3,032",
+            "$181",
+            "42%"
+          ],
+          "after": [
+            "$572,598",
+            "3,178",
+            "$180",
+            "41%"
+          ]
+        }
+      },
+      {
+        "id": "region-filter-updates",
+        "pass": true,
+        "observed": {
+          "changed": true,
+          "descriptor": "region regionall regionseastwest",
+          "target": {
+            "kind": "region",
+            "tag": "select",
+            "type": "select-one",
+            "id": "region",
+            "name": null,
+            "text": "All regionsEastWest"
+          },
+          "before": [
+            "$549,279",
+            "3,032",
+            "$181",
+            "42%"
+          ],
+          "after": [
+            "$282,999",
+            "1,585",
+            "$179",
+            "42%"
+          ],
+          "positiveKpis": 4
+        }
+      },
+      {
+        "id": "category-filter-updates",
+        "pass": true,
+        "observed": {
+          "changed": true,
+          "descriptor": "category categoryall categorieshardwaresoftwareservices",
+          "target": {
+            "kind": "category",
+            "tag": "select",
+            "type": "select-one",
+            "id": "category",
+            "name": null,
+            "text": "All categoriesHardwareSoftwareServices"
+          },
+          "before": [
+            "$549,279",
+            "3,032",
+            "$181",
+            "42%"
+          ],
+          "after": [
+            "$100,042",
+            "923",
+            "$108",
+            "44%"
+          ],
+          "positiveKpis": 4
+        }
+      },
+      {
+        "id": "period-updates",
+        "pass": true,
+        "observed": {
+          "changed": true,
+          "descriptor": "periods periods 6",
+          "target": {
+            "kind": "period",
+            "tag": "input",
+            "type": "range",
+            "id": "periods",
+            "name": null,
+            "text": ""
+          },
+          "before": [
+            "$549,279",
+            "3,032",
+            "$181",
+            "42%"
+          ],
+          "after": [
+            "$482,815",
+            "2,665",
+            "$181",
+            "42%"
+          ],
+          "positiveKpis": 4
+        }
+      },
+      {
+        "id": "hover-behavior",
+        "pass": true,
+        "observed": {
+          "target": true,
+          "candidateCount": 44,
+          "attempts": 1,
+          "nativeTitle": false,
+          "detailAttribute": true,
+          "appeared": true,
+          "marked": false,
+          "selected": {
+            "x": 104.90909194946289,
+            "y": 378.90293884277344,
+            "source": "explicit",
+            "tag": "circle",
+            "id": null,
+            "nativeTitle": false,
+            "detailAttribute": true
+          },
+          "before": {
+            "visibleText": "",
+            "hoverMarks": 0
+          },
+          "after": {
+            "visibleText": "Jan: $66,464",
+            "hoverMarks": 0
+          }
+        }
+      }
+    ],
+    "interactionPass": true,
+    "visualSanity": true,
+    "screenshot": "screenshot.png",
+    "screenshotBytes": 163830,
+    "externalResources": [],
+    "placeholderCount": 0,
+    "runtimeSnapshot": {
+      "title": "Northstar Sales",
+      "text": "Northstar Sales Deterministic operating dashboard Region All regions East West Category All categories Hardware Software Services Periods 6 Refresh data REVENUE $549,279 ORDERS 3,032 AVERAGE ORDER VALUE $181 MARGIN 42% Monthly revenue trend Revenue by category Hardware Software Services Regional share East 52% West 48% Spend vs revenue",
+      "textLength": 337,
+      "buttons": [
+        "Refresh data"
+      ],
+      "inputs": [
+        {
+          "type": "select-one",
+          "value": "all"
+        },
+        {
+          "type": "select-one",
+          "value": "all"
+        },
+        {
+          "type": "range",
+          "value": "6"
+        }
+      ],
+      "canvasCount": 0,
+      "svgCount": 4,
+      "nonEmptySvgCount": 4,
+      "kpiLikeCount": 5,
+      "bodyWidth": 1265,
+      "bodyHeight": 795
+    },
+    "visualStats": {
+      "meanLuma": 31.52965670138727,
+      "lumaVariance": 850.5012748584581,
+      "nonDarkRatio": 0.9987847222222223,
+      "centerNonDarkRatio": 0.9976782752902156,
+      "colorfulRatio": 0.9831597222222223,
+      "colorBuckets": 116
+    },
+    "benchmark": {
+      "initial": {
+        "kpis": [
+          "$549,279",
+          "3,032",
+          "$181",
+          "42%"
+        ],
+        "positiveKpis": 4,
+        "populatedCharts": 4,
+        "chartHosts": 4,
+        "selects": 2,
+        "ranges": 1,
+        "controlCounts": {
+          "region": 1,
+          "category": 1,
+          "period": 1
+        },
+        "hoverTargets": 49,
+        "tooltipElements": 1
+      },
+      "refreshed": {
+        "kpis": [
+          "$572,598",
+          "3,178",
+          "$180",
+          "41%"
+        ],
+        "positiveKpis": 4,
+        "populatedCharts": 4,
+        "chartHosts": 4,
+        "selects": 2,
+        "ranges": 1,
+        "controlCounts": {
+          "region": 1,
+          "category": 1,
+          "period": 1
+        },
+        "hoverTargets": 49,
+        "tooltipElements": 1
+      },
+      "controls": {
+        "region": {
+          "changed": true,
+          "descriptor": "region regionall regionseastwest",
+          "target": {
+            "kind": "region",
+            "tag": "select",
+            "type": "select-one",
+            "id": "region",
+            "name": null,
+            "text": "All regionsEastWest"
+          },
+          "before": [
+            "$549,279",
+            "3,032",
+            "$181",
+            "42%"
+          ],
+          "after": [
+            "$282,999",
+            "1,585",
+            "$179",
+            "42%"
+          ],
+          "positiveKpis": 4
+        },
+        "category": {
+          "changed": true,
+          "descriptor": "category categoryall categorieshardwaresoftwareservices",
+          "target": {
+            "kind": "category",
+            "tag": "select",
+            "type": "select-one",
+            "id": "category",
+            "name": null,
+            "text": "All categoriesHardwareSoftwareServices"
+          },
+          "before": [
+            "$549,279",
+            "3,032",
+            "$181",
+            "42%"
+          ],
+          "after": [
+            "$100,042",
+            "923",
+            "$108",
+            "44%"
+          ],
+          "positiveKpis": 4
+        },
+        "period": {
+          "changed": true,
+          "descriptor": "periods periods 6",
+          "target": {
+            "kind": "period",
+            "tag": "input",
+            "type": "range",
+            "id": "periods",
+            "name": null,
+            "text": ""
+          },
+          "before": [
+            "$549,279",
+            "3,032",
+            "$181",
+            "42%"
+          ],
+          "after": [
+            "$482,815",
+            "2,665",
+            "$181",
+            "42%"
+          ],
+          "positiveKpis": 4
+        }
+      },
+      "hover": {
+        "pass": true,
+        "observed": {
+          "target": true,
+          "candidateCount": 44,
+          "attempts": 1,
+          "nativeTitle": false,
+          "detailAttribute": true,
+          "appeared": true,
+          "marked": false,
+          "selected": {
+            "x": 104.90909194946289,
+            "y": 378.90293884277344,
+            "source": "explicit",
+            "tag": "circle",
+            "id": null,
+            "nativeTitle": false,
+            "detailAttribute": true
+          },
+          "before": {
+            "visibleText": "",
+            "hoverMarks": 0
+          },
+          "after": {
+            "visibleText": "Jan: $66,464",
+            "hoverMarks": 0
+          }
+        }
+      }
+    },
+    "fullPass": true
+  },
+  "reevaluatedAt": "2026-08-20T16:38:43.764Z"
+}

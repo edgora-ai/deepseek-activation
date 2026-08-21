@@ -1,55 +1,52 @@
-# 黑洞渲染对比测试报告（2026-08-19）
+# 黑洞渲染对比：历史探索与 v2 复核（2026-08-20）
 
-## 背景
+## 结论先行
 
-初始测试用例：**复杂 3D 静态渲染**。黑洞需要长输出（300+ 行 HTML、多特效），验证不同预设/规则在"渲染质量"上的差异。此轮使用同一提示词（未指定量化指标），考察各通道的默认表现。
+旧报告主要比较文件大小、粒子数和源码关键词，并错误地把直升机任务的 Claude 无规则数据放入黑洞表。v2 对 `docs/results/round2/` 的 8 份 HTML 做语法、浏览器 runtime、任务合同、交互和截图像素检查后，**full pass 为 3/8**。规则和 preset 确实改变输出，但没有形成一致的质量提升方向。
 
-**提示词**：
-```
+机器结果见 [`results/eval-v2/audit/artifact-scores.json`](results/eval-v2/audit/artifact-scores.json)，同客户端配对见 [`results/eval-v2/audit/comparisons.md`](results/eval-v2/audit/comparisons.md)。
+
+## 提示词
+
+```text
 Create blackhole.html: a 3D black hole render with Three.js:
 accretion disk (particles with glow), bloom postprocessing,
 starfield, orbiting camera. Write the file and verify.
 ```
 
-## 测试矩阵与结果（Round 2 全新重跑）
+## v2 机器复核
 
-| 配置 | 大小 | 关键特征 |
-|---|---|---|
-| **OpenCode 带规则** | 11675 B | 粒子 55000 |
-| **OpenCode 无规则 ×2** | 8471 / 9342 B | 粒子 14000 |
-| **Codex 带规则** | 9194 B | 粒子 14000 |
-| **Codex 无规则** | 9767 B | Points 6 |
-| **Claude 带规则 (solo)** | 12127 B | Kepler + OrbitControls |
-| **Claude 无规则** | 23477 B | rotor×19（直升机任务数据，黑洞轮失败）|
-| **DSH minimal** | 8014 B | Kepler + bloom |
-| **DSH router-standard** | 9721 B | **Kepler×3 + OrbitControls** |
+| 配置 | 语法 | runtime | 合同 | full pass | 主要原因 |
+|---|---:|---:|---:|---:|---|
+| Claude DeepSeek 带规则 | ✅ | ✅ | 6/6 | ✅ | 本语料没有可配对的 Claude DeepSeek 无规则产物 |
+| Claude Sonnet 5 control | ✅ | ❌ | 5/6 | ❌ | `THREE.EffectComposer` 构造失败，且不是同一模型对照 |
+| Codex 带规则 | ✅ | ✅ | 5/6 | ❌ | 缺 1 项明确需求 |
+| Codex 无规则 | ✅ | ✅ | 6/6 | ✅ | — |
+| DSH router-standard | ✅ | ❌ | 6/6 | ❌ | WebGL shader 校验失败，`vColor` 未声明 |
+| DSH minimal | ✅ | ✅ | 6/6 | ✅ | — |
+| OpenCode 带规则 | ✅ | ✅ | 5/6 | ❌ | 缺 1 项明确需求 |
+| OpenCode 无规则 | ✅ | ✅ | 5/6 | ❌ | 缺 1 项明确需求 |
 
-> 注：Claude 无规则在黑洞轮曾误判"失败"（实为 timeout 误杀），直升机轮证明其可用，此处标注基于实际成功轮。
+汇总：语法 8/8、runtime 6/8、合同满分 4/8、full pass 3/8。Claude Sonnet control 的截图未通过视觉 sanity；其模型不同，不能用于 DeepSeek 规则效果归因。
 
-## 过程指标（token / 耗时 / 思维特征）
+## 配对观察
 
-| 配置 | input | output | thinking | 耗时 |
-|---|---|---|---|---|
-| Codex 带规则 | 130.5k | 15k | 0 | 3:16 |
-| Codex 无规则 | 672.8k | 27.9k | 0 | 8:05 |
-| OpenCode 带规则 | 12.7k | 12k | 0 | ~4min |
-| OpenCode 无规则 | 38.4k | 6.1k | 1.8k | ~4min |
-| Claude 带规则 (solo) | 194.8k | 102.4k | 0* | 8:19 |
+- Codex：无规则 full pass，带规则从 6/6 回退到 5/6。
+- OpenCode：带规则与无规则都为 5/6，均未 full pass。
+- DSH：minimal full pass；router-standard 虽满足静态合同，但 shader 编译失败，构成 runtime 回退。
+- Claude：只有 DeepSeek 带规则样本；旧表中的“Claude 无规则 23477 B、rotor×19”来自直升机任务，现已删除，不能形成配对。
 
-*deepseek-free 的 thinking 在 claude 不计入 usage（有 thinking 文本但计数 0）。
+因此，“规则放大粒子密度”可作为源码规模观察，但“质量基线相同”“router-standard 更优”“无规则 token 更高且规则更收敛”都没有被本轮可靠证明。
 
-## 关键发现
+## 旧过程指标为何不再用于结论
 
-### 1. 规则 = 放大器，不是开关
-- 有规则时粒子更多（OpenCode 55000 vs 14000），无规则也出完整黑洞
-- 质量基线相同，规则放大密度但不能决成败
+旧报告中的 token 数值在多个任务报告中重复，不能证明与该黑洞 session 唯一对应；thinking 字段也跨客户端不可比。v2 只接受运行目录、标题、时间窗唯一归属的 session usage，无法归属时记录 `null`，不会估算或复用其他任务数据。
 
-### 2. 预设差异可测
-- **DSH router-standard 激活 Kepler×3 + OrbitControls**（物理+交互），minimal 只有 Kepler×1 无控制
+粒子数、`Kepler`、`OrbitControls` 和文件字节数只保留为描述性指标。尤其 DSH router-standard 展示了更多物理/交互线索，却因为 shader 错误未达到 runtime-clean completion，说明源码关键词不能代替执行验证。
 
-### 3. 无规则 token 更高
-- Codex 无规则 672k vs 带规则 130k（5×）——规则让模型更收敛
+## 产物与复现
 
-## 产物 / 复现
-
-产物：`docs/results/round2/`（8 配置 HTML + 7 截图）。复现：`docs/tests-method.md` 黑洞章节。
+- 原始 HTML：`docs/results/round2/`
+- v2 截图：`docs/results/eval-v2/audit/screenshots/round2__*.png`
+- 复核命令：`node eval/audit-existing.mjs && node eval/report-audit.mjs`
+- 方法：[`tests-method.md`](tests-method.md)

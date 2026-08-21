@@ -1,0 +1,57 @@
+{
+  "runId": "dsh-minimal-game",
+  "task": "game",
+  "config": "dsh-minimal",
+  "startedAt": "2026-08-20T18:48:43.709Z",
+  "rules": "dsh-minimal",
+  "ruleState": "dsh-preset",
+  "settings": {
+    "original": "864e77e2973d3d862d689472d6f0d53a25aeb0e90715b81fb7f2eccc7f2f550e",
+    "patched": "6bb1717de3dc65aa81569787e8c70eb98141d4038494aad50ecd09603816c214"
+  },
+  "generation": {
+    "exitCode": 0,
+    "signal": null,
+    "timedOut": false,
+    "durationMs": 1442509,
+    "startedEpochMs": 1787251723714,
+    "stdout": "**ALL CHECKS PASS on the current disk content (sha256 629e177bcaf3f910)**:\n- Content identity: it's my Space Shooter game (marker present), JS compiles clean\n- No external assets, no network references\n- Sim 1: load → menu → Space starts → arrow/WASD movement → resize → mute toggle → ~22s of gameplay with shooting and 3 enemy kills, no exceptions\n- Sim 2: deterministic r\n",
+    "stderr": "$ node --import tsx/esm apps/cli/src/bin.ts --profile headless 'Create artifact.html as one self-contained HTML file with no external assets or libraries (all JavaScript and CSS inline). Do not modify any files outside artifact.html.\n\nBuild a playable space shooter game on a canvas: player ship that moves with arrow keys or WASD and shoots with Space, enemy ships that spawn and move, collision handling with explosions, a score display, and a start screen. The game must render and be controllable immediately. Write the file, verify it loads without errors, fix any failed requirement, and stop.'\n"
+  },
+  "durationMs": 1442509,
+  "finishedAt": "2026-08-20T19:12:46.242Z",
+  "exitCode": 0,
+  "signal": null,
+  "timedOut": false,
+  "usage": {
+    "status": "unavailable",
+    "reason": "dsh does not expose an implemented run-attribution source",
+    "candidateSessionIds": []
+  },
+  "artifact": null,
+  "evaluation": {
+    "methodVersion": 6,
+    "generated": false,
+    "artifactHash": null,
+    "bytes": 0,
+    "syntaxPass": false,
+    "syntaxFailures": [],
+    "runtimePass": false,
+    "runtimeErrors": [],
+    "browserFailure": "target artifact was not generated",
+    "contractPassed": 0,
+    "contractTotal": 0,
+    "contractChecks": [],
+    "interactionPass": false,
+    "interaction": null,
+    "visualSanity": false,
+    "screenshot": null,
+    "screenshotBytes": 0,
+    "externalResources": [],
+    "placeholderCount": 0,
+    "runtimeSnapshot": null,
+    "visualStats": null,
+    "fullPass": false
+  },
+  "vision": null
+}

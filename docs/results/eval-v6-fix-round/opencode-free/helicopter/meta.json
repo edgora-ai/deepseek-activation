@@ -1,0 +1,45 @@
+{
+  "runId": "opencode-free-helicopter-fix",
+  "model": "opencode-free",
+  "task": "helicopter",
+  "startedAt": "2026-08-21T13:58:40.913Z",
+  "finishedAt": "2026-08-21T14:02:19.868Z",
+  "durationMs": 218951,
+  "exitCode": 0,
+  "signal": null,
+  "baseline": {
+    "fullPass": false,
+    "contract": "6/7",
+    "runtimeErrors": 0
+  },
+  "artifact": null,
+  "evaluation": {
+    "methodVersion": 6,
+    "generated": false,
+    "artifactHash": null,
+    "bytes": 0,
+    "syntaxPass": false,
+    "syntaxFailures": [],
+    "runtimePass": false,
+    "runtimeErrors": [],
+    "browserFailure": "target artifact was not generated",
+    "contractPassed": 0,
+    "contractTotal": 0,
+    "contractChecks": [],
+    "interactionPass": false,
+    "interaction": null,
+    "visualSanity": false,
+    "screenshot": null,
+    "screenshotBytes": 0,
+    "externalResources": [],
+    "placeholderCount": 0,
+    "runtimeSnapshot": null,
+    "visualStats": null,
+    "fullPass": false
+  },
+  "vision": null,
+  "usage": {
+    "status": "unavailable",
+    "reason": "claude does not expose a run-attribution source"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "status": "ok",
+  "valid": true,
+  "summary": "画面清晰渲染出星空背景、底部飞船以及分数界面，属于可辨识的太空射击游戏画面。",
+  "model": "gpt-5.6-terra",
+  "durationMs": 4659
+}

@@ -1,0 +1,7 @@
+{
+  "status": "ok",
+  "valid": true,
+  "summary": "画面已渲染出彩色同心环形音乐可视化图案，布局正常且非空白。",
+  "model": "gpt-5.6-terra",
+  "durationMs": 4102
+}

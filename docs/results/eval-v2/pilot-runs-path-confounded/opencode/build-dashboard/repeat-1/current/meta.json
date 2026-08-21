@@ -1,0 +1,336 @@
+{
+  "schemaVersion": 1,
+  "runId": "opencode-build-dashboard-r1-current",
+  "client": "opencode",
+  "model": "opencode/deepseek-v4-flash-free",
+  "rules": "current",
+  "ruleHash": "94b1fb18e45afcb0892078e9924b1355e0601f557ae2fd51aa322105888c4213",
+  "ruleState": "94b1fb18e45afcb0892078e9924b1355e0601f557ae2fd51aa322105888c4213",
+  "promptHash": "a845cc27a66a67a3e767d23396f6b86c0069e9daaf7c0e1c4dfc25c8f031a5a1",
+  "fixtureHash": null,
+  "caseId": "build-dashboard",
+  "repeat": 1,
+  "startedAt": "2026-08-20T12:44:49.117Z",
+  "finishedAt": "2026-08-20T12:54:53.204Z",
+  "startedEpochMs": 1787229889117,
+  "finishedEpochMs": 1787230493204,
+  "durationMs": 604086,
+  "evaluationDurationMs": 8965,
+  "totalDurationMs": 613051,
+  "exitCode": 0,
+  "signal": null,
+  "timedOut": false,
+  "command": [
+    "opencode",
+    "run",
+    "--model",
+    "opencode/deepseek-v4-flash-free",
+    "--format",
+    "json",
+    "--title",
+    "opencode-build-dashboard-r1-current",
+    "<PROMPT>"
+  ],
+  "stdout": "stdout.log",
+  "stderr": "stderr.log",
+  "artifact": "dashboard.html",
+  "usage": {
+    "status": "attributed",
+    "match": "title-and-time",
+    "source": ".local/share/opencode/opencode.db",
+    "sessionId": "ses_fe0cc1541ffeI9A0zm9G9sRj4F",
+    "inputTokens": 118489,
+    "outputTokens": 20620,
+    "thinkingTokens": 821,
+    "cacheReadTokens": 840064,
+    "cacheWriteTokens": 0,
+    "cost": 0,
+    "model": {
+      "id": "deepseek-v4-flash-free",
+      "providerID": "opencode",
+      "variant": "default"
+    },
+    "timeCreated": 1787229891263,
+    "timeUpdated": 1787230493105
+  },
+  "evaluation": {
+    "generated": true,
+    "artifactChanged": true,
+    "artifactHash": "6ceb70b7d119b7f7bef3a42362b50a95446dbb9d778e9ec8c74d98ba16b518fc",
+    "bytes": 24074,
+    "syntaxPass": true,
+    "syntaxFailures": [],
+    "runtimePass": true,
+    "runtimeErrors": [],
+    "browserFailure": null,
+    "contractPassed": 11,
+    "contractTotal": 11,
+    "contractChecks": [
+      {
+        "id": "four-kpis",
+        "pass": true,
+        "observed": [
+          "$1,410,045",
+          "21,931",
+          "$64",
+          "52.7%"
+        ]
+      },
+      {
+        "id": "four-populated-charts",
+        "pass": true,
+        "observed": {
+          "populated": 4,
+          "hosts": 4
+        }
+      },
+      {
+        "id": "two-filters",
+        "pass": true,
+        "observed": 2
+      },
+      {
+        "id": "period-control",
+        "pass": true,
+        "observed": 1
+      },
+      {
+        "id": "refresh-control",
+        "pass": true,
+        "observed": true
+      },
+      {
+        "id": "refresh-changes-data",
+        "pass": true,
+        "observed": {
+          "before": [
+            "$1,410,045",
+            "21,931",
+            "$64",
+            "52.7%"
+          ],
+          "after": [
+            "$1,209,986",
+            "20,224",
+            "$60",
+            "53.1%"
+          ]
+        }
+      },
+      {
+        "id": "region-filter-updates",
+        "pass": true,
+        "observed": {
+          "changed": true,
+          "before": [
+            "$1,209,986",
+            "20,224",
+            "$60",
+            "53.1%"
+          ],
+          "after": [
+            "$348,919",
+            "5,531",
+            "$63",
+            "54.1%"
+          ],
+          "positiveKpis": 4
+        }
+      },
+      {
+        "id": "category-filter-updates",
+        "pass": true,
+        "observed": {
+          "changed": true,
+          "before": [
+            "$1,209,986",
+            "20,224",
+            "$60",
+            "53.1%"
+          ],
+          "after": [
+            "$326,180",
+            "5,329",
+            "$61",
+            "53.9%"
+          ],
+          "positiveKpis": 4
+        }
+      },
+      {
+        "id": "period-updates",
+        "pass": true,
+        "observed": {
+          "changed": true,
+          "before": [
+            "$1,209,986",
+            "20,224",
+            "$60",
+            "53.1%"
+          ],
+          "after": [
+            "$944,246",
+            "16,442",
+            "$57",
+            "53.3%"
+          ]
+        }
+      },
+      {
+        "id": "hover-behavior",
+        "pass": true,
+        "observed": {
+          "hoverTargets": 110,
+          "tooltipElements": 1
+        }
+      },
+      {
+        "id": "self-contained",
+        "pass": true,
+        "observed": []
+      }
+    ],
+    "interactionPass": true,
+    "visualSanity": true,
+    "screenshot": "screenshot.png",
+    "screenshotBytes": 106745,
+    "externalResources": [],
+    "placeholderCount": 0,
+    "runtimeSnapshot": {
+      "title": "Sales Analytics Dashboard",
+      "text": "Sales Analytics Dashboard 96 data points (4 regions, 4 categories, 6 months) · dataset seed 42 Region All regions North South East West Category All categories Electronics Apparel Home Outdoors Period Jan – Jun Refresh data REVENUE $1,410,045 ORDERS 21,931 AVG ORDER VALUE $64 PROFIT MARGIN 52.7% Revenue Trend by Period $0 $78.4K $156.7K $235.1K $313.4K Jan Feb Mar Apr May Jun Revenue by Category $0 $95.0K $190.0K $284.9K $379.9K Electronics Apparel Home Outdoors Regional Share undefined NaN% undefined NaN% undefined NaN% undefined NaN% Spend vs Revenue $0 $0 $4.8K $8.7K $9.6K $17.4K $14.3K $26.2K $19.1K $34.9K Spend Revenue",
+      "textLength": 631,
+      "buttons": [
+        "Refresh data"
+      ],
+      "inputs": [
+        {
+          "type": "select-one",
+          "value": "All"
+        },
+        {
+          "type": "select-one",
+          "value": "All"
+        },
+        {
+          "type": "range",
+          "value": "5"
+        }
+      ],
+      "canvasCount": 0,
+      "svgCount": 4,
+      "nonEmptySvgCount": 4,
+      "kpiLikeCount": 24,
+      "bodyWidth": 1265,
+      "bodyHeight": 934
+    },
+    "visualStats": {
+      "meanLuma": 51.26855701389178,
+      "lumaVariance": 1262.1555249703938,
+      "nonDarkRatio": 0.9998263888888889,
+      "centerNonDarkRatio": 0.9996683250414594,
+      "colorfulRatio": 0.9850694444444444,
+      "colorBuckets": 136
+    },
+    "benchmark": {
+      "initial": {
+        "kpis": [
+          "$1,410,045",
+          "21,931",
+          "$64",
+          "52.7%"
+        ],
+        "positiveKpis": 4,
+        "populatedCharts": 4,
+        "chartHosts": 4,
+        "selects": 2,
+        "ranges": 1,
+        "hoverTargets": 110,
+        "tooltipElements": 1
+      },
+      "refreshed": {
+        "kpis": [
+          "$1,209,986",
+          "20,224",
+          "$60",
+          "53.1%"
+        ],
+        "positiveKpis": 4,
+        "populatedCharts": 4,
+        "chartHosts": 4,
+        "selects": 2,
+        "ranges": 1,
+        "hoverTargets": 110,
+        "tooltipElements": 1
+      },
+      "selectResults": [
+        {
+          "changed": true,
+          "before": [
+            "$1,209,986",
+            "20,224",
+            "$60",
+            "53.1%"
+          ],
+          "after": [
+            "$348,919",
+            "5,531",
+            "$63",
+            "54.1%"
+          ],
+          "positiveKpis": 4
+        },
+        {
+          "changed": true,
+          "before": [
+            "$1,209,986",
+            "20,224",
+            "$60",
+            "53.1%"
+          ],
+          "after": [
+            "$326,180",
+            "5,329",
+            "$61",
+            "53.9%"
+          ],
+          "positiveKpis": 4
+        }
+      ],
+      "range": {
+        "changed": true,
+        "before": {
+          "kpis": [
+            "$1,209,986",
+            "20,224",
+            "$60",
+            "53.1%"
+          ],
+          "positiveKpis": 4,
+          "populatedCharts": 4,
+          "chartHosts": 4,
+          "selects": 2,
+          "ranges": 1,
+          "hoverTargets": 110,
+          "tooltipElements": 1
+        },
+        "after": {
+          "kpis": [
+            "$944,246",
+            "16,442",
+            "$57",
+            "53.3%"
+          ],
+          "positiveKpis": 4,
+          "populatedCharts": 4,
+          "chartHosts": 4,
+          "selects": 2,
+          "ranges": 1,
+          "hoverTargets": 93,
+          "tooltipElements": 1
+        }
+      }
+    },
+    "fullPass": true
+  }
+}

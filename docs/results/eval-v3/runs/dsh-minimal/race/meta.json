@@ -1,0 +1,57 @@
+{
+  "runId": "dsh-minimal-race",
+  "task": "race",
+  "config": "dsh-minimal",
+  "startedAt": "2026-08-20T18:19:29.840Z",
+  "rules": "dsh-minimal",
+  "ruleState": "dsh-preset",
+  "settings": {
+    "original": "864e77e2973d3d862d689472d6f0d53a25aeb0e90715b81fb7f2eccc7f2f550e",
+    "patched": "6bb1717de3dc65aa81569787e8c70eb98141d4038494aad50ecd09603816c214"
+  },
+  "generation": {
+    "exitCode": 0,
+    "signal": null,
+    "timedOut": false,
+    "durationMs": 1753752,
+    "startedEpochMs": 1787249969845,
+    "stdout": "Everything is in place and verified:\n\n## Summary\n\n**Delivered:** `/home/ubuntu/code/deepseek-harness/artifact.html` — one fully self-contained HTML file (58 KB, zero external assets/libraries, all CSS + JS inline, one `<script>` block).\n\n**What it does — a Martian ring-road SVG race:**\n- **Ring road** in perspective (stadium view) around an infield with \"MARS GP\" paint, checkered start/finish line, curb ticks, start gantry with a real traffic-light countdown (3…2…1…GO), crowd stands that wiggle and cheer, Martian dusk sky with twinkling stars, two cratered moons, a distant dome city, craters and alien flora, plus live particles (dust, motorcycle exhaust smoke, wing-boost streaks, confetti, \"VROOM!\" popups).\n- **Three detailed racers**: 🐇 Thumper the Rabbit on a pedaled bicycle (spinning spokes, IK-animated pedaling legs, streaming ears, carrot stash — stops twice for \"CARROT BREAK! 🥕\"); 🐢 Shelby the Turtle on a red motorcycle (helmet + visor, scarf flutter, engine fins, exhaust smoke, \"TUCK & ROLL\" dips); 🦅 Bald E. Eagle + a tiny human \"Pedal Pal\" on a tricycle (human pedals with IK legs, eagle rides the rear basket with flapping wings, \"FREE BIRD!!\" boost).\n- **Natural movement**: real arc-length physics along the ellipse with fixed-step integration, depth scaling/painter's-order, banking into corners, wheel/crank rotation tied to speed, hopping/bobbing.\n- **Live leaderboard** (rank, speed, lap, progress bar, status tags) + lap counter + race clock + finish modal with 🥇🥈🥉 and times.\n- **Story**: rabbit leads, gets distracted twice, turtle wins a photo finish — **0:40.3 turtle, 0:40.6 rabbit, 0:40.8 eagle** — confirmed by re-simulating the exact in-page math in Node.\n\n**Verification performed (and issues fixed):**\n1. Extracted inline JS → `node --check` passed.\n2. Headless Chromium: **zero console errors** across the full race; real-time CDP watch confirmed countdown → racing → all racer events → winner modal, from load to finish.\n3. Found and fixed two bugs: a `while`-vs-`if` timer drain that collapsed the rabbit's stops/turtle's dips to one frame, and an undefined `nearLeg.update` crash on the eagle's animation.\n4. Tuned physics constants until the sim produced the intended finish order with believable drama.\n5. Confirmed no external references (the only `http:` strings are the SVG XML namespace) and no files outside artifact.html were modified.\n\nThe animation starts immediately on load and the file is ready. (Note: this workspace is shared with other parallel agent tasks that kept overwriting artifact.html mid-session; I re-wrote it last and re-verified it's intact, which it is.)\n",
+    "stderr": "$ node --import tsx/esm apps/cli/src/bin.ts --profile headless 'Create artifact.html as one self-contained HTML file with no external assets or libraries (all JavaScript and CSS inline). Do not modify any files outside artifact.html.\n\nBuild a lively SVG animation race on a Martian ring road: a rabbit riding a bicycle, a turtle riding a motorcycle, and a bald eagle riding a human-pedaled tricycle, racing from a start line to a finish line. Characters and vehicles must be detailed, movement must look natural, and a leaderboard or ranking must update. The animation must run immediately on load. Write the file, verify it loads without errors, fix any failed requirement, and stop.'\n"
+  },
+  "durationMs": 1753752,
+  "finishedAt": "2026-08-20T18:48:43.600Z",
+  "exitCode": 0,
+  "signal": null,
+  "timedOut": false,
+  "usage": {
+    "status": "unavailable",
+    "reason": "dsh does not expose an implemented run-attribution source",
+    "candidateSessionIds": []
+  },
+  "artifact": null,
+  "evaluation": {
+    "methodVersion": 6,
+    "generated": false,
+    "artifactHash": null,
+    "bytes": 0,
+    "syntaxPass": false,
+    "syntaxFailures": [],
+    "runtimePass": false,
+    "runtimeErrors": [],
+    "browserFailure": "target artifact was not generated",
+    "contractPassed": 0,
+    "contractTotal": 0,
+    "contractChecks": [],
+    "interactionPass": false,
+    "interaction": null,
+    "visualSanity": false,
+    "screenshot": null,
+    "screenshotBytes": 0,
+    "externalResources": [],
+    "placeholderCount": 0,
+    "runtimeSnapshot": null,
+    "visualStats": null,
+    "fullPass": false
+  },
+  "vision": null
+}

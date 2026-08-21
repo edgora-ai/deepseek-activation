@@ -1,0 +1,465 @@
+{
+  "schemaVersion": 1,
+  "runId": "opencode-build-dashboard-r2-current",
+  "sessionTitle": "opencode-build-dashboard-r2-slot-1",
+  "client": "opencode",
+  "model": "hroze-sp/deepseek-v4-flash",
+  "rules": "current",
+  "slot": 1,
+  "ruleHash": "94b1fb18e45afcb0892078e9924b1355e0601f557ae2fd51aa322105888c4213",
+  "ruleState": "94b1fb18e45afcb0892078e9924b1355e0601f557ae2fd51aa322105888c4213",
+  "promptHash": "6aa490f957bb8189c15b056a5995592519da363a3d76f3a95c63b46e32a496b8",
+  "fixtureHash": null,
+  "caseId": "build-dashboard",
+  "repeat": 2,
+  "startedAt": "2026-08-20T15:05:16.135Z",
+  "finishedAt": "2026-08-20T15:09:24.944Z",
+  "startedEpochMs": 1787238316135,
+  "finishedEpochMs": 1787238564944,
+  "durationMs": 248808,
+  "evaluationDurationMs": 7214,
+  "totalDurationMs": 256022,
+  "exitCode": 0,
+  "signal": null,
+  "timedOut": false,
+  "infrastructureFailure": null,
+  "command": [
+    "opencode",
+    "run",
+    "--model",
+    "hroze-sp/deepseek-v4-flash",
+    "--format",
+    "json",
+    "--title",
+    "opencode-build-dashboard-r2-slot-1",
+    "--dir",
+    "<RUN_DIR>",
+    "<PROMPT>"
+  ],
+  "stdout": "stdout.log",
+  "stderr": "stderr.log",
+  "artifact": "dashboard.html",
+  "usage": {
+    "status": "attributed",
+    "match": "title-directory-model-and-time",
+    "source": ".local/share/opencode/opencode.db",
+    "sessionId": "ses_fe04b8080ffe4OrMicw8HzYXaY",
+    "sessionDirectory": "/home/ubuntu/deepseek-activation/docs/results/eval-v2/runs/opencode/repeat-2/slot-1/build-dashboard",
+    "inputTokens": 31653,
+    "outputTokens": 15498,
+    "thinkingTokens": 0,
+    "cacheReadTokens": 363776,
+    "cacheWriteTokens": 0,
+    "cost": 0,
+    "model": {
+      "id": "deepseek-v4-flash",
+      "providerID": "hroze-sp",
+      "variant": "default"
+    },
+    "timeCreated": 1787238317952,
+    "timeUpdated": 1787238564798
+  },
+  "evaluation": {
+    "methodVersion": 5,
+    "generated": true,
+    "artifactChanged": true,
+    "artifactHash": "02dc264dbc0f430c99cf6d9114d2d3aa1d07d799b83b0ff3f44391fba9ab4fb1",
+    "bytes": 31197,
+    "syntaxPass": true,
+    "syntaxFailures": [],
+    "runtimePass": true,
+    "runtimeErrors": [],
+    "browserFailure": null,
+    "contractPassed": 11,
+    "contractTotal": 11,
+    "contractChecks": [
+      {
+        "id": "four-kpis",
+        "pass": true,
+        "observed": [
+          "$3,489,070",
+          "16,412",
+          "$213",
+          "39.3%"
+        ]
+      },
+      {
+        "id": "four-populated-charts",
+        "pass": true,
+        "observed": {
+          "populated": 4,
+          "hosts": 4
+        }
+      },
+      {
+        "id": "two-filters",
+        "pass": true,
+        "observed": {
+          "region": 4,
+          "category": 4,
+          "period": 2
+        }
+      },
+      {
+        "id": "period-control",
+        "pass": true,
+        "observed": {
+          "region": 4,
+          "category": 4,
+          "period": 2
+        }
+      },
+      {
+        "id": "refresh-control",
+        "pass": true,
+        "observed": true
+      },
+      {
+        "id": "refresh-changes-data",
+        "pass": true,
+        "observed": {
+          "before": [
+            "$3,489,070",
+            "16,412",
+            "$213",
+            "39.3%"
+          ],
+          "after": [
+            "$3,480,718",
+            "16,565",
+            "$210",
+            "39.2%"
+          ]
+        }
+      },
+      {
+        "id": "region-filter-updates",
+        "pass": true,
+        "observed": {
+          "changed": true,
+          "descriptor": "regionchips chips northsouthwesteast",
+          "target": {
+            "kind": "region",
+            "tag": "button",
+            "type": "button",
+            "id": null,
+            "name": null,
+            "text": "North"
+          },
+          "before": [
+            "$3,489,070",
+            "16,412",
+            "$213",
+            "39.3%"
+          ],
+          "after": [
+            "$2,540,105",
+            "11,967",
+            "$212",
+            "39.4%"
+          ],
+          "positiveKpis": 4
+        }
+      },
+      {
+        "id": "category-filter-updates",
+        "pass": true,
+        "observed": {
+          "changed": true,
+          "descriptor": "categorychips chips electronicsapparelhomegroceries",
+          "target": {
+            "kind": "category",
+            "tag": "button",
+            "type": "button",
+            "id": null,
+            "name": null,
+            "text": "Electronics"
+          },
+          "before": [
+            "$3,489,070",
+            "16,412",
+            "$213",
+            "39.3%"
+          ],
+          "after": [
+            "$1,899,233",
+            "14,630",
+            "$130",
+            "38.2%"
+          ],
+          "positiveKpis": 4
+        }
+      },
+      {
+        "id": "period-updates",
+        "pass": true,
+        "observed": {
+          "changed": true,
+          "descriptor": "rangestart",
+          "target": {
+            "kind": "period",
+            "tag": "input",
+            "type": "range",
+            "id": "rangeStart",
+            "name": null,
+            "text": ""
+          },
+          "before": [
+            "$3,489,070",
+            "16,412",
+            "$213",
+            "39.3%"
+          ],
+          "after": [
+            "$3,298,240",
+            "15,486",
+            "$213",
+            "39.3%"
+          ],
+          "positiveKpis": 4
+        }
+      },
+      {
+        "id": "hover-behavior",
+        "pass": true,
+        "observed": {
+          "target": true,
+          "candidateCount": 22,
+          "attempts": 4,
+          "nativeTitle": false,
+          "detailAttribute": false,
+          "appeared": true,
+          "marked": false,
+          "selected": {
+            "x": 92.09605407714844,
+            "y": 538.6958923339844,
+            "source": "svg-mark",
+            "tag": "circle",
+            "id": null,
+            "nativeTitle": false,
+            "detailAttribute": false
+          },
+          "before": {
+            "visibleText": "",
+            "hoverMarks": 0
+          },
+          "after": {
+            "visibleText": "JanRevenue: $190,830Profit: $75,239Orders: 926",
+            "hoverMarks": 0
+          }
+        }
+      },
+      {
+        "id": "self-contained",
+        "pass": true,
+        "observed": []
+      }
+    ],
+    "interactionPass": true,
+    "visualSanity": true,
+    "screenshot": "screenshot.png",
+    "screenshotBytes": 115338,
+    "externalResources": [],
+    "placeholderCount": 0,
+    "runtimeSnapshot": {
+      "title": "Sales Analytics Dashboard",
+      "text": "Sales Analytics Dashboard Seeded dataset #20260820 · 192 region-category-month segments · 4 regions, 4 categories, 12 months REGION North South West East CATEGORY Electronics Apparel Home Groceries PERIOD Jan '26 to Dec '26 ⟳ Refresh data REVENUE $3,489,070 $3.49M ORDERS 16,412 16412 total AVG ORDER VALUE $213 per order PROFIT MARGIN 39.3% $1,371,672 profit Revenue Trend Monthly revenue across selected filters $509.7k $382.3k $254.9k $127.4k $0 Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec Revenue Profit (dashed) Revenue by Category Category performance in selected period $1.78M $1.34M $890.3k $445.2k $0 $1.59M Electronics $590.7k Apparel $875.2k Home $433.3k Groceries Regional Share Revenue share by region North 27.2% South 22.3% West 24.6% East 25.9% Total $3.49M North 27.2% South 22.3% West 24.6% East 25.9% Spend vs Revenue Marketing spend vs revenue per region-month $133.8k $0 $100.4k $3.7k $66.9k $7.4k $33.5k $11.1k $0 $14.8k Marketing spend Revenue North South West East Self-contained dashboard · deterministic seeded dataset · generated in-browser",
+      "textLength": 1071,
+      "buttons": [
+        "North",
+        "South",
+        "West",
+        "East",
+        "Electronics",
+        "Apparel",
+        "Home",
+        "Groceries",
+        "⟳ Refresh data"
+      ],
+      "inputs": [
+        {
+          "type": "range",
+          "value": "1"
+        },
+        {
+          "type": "range",
+          "value": "12"
+        }
+      ],
+      "canvasCount": 0,
+      "svgCount": 4,
+      "nonEmptySvgCount": 4,
+      "kpiLikeCount": 30,
+      "bodyWidth": 1265,
+      "bodyHeight": 1107
+    },
+    "visualStats": {
+      "meanLuma": 44.74638263889118,
+      "lumaVariance": 938.4080864995951,
+      "nonDarkRatio": 1,
+      "centerNonDarkRatio": 1,
+      "colorfulRatio": 0.9824652777777778,
+      "colorBuckets": 104
+    },
+    "benchmark": {
+      "initial": {
+        "kpis": [
+          "$3,489,070",
+          "16,412",
+          "$213",
+          "39.3%"
+        ],
+        "positiveKpis": 4,
+        "populatedCharts": 4,
+        "chartHosts": 4,
+        "selects": 0,
+        "ranges": 2,
+        "controlCounts": {
+          "region": 4,
+          "category": 4,
+          "period": 2
+        },
+        "hoverTargets": 68,
+        "tooltipElements": 1
+      },
+      "refreshed": {
+        "kpis": [
+          "$3,480,718",
+          "16,565",
+          "$210",
+          "39.2%"
+        ],
+        "positiveKpis": 4,
+        "populatedCharts": 4,
+        "chartHosts": 4,
+        "selects": 0,
+        "ranges": 2,
+        "controlCounts": {
+          "region": 4,
+          "category": 4,
+          "period": 2
+        },
+        "hoverTargets": 68,
+        "tooltipElements": 1
+      },
+      "controls": {
+        "region": {
+          "changed": true,
+          "descriptor": "regionchips chips northsouthwesteast",
+          "target": {
+            "kind": "region",
+            "tag": "button",
+            "type": "button",
+            "id": null,
+            "name": null,
+            "text": "North"
+          },
+          "before": [
+            "$3,489,070",
+            "16,412",
+            "$213",
+            "39.3%"
+          ],
+          "after": [
+            "$2,540,105",
+            "11,967",
+            "$212",
+            "39.4%"
+          ],
+          "positiveKpis": 4
+        },
+        "category": {
+          "changed": true,
+          "descriptor": "categorychips chips electronicsapparelhomegroceries",
+          "target": {
+            "kind": "category",
+            "tag": "button",
+            "type": "button",
+            "id": null,
+            "name": null,
+            "text": "Electronics"
+          },
+          "before": [
+            "$3,489,070",
+            "16,412",
+            "$213",
+            "39.3%"
+          ],
+          "after": [
+            "$1,899,233",
+            "14,630",
+            "$130",
+            "38.2%"
+          ],
+          "positiveKpis": 4
+        },
+        "period": {
+          "changed": true,
+          "descriptor": "rangestart",
+          "target": {
+            "kind": "period",
+            "tag": "input",
+            "type": "range",
+            "id": "rangeStart",
+            "name": null,
+            "text": ""
+          },
+          "before": [
+            "$3,489,070",
+            "16,412",
+            "$213",
+            "39.3%"
+          ],
+          "after": [
+            "$3,298,240",
+            "15,486",
+            "$213",
+            "39.3%"
+          ],
+          "positiveKpis": 4
+        }
+      },
+      "hover": {
+        "pass": true,
+        "observed": {
+          "target": true,
+          "candidateCount": 22,
+          "attempts": 4,
+          "nativeTitle": false,
+          "detailAttribute": false,
+          "appeared": true,
+          "marked": false,
+          "selected": {
+            "x": 92.09605407714844,
+            "y": 538.6958923339844,
+            "source": "svg-mark",
+            "tag": "circle",
+            "id": null,
+            "nativeTitle": false,
+            "detailAttribute": false
+          },
+          "before": {
+            "visibleText": "",
+            "hoverMarks": 0
+          },
+          "after": {
+            "visibleText": "JanRevenue: $190,830Profit: $75,239Orders: 926",
+            "hoverMarks": 0
+          }
+        }
+      }
+    },
+    "fullPass": true
+  },
+  "infrastructureClassificationHistory": [
+    {
+      "methodVersion": 1,
+      "failure": null,
+      "replacedBecause": "method 1 scanned model-visible stdout text; method 2 accepts structured stdout errors and process stderr only"
+    }
+  ],
+  "infrastructureMethodVersion": 2,
+  "executionMode": "serial-cases",
+  "concurrencyGroup": null,
+  "reevaluatedAt": "2026-08-20T16:37:44.253Z"
+}

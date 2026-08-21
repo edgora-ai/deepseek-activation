@@ -1,0 +1,7 @@
+{
+  "status": "ok",
+  "valid": true,
+  "summary": "画面已渲染出多层彩色环形音频可视化及粒子效果，界面布局正常。",
+  "model": "gpt-5.6-terra",
+  "durationMs": 4086
+}

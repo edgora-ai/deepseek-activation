@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sales Analytics Dashboard</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --panel-2: #273449;
+    --border: #334155;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --accent-2: #818cf8;
+    --good: #34d399;
+    --warn: #fbbf24;
+    --bad: #f87171;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 24px;
+  }
+  .wrap { max-width: 1280px; margin: 0 auto; }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  header h1 { font-size: 24px; font-weight: 700; }
+  header .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 20px;
+  }
+  .control-group { display: flex; align-items: center; gap: 8px; }
+  .control-group label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  select, button {
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  select:hover, button:hover:not(:disabled) { border-color: var(--accent); }
+  select:disabled { opacity: .5; cursor: not-allowed; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 999px;
+    padding: 5px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    user-select: none;
+    transition: all .15s ease;
+  }
+  .chip.on {
+    background: rgba(56, 189, 248, .15);
+    border-color: var(--accent);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .btn-refresh {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    border: none;
+    color: #0f172a;
+    font-weight: 700;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+  }
+  .btn-refresh:hover { filter: brightness(1.1); }
+  .btn-refresh:disabled { opacity: .6; }
+  .kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .kpi {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+  }
+  .kpi .k-label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+  .kpi .k-value { font-size: 28px; font-weight: 800; margin-top: 8px; }
+  .kpi .k-footer { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .kpi .k-delta.good { color: var(--good); }
+  .kpi .k-delta.bad { color: var(--bad); }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    min-width: 0;
+  }
+  .card h2 { font-size: 14px; font-weight: 600; color: var(--muted); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+  .card h2 .hint { font-weight: 400; font-size: 11px; color: var(--muted); }
+  .card.wide { grid-column: span 2; }
+  @media (max-width: 900px) {
+    .grid { grid-template-columns: 1fr; }
+    .card.wide { grid-column: span 1; }
+  }
+  svg { display: block; width: 100%; height: auto; }
+  .chart-box { position: relative; }
+  .tip {
+    position: fixed;
+    pointer-events: none;
+    background: rgba(15, 23, 42, .95);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text);
+    box-shadow: 0 6px 20px rgba(0,0,0,.4);
+    z-index: 50;
+    max-width: 240px;
+    display: none;
+    white-space: nowrap;
+  }
+  .tip b { color: #fff; }
+  .tip .tip-title { color: var(--accent); font-weight: 700; }
+  .muted { color: var(--muted); }
+  .empty-note {
+    display: flex; align-items: center; justify-content: center;
+    height: 200px; color: var(--muted); font-size: 13px;
+  }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 8px; font-size: 12px; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend .sw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Sales Analytics Dashboard</h1>
+      <div class="sub" id="meta">Generating sample dataset…</div>
+    </div>
+    <button class="btn-refresh" id="refreshBtn" type="button">Refresh data</button>
+  </header>
+
+  <div class="controls">
+    <div class="control-group">
+      <label>Region</label>
+      <div class="chips" id="regionChips"></div>
+    </div>
+    <div class="control-group">
+      <label>Category</label>
+      <select id="categorySelect"></select>
+    </div>
+    <div class="control-group">
+      <label>Period</label>
+      <select id="periodFrom"></select>
+      <span class="muted">to</span>
+      <select id="periodTo"></select>
+    </div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="k-label">Revenue</div><div class="k-value" id="kRevenue">–</div><div class="k-footer" id="kRevenueSub">–</div></div>
+    <div class="kpi"><div class="k-label">Orders</div><div class="k-value" id="kOrders">–</div><div class="k-footer" id="kOrdersSub">–</div></div>
+    <div class="kpi"><div class="k-label">Average Order Value</div><div class="k-value" id="kAov">–</div><div class="k-footer" id="kAovSub">–</div></div>
+    <div class="kpi"><div class="k-label">Profit Margin</div><div class="k-value" id="kMargin">–</div><div class="k-footer" id="kMarginSub">–</div></div>
+  </div>
+
+  <div class="grid">
+    <div class="card wide">
+      <h2>Revenue Trend <span class="hint">hover points for details</span></h2>
+      <div class="chart-box" id="lineChart"></div>
+    </div>
+    <div class="card">
+      <h2>Sales by Category <span class="hint">hover bars</span></h2>
+      <div class="chart-box" id="barChart"></div>
+    </div>
+    <div class="card">
+      <h2>Regional Share <span class="hint">hover slices</span></h2>
+      <div class="chart-box" id="donutChart"></div>
+    </div>
+    <div class="card wide">
+      <h2>Spend vs Revenue <span class="hint">hover points</span></h2>
+      <div class="chart-box" id="scatterChart"></div>
+    </div>
+  </div>
+</div>
+
+<div class="tip" id="tip"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  var REGIONS = ["North", "South", "East", "West"];
+  var CATEGORIES = ["Electronics", "Furniture", "Apparel", "Toys"];
+  var MONTHS = [];
+  (function () {
+    var base = new Date();
+    base.setDate(1);
+    for (var i = 0; i < 12; i++) {
+      var d = new Date(base.getFullYear(), base.getMonth() - i, 1);
+      MONTHS.unshift(d.toLocaleString("en-US", { month: "short" }) + " '" + String(d.getFullYear()).slice(2));
+    }
+  })();
+
+  var REGION_COLORS = { North: "#38bdf8", South: "#f87171", East: "#34d399", West: "#fbbf24" };
+  var CATEGORY_COLORS = { Electronics: "#818cf8", Furniture: "#f472b6", Apparel: "#34d399", Toys: "#fbbf24" };
+
+  var data = [];          // full generated dataset
+  var state = {
+    regions: REGIONS.slice(),
+    category: "all",
+    from: MONTHS[0],
+    to: MONTHS[MONTHS.length - 1]
+  };
+  var seed = 20240820;
+
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function generateDataset(s) {
+    var rnd = mulberry32(s);
+    var rows = [];
+    var catBase = { Electronics: 240, Furniture: 180, Apparel: 90, Toys: 70 };
+    var regBase = { North: 1.2, South: 0.8, East: 1.0, West: 1.15 };
+    MONTHS.forEach(function (m, mi) {
+      var season = 0.75 + 0.5 * Math.abs(Math.sin(mi / 1.7));
+      REGIONS.forEach(function (rg) {
+        CATEGORIES.forEach(function (ct) {
+          var base = catBase[ct] * regBase[rg] * season * (1000 + rnd() * 400);
+          var revenue = base * (0.7 + rnd() * 0.6);
+          var orders = Math.max(3, Math.round(base / 42 * (0.8 + rnd() * 0.5)));
+          var spend = revenue * (0.35 + rnd() * 0.35);
+          var cost = revenue * (0.55 + rnd() * 0.2);
+          rows.push({
+            region: rg, category: ct, month: m, monthIdx: mi,
+            revenue: Math.round(revenue),
+            orders: orders,
+            spend: Math.round(spend),
+            cost: Math.round(cost)
+          });
+        });
+      });
+    });
+    return rows;
+  }
+
+  function fmtMoney(n) {
+    return "$" + Number(n).toLocaleString("en-US", { maximumFractionDigits: 0 });
+  }
+  function fmtNum(n) {
+    return Number(n).toLocaleString("en-US", { maximumFractionDigits: 0 });
+  }
+  function fmtPct(n) {
+    return (n * 100).toFixed(1) + "%";
+  }
+
+  function filteredRows() {
+    return data.filter(function (r) {
+      if (state.regions.indexOf(r.region) === -1) return false;
+      if (state.category !== "all" && r.category !== state.category) return false;
+      return MONTHS.indexOf(r.month) >= MONTHS.indexOf(state.from) &&
+             MONTHS.indexOf(r.month) <= MONTHS.indexOf(state.to);
+    });
+  }
+
+  /* ---------- KPI rendering ---------- */
+  function updateKPIs(rows) {
+    var revenue = rows.reduce(function (s, r) { return s + r.revenue; }, 0);
+    var orders = rows.reduce(function (s, r) { return s + r.orders; }, 0);
+    var costD = rows.reduce(function (s, r) { return s + r.cost; }, 0);
+    var profit = revenue - costD;
+    var aov = orders > 0 ? revenue / orders : 0;
+    var margin = revenue > 0 ? profit / revenue : 0;
+
+    var mid = Math.floor(rows.length / 2);
+    var firstHalf = rows.slice(0, mid);
+    var secondHalf = rows.slice(mid);
+    var revA = firstHalf.reduce(function (s, r) { return s + r.revenue; }, 0);
+    var revB = secondHalf.reduce(function (s, r) { return s + r.revenue; }, 0);
+    var delta = revA > 0 ? (revB - revA) / revA : 0;
+
+    document.getElementById("kRevenue").textContent = fmtMoney(revenue);
+    document.getElementById("kRevenueSub").innerHTML =
+      '<span class="k-delta ' + (delta >= 0 ? "good" : "bad") + '">' +
+      (delta >= 0 ? "▲" : "▼") + " " + fmtPct(Math.abs(delta)) + "</span> vs first half";
+
+    document.getElementById("kOrders").textContent = fmtNum(orders);
+    document.getElementById("kOrdersSub").textContent = fmtNum(rows.length) + " data points · " +
+      (aov > 0 ? "avg order " + fmtMoney(aov) : "n/a");
+
+    document.getElementById("kAov").textContent = fmtMoney(aov);
+    document.getElementById("kAovSub").textContent = fmtMoney(revenue) + " revenue / " + fmtNum(orders) + " orders";
+
+    document.getElementById("kMargin").textContent = fmtPct(margin);
+    document.getElementById("kMarginSub").innerHTML = "profit " + (profit >= 0 ? fmtMoney(profit) : "−" + fmtMoney(-profit));
+    document.getElementById("kMarginSub").style.color = margin >= 0 ? "var(--good)" : "var(--bad)";
+  }
+
+  /* ---------- Shared SVG helpers ---------- */
+  function makeScales(values, nice) {
+    var min = Math.min.apply(null, values);
+    var max = Math.max.apply(null, values);
+    if (min === max) { min = 0; }
+    var pad = (max - min) * 0.1 || 1;
+    if (nice !== false) { min = Math.max(0, min - pad); }
+    max = max + pad;
+    return { min: min, max: max };
+  }
+
+  function axisLabel(v, max) {
+    if (max >= 1000) return "$" + (v / 1000).toFixed(v % 1000 < 100 ? 0 : 1) + "k";
+    if (max >= 1e6) return "$" + (v / 1e6).toFixed(1) + "M";
+    return "$" + Math.round(v);
+  }
+
+  /* ---------- Line chart ---------- */
+  function renderLine(rows) {
+    var el = document.getElementById("lineChart");
+    if (rows.length === 0) { el.innerHTML = emptyNote("No data for the current filters"); return; }
+    var byMonth = {};
+    rows.forEach(function (r) {
+      byMonth[r.month] = byMonth[r.month] || { revenue: 0, cost: 0 };
+      byMonth[r.month].revenue += r.revenue;
+      byMonth[r.month].cost += r.cost;
+    });
+    var months = MONTHS.filter(function (m) {
+      return MONTHS.indexOf(m) >= MONTHS.indexOf(state.from) && MONTHS.indexOf(m) <= MONTHS.indexOf(state.to);
+    });
+    var pts = months.map(function (m) {
+      var b = byMonth[m] || { revenue: 0, cost: 0 };
+      return { month: m, revenue: b.revenue, cost: b.cost };
+    });
+
+    var W = 960, H = 300, padL = 58, padR = 16, padT = 16, padB = 34;
+    var iw = W - padL - padR, ih = H - padT - padB;
+    var revVals = pts.map(function (p) { return p.revenue; }).concat(pts.map(function (p) { return p.cost; }));
+    var sc = makeScales(revVals);
+    var x = function (i) { return padL + (pts.length === 1 ? iw / 2 : iw * i / (pts.length - 1)); };
+    var y = function (v) { return padT + ih * (1 - (v - sc.min) / (sc.max - sc.min)); };
+
+    var path = pts.map(function (p, i) { return (i === 0 ? "M" : "L") + x(i).toFixed(1) + "," + y(p.revenue).toFixed(1); }).join(" ");
+    var area = path + " L" + x(pts.length - 1).toFixed(1) + "," + (padT + ih) + " L" + x(0).toFixed(1) + "," + (padT + ih) + " Z";
+
+    var grid = "";
+    for (var g = 0; g <= 4; g++) {
+      var gy = padT + ih * g / 4;
+      var gv = sc.max - (sc.max - sc.min) * g / 4;
+      grid += '<line x1="' + padL + '" y1="' + gy.toFixed(1) + '" x2="' + (W - padR) + '" y2="' + gy.toFixed(1) + '" stroke="#334155" stroke-width="1" />';
+      grid += '<text x="' + (padL - 8) + '" y="' + (gy + 4).toFixed(1) + '" text-anchor="end" font-size="11" fill="#94a3b8">' + axisLabel(gv, sc.max) + "</text>";
+    }
+    var xlabels = "";
+    pts.forEach(function (p, i) {
+      xlabels += '<text x="' + x(i).toFixed(1) + '" y="' + (H - 12) + '" text-anchor="middle" font-size="11" fill="#94a3b8">' + p.month + "</text>";
+    });
+    var dots = pts.map(function (p, i) {
+      return '<circle cx="' + x(i).toFixed(1) + '" cy="' + y(p.revenue).toFixed(1) + '" r="4.5" fill="#38bdf8" stroke="#0f172a" stroke-width="1.5" data-tip="' +
+        escTip(p.month + " · Revenue " + fmtMoney(p.revenue) + "<br>Cost " + fmtMoney(p.cost) + "<br>Profit " + fmtMoney(p.revenue - p.cost)) +
+        '" /></g>';
+    }).join("");
+    var costline = pts.map(function (p, i) { return (i === 0 ? "M" : "L") + x(i).toFixed(1) + "," + y(p.cost).toFixed(1); }).join(" ");
+
+    el.innerHTML =
+      '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Revenue trend">' +
+        '<rect width="100%" height="100%" fill="transparent" />' + grid +
+        '<path d="' + area + '" fill="rgba(56,189,248,0.08)" stroke="none" />' +
+        '<path d="' + path + '" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-linejoin="round" />' +
+        '<path d="' + costline + '" fill="none" stroke="#f87171" stroke-width="1.5" stroke-dasharray="4 3" />' +
+        xlabels + dots +
+      "</svg>" +
+      '<div class="legend"><span><span class="sw" style="background:#38bdf8"></span>Revenue</span>' +
+      '<span><span class="sw" style="background:#f87171"></span>Cost</span></div>';
+  }
+
+  /* ---------- Bar chart ---------- */
+  function renderBars(rows) {
+    var el = document.getElementById("barChart");
+    if (rows.length === 0) { el.innerHTML = emptyNote("No data for the current filters"); return; }
+    var byCat = {};
+    rows.forEach(function (r) {
+      byCat[r.category] = byCat[r.category] || 0;
+      byCat[r.category] += r.revenue;
+    });
+    var cats = Object.keys(byCat).sort(function (a, b) { return byCat[b] - byCat[a]; });
+    var vals = cats.map(function (c) { return byCat[c]; });
+    var sc = makeScales(vals);
+
+    var W = 460, H = 260, padL = 52, padR = 10, padT = 14, padB = 30;
+    var iw = W - padL - padR, ih = H - padT - padB;
+    var slot = iw / cats.length;
+    var bw = Math.min(46, slot * 0.55);
+
+    var grid = "";
+    for (var g = 0; g <= 4; g++) {
+      var gy = padT + ih * g / 4;
+      var gv = sc.max - (sc.max - sc.min) * g / 4;
+      grid += '<line x1="' + padL + '" y1="' + gy.toFixed(1) + '" x2="' + (W - padR) + '" y2="' + gy.toFixed(1) + '" stroke="#334155" stroke-width="1" />';
+      grid += '<text x="' + (padL - 8) + '" y="' + (gy + 4).toFixed(1) + '" text-anchor="end" font-size="11" fill="#94a3b8">' + axisLabel(gv, sc.max) + "</text>";
+    }
+
+    var bars = "";
+    cats.forEach(function (c, i) {
+      var h = ih * ((byCat[c] - sc.min) / (sc.max - sc.min));
+      var bx = padL + slot * i + (slot - bw) / 2;
+      var by = padT + ih - h;
+      bars += '<rect x="' + bx.toFixed(1) + '" y="' + by.toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + Math.max(0, h).toFixed(1) + '" rx="4" fill="' + CATEGORY_COLORS[c] + '" data-tip="' +
+        escTip(c + "<br>Revenue " + fmtMoney(byCat[c]) + "<br>Share " + fmtPct(byCat[c] / vals.reduce(function (a, s) { return a + s; }, 0))) +
+        '" /><text x="' + (bx + bw / 2).toFixed(1) + '" y="' + (H - 10) + '" text-anchor="middle" font-size="11" fill="#94a3b8">' + c + "</text>" +
+        '<text x="' + (bx + bw / 2).toFixed(1) + '" y="' + (by - 6).toFixed(1) + '" text-anchor="middle" font-size="10" fill="#e2e8f0">' + axisLabel(byCat[c], sc.max) + "</text>";
+    });
+
+    el.innerHTML =
+      '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Sales by category">' +
+        '<rect width="100%" height="100%" fill="transparent" />' + grid + bars +
+      "</svg>";
+  }
+
+  /* ---------- Donut chart ---------- */
+  function renderDonut(rows) {
+    var el = document.getElementById("donutChart");
+    if (rows.length === 0) { el.innerHTML = emptyNote("No data for the current filters"); return; }
+    var byReg = {};
+    var total = 0;
+    rows.forEach(function (r) {
+      byReg[r.region] = byReg[r.region] || 0;
+      byReg[r.region] += r.revenue;
+      total += r.revenue;
+    });
+    var regs = REGIONS.filter(function (r) { return byReg[r] > 0; });
+    var W = 460, H = 240, cx = 150, cy = H / 2, R = 82, r2 = 52;
+
+    var acc = -Math.PI / 2;
+    var slices = "";
+    regs.forEach(function (rg) {
+      var frac = byReg[rg] / total;
+      var a1 = acc, a2 = acc + frac * Math.PI * 2;
+      var large = (a2 - a1 > Math.PI) ? 1 : 0;
+      var x1 = cx + R * Math.cos(a1), y1 = cy + R * Math.sin(a1);
+      var x2 = cx + R * Math.cos(a2), y2 = cy + R * Math.sin(a2);
+      var x3 = cx + r2 * Math.cos(a2), y3 = cy + r2 * Math.sin(a2);
+      var x4 = cx + r2 * Math.cos(a1), y4 = cy + r2 * Math.sin(a1);
+      var d = "M" + x1.toFixed(1) + "," + y1.toFixed(1) +
+              " A" + R + "," + R + " 0 " + large + " 1 " + x2.toFixed(1) + "," + y2.toFixed(1) +
+              " L" + x3.toFixed(1) + "," + y3.toFixed(1) +
+              " A" + r2 + "," + r2 + " 0 " + large + " 0 " + x4.toFixed(1) + "," + y4.toFixed(1) + " Z";
+      var midA = (a1 + a2) / 2;
+      var lx = cx + (R + 14) * Math.cos(midA), ly = cy + (R + 14) * Math.sin(midA);
+      var anchor = Math.abs(midA) > Math.PI / 2 ? "end" : "start";
+      slices += '<path d="' + d + '" fill="' + REGION_COLORS[rg] + '" stroke="#0f172a" stroke-width="1.5" data-tip="' +
+        escTip(rg + "<br>" + fmtMoney(byReg[rg]) + " · " + fmtPct(frac)) + '" />' +
+        '<text x="' + lx.toFixed(1) + '" y="' + (ly + 4).toFixed(1) + '" text-anchor="' + anchor + '" font-size="11" fill="#94a3b8">' + rg + " " + fmtPct(frac) + "</text>";
+      acc = a2;
+    });
+
+    el.innerHTML =
+      '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Regional share">' +
+        '<rect width="100%" height="100%" fill="transparent" />' + slices +
+        '<text x="' + cx + '" y="' + (cy - 4) + '" text-anchor="middle" font-size="20" font-weight="700" fill="#e2e8f0">' + fmtMoney(total) + "</text>" +
+        '<text x="' + cx + '" y="' + (cy + 18) + '" text-anchor="middle" font-size="11" fill="#94a3b8">total revenue</text>' +
+      "</svg>";
+  }
+
+  /* ---------- Scatter chart ---------- */
+  function renderScatter(rows) {
+    var el = document.getElementById("scatterChart");
+    if (rows.length === 0) { el.innerHTML = emptyNote("No data for the current filters"); return; }
+    var rx = makeScales(rows.map(function (r) { return r.spend; }), false);
+    var ry = makeScales(rows.map(function (r) { return r.revenue; }), false);
+
+    var W = 980, H = 300, padL = 62, padR = 18, padT = 16, padB = 36;
+    var iw = W - padL - padR, ih = H - padT - padB;
+    var x = function (v) { return padL + iw * (v - rx.min) / (rx.max - rx.min); };
+    var y = function (v) { return padT + ih * (1 - (v - ry.min) / (ry.max - ry.min)); };
+
+    var grid = "";
+    for (var g = 0; g <= 4; g++) {
+      var gx = padL + iw * g / 4;
+      var gv = rx.min + (rx.max - rx.min) * g / 4;
+      grid += '<line x1="' + gx.toFixed(1) + '" y1="' + padT + '" x2="' + gx.toFixed(1) + '" y2="' + (padT + ih) + '" stroke="#334155" stroke-width="1" />';
+      grid += '<text x="' + gx.toFixed(1) + '" y="' + (H - 10) + '" text-anchor="middle" font-size="11" fill="#94a3b8">' + axisLabel(gv, rx.max) + "</text>";
+      var gy = padT + ih * g / 4;
+      var gv2 = ry.max - (ry.max - ry.min) * g / 4;
+      grid += '<line x1="' + padL + '" y1="' + gy.toFixed(1) + '" x2="' + (W - padR) + '" y2="' + gy.toFixed(1) + '" stroke="#334155" stroke-width="1" />';
+      grid += '<text x="' + (padL - 8) + '" y="' + (gy + 4).toFixed(1) + '" text-anchor="end" font-size="11" fill="#94a3b8">' + axisLabel(gv2, ry.max) + "</text>";
+    }
+
+    var dots = rows.map(function (r, i) {
+      var cx = x(r.spend), cy = y(r.revenue);
+      return '<circle cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1) + '" r="5" fill="' + REGION_COLORS[r.region] +
+        '" fill-opacity="0.85" stroke="#0f172a" stroke-width="1" data-tip="' +
+        escTip(r.region + " · " + r.category + " · " + r.month +
+          "<br>Revenue " + fmtMoney(r.revenue) + " · Spend " + fmtMoney(r.spend) +
+          "<br>Profit " + fmtMoney(r.revenue - r.cost) + " · " + fmtNum(r.orders) + " orders") +
+        '"><title>' + r.region + " " + r.category + " " + r.month + "</title></circle>";
+    }).join("");
+
+    el.innerHTML =
+      '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Spend versus revenue">' +
+        '<rect width="100%" height="100%" fill="transparent" />' + grid + dots +
+      "</svg>" +
+      '<div class="legend">' + REGIONS.filter(function (r) { return rows.some(function (x) { return x.region === r; }); }).map(function (r) {
+        return '<span><span class="sw" style="background:' + REGION_COLORS[r] + '"></span>' + r + "</span>";
+      }).join("") + "</div>";
+  }
+
+  function emptyNote(msg) {
+    return '<div class="empty-note">' + msg + "</div>";
+  }
+
+  function escTip(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  /* ---------- Controls ---------- */
+  function buildFilters() {
+    var chips = document.getElementById("regionChips");
+    chips.innerHTML = "";
+    REGIONS.forEach(function (rg) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "chip on";
+      b.textContent = rg;
+      b.dataset.region = rg;
+      b.addEventListener("click", function () {
+        var i = state.regions.indexOf(rg);
+        if (i >= 0) { state.regions.splice(i, 1); }
+        else { state.regions.push(rg); }
+        if (state.regions.length === 0) { state.regions.push(rg); }
+        syncChips();
+        render();
+      });
+      chips.appendChild(b);
+    });
+
+    var catSel = document.getElementById("categorySelect");
+    catSel.innerHTML = '<option value="all">All categories</option>';
+    CATEGORIES.forEach(function (c) {
+      var o = document.createElement("option");
+      o.value = c; o.textContent = c;
+      catSel.appendChild(o);
+    });
+    catSel.value = state.category;
+    catSel.addEventListener("change", function () { state.category = this.value; render(); });
+
+    var pf = document.getElementById("periodFrom");
+    var pt = document.getElementById("periodTo");
+    pf.innerHTML = ""; pt.innerHTML = "";
+    MONTHS.forEach(function (m) {
+      var o1 = document.createElement("option"); o1.value = m; o1.textContent = m; pf.appendChild(o1);
+      var o2 = document.createElement("option"); o2.value = m; o2.textContent = m; pt.appendChild(o2);
+    });
+    pf.value = state.from;
+    pt.value = state.to;
+    pf.addEventListener("change", function () {
+      state.from = this.value;
+      if (MONTHS.indexOf(state.to) < MONTHS.indexOf(state.from)) { state.to = state.from; pt.value = state.to; }
+      render();
+    });
+    pt.addEventListener("change", function () {
+      state.to = this.value;
+      if (MONTHS.indexOf(state.from) > MONTHS.indexOf(state.to)) { state.from = state.to; pf.value = state.from; }
+      render();
+    });
+  }
+
+  function syncChips() {
+    document.querySelectorAll("#regionChips .chip").forEach(function (b) {
+      b.classList.toggle("on", state.regions.indexOf(b.dataset.region) !== -1);
+    });
+  }
+
+  function render() {
+    var rows = filteredRows();
+    updateKPIs(rows);
+    renderLine(rows);
+    renderBars(rows);
+    renderDonut(rows);
+    renderScatter(rows);
+    document.getElementById("meta").textContent =
+      seed + " · " + rows.length + " data points · regions " + new Intl.ListFormat("en").format(state.regions) +
+      " · " + (state.category === "all" ? "all categories" : state.category) + " · " + state.from + " – " + state.to;
+  }
+
+  /* ---------- Tooltip ---------- */
+  var tipEl = document.getElementById("tip");
+  document.addEventListener("mousemove", function (e) {
+    var t = e.target;
+    var node = t.closest ? t.closest("[data-tip]") : null;
+    if (!node) { tipEl.style.display = "none"; return; }
+    tipEl.style.display = "block";
+    tipEl.innerHTML = node.getAttribute("data-tip");
+    var pad = 14;
+    var x = e.clientX + pad, y = e.clientY + pad;
+    var r = tipEl.getBoundingClientRect();
+    if (x + r.width > window.innerWidth) x = e.clientX - r.width - pad;
+    if (y + r.height > window.innerHeight) y = e.clientY - r.height - pad;
+    tipEl.style.left = x + "px";
+    tipEl.style.top = y + "px";
+  });
+  document.addEventListener("mouseleave", function () { tipEl.style.display = "none"; });
+
+  /* ---------- Refresh ---------- */
+  document.getElementById("refreshBtn").addEventListener("click", function () {
+    seed = (seed * 9301 + 49297) % 233280; // linear congruential step
+    var raw = generateDataset(seed);
+    var sig = raw.reduce(function (s, r) { return s + r.revenue; }, 0);
+    if (sig === 0) { seed += 7919; raw = generateDataset(seed); }
+    data = raw;
+    render();
+  });
+
+  /* ---------- Init (deterministic, non-empty) ---------- */
+  data = generateDataset(seed);
+  var initSig = data.reduce(function (s, r) { return s + r.revenue; }, 0);
+  if (initSig === 0) { seed += 1; data = generateDataset(seed); }
+  buildFilters();
+  render();
+})();
+</script>
+</body>
+</html>

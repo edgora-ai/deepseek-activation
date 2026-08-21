@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Northstar Sales</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; background: #07111f; color: #e8f1ff; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 320px; background: radial-gradient(circle at 15% 0%, #163052 0, #07111f 42%); }
+    main { width: min(1180px, calc(100% - 32px)); margin: 28px auto 48px; }
+    header, .toolbar, .kpis, .charts { display: flex; gap: 14px; }
+    header { align-items: end; justify-content: space-between; margin-bottom: 20px; }
+    h1, h2, p { margin: 0; }
+    h1 { font-size: clamp(26px, 4vw, 42px); letter-spacing: -.04em; }
+    header p { margin-top: 5px; color: #8ca4c2; }
+    .toolbar { align-items: end; flex-wrap: wrap; }
+    label { display: grid; gap: 6px; color: #9fb4cf; font-size: 12px; }
+    select, input, button { min-height: 36px; border: 1px solid #294362; border-radius: 9px; background: #0c1b2d; color: #e8f1ff; padding: 7px 10px; }
+    button { cursor: pointer; background: #3a7dff; border-color: #3a7dff; font-weight: 700; }
+    .kpis { display: grid; grid-template-columns: repeat(4, 1fr); margin-bottom: 14px; }
+    .kpi, .chart { border: 1px solid #1d3653; border-radius: 15px; background: rgba(10, 25, 43, .88); box-shadow: 0 14px 40px rgba(0,0,0,.22); }
+    .kpi { padding: 17px; }
+    .kpi span { display: block; color: #8ca4c2; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+    .kpi strong { display: block; margin-top: 9px; font-size: 26px; }
+    .charts { display: grid; grid-template-columns: repeat(2, 1fr); }
+    .chart { min-height: 285px; padding: 16px; }
+    .chart h2 { font-size: 15px; margin-bottom: 12px; }
+    svg { display: block; width: 100%; height: 225px; overflow: visible; }
+    .grid { stroke: #1c3552; stroke-width: 1; }
+    .axis-label { fill: #718aa8; font-size: 10px; }
+    .mark { transition: opacity .15s; }
+    .mark:hover { opacity: .7; }
+    #tooltip { position: fixed; display: none; z-index: 10; pointer-events: none; padding: 7px 9px; border: 1px solid #3a5878; border-radius: 7px; background: #06101c; color: #fff; font-size: 12px; }
+    @media (max-width: 780px) { .kpis, .charts { grid-template-columns: 1fr 1fr; } header { align-items: start; flex-direction: column; } }
+    @media (max-width: 520px) { .kpis, .charts { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div><h1>Northstar Sales</h1><p>Deterministic operating dashboard</p></div>
+      <div class="toolbar">
+        <label>Region<select id="region"><option value="all">All regions</option><option>East</option><option>West</option></select></label>
+        <label>Category<select id="category"><option value="all">All categories</option><option>Hardware</option><option>Software</option><option>Services</option></select></label>
+        <label>Periods <span id="periodLabel">6</span><input id="periods" type="range" min="2" max="6" value="6"></label>
+        <button id="refresh" type="button">Refresh data</button>
+      </div>
+    </header>
+
+    <section class="kpis">
+      <article class="kpi" data-kpi="revenue"><span>Revenue</span><strong data-kpi-value id="revenue">—</strong></article>
+      <article class="kpi" data-kpi="orders"><span>Orders</span><strong data-kpi-value id="orders">—</strong></article>
+      <article class="kpi" data-kpi="aov"><span>Average order value</span><strong data-kpi-value id="aov">—</strong></article>
+      <article class="kpi" data-kpi="margin"><span>Margin</span><strong data-kpi-value id="margin">—</strong></article>
+    </section>
+
+    <section class="charts">
+      <article class="chart" data-chart="trend"><h2>Monthly revenue trend</h2><svg id="trend" viewBox="0 0 520 220"></svg></article>
+      <article class="chart" data-chart="category"><h2>Revenue by category</h2><svg id="bars" viewBox="0 0 520 220"></svg></article>
+      <article class="chart" data-chart="region"><h2>Regional share</h2><svg id="donut" viewBox="0 0 520 220"></svg></article>
+      <article class="chart" data-chart="scatter"><h2>Spend vs revenue</h2><svg id="scatter" viewBox="0 0 520 220"></svg></article>
+    </section>
+  </main>
+  <div id="tooltip" role="tooltip"></div>
+
+  <script>
+    const NS = 'http://www.w3.org/2000/svg'
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun']
+    const regions = ['East', 'West']
+    const categories = ['Hardware', 'Software', 'Services']
+    let generation = 11
+    let rows = makeRows(generation)
+
+    const region = document.querySelector('#region')
+    const category = document.querySelector('#category')
+    const periods = document.querySelector('#periods')
+    const tooltip = document.querySelector('#tooltip')
+
+    category.addEventListener('change', renderDashboard)
+    region.addEventListener('change', renderDashboard)
+    periods.addEventListener('input', () => {
+      document.querySelector('#periodLabel').textContent = periods.value
+      renderDashboard()
+    })
+    document.querySelector('#refresh').addEventListener('click', () => {
+      generation += 1
+      rows = makeRows(generation)
+      renderDashboard()
+    })
+
+    renderDashboard()
+
+    function makeRows(seed) {
+      let state = seed >>> 0
+      const random = () => ((state = Math.imul(state, 1664525) + 1013904223 >>> 0) / 4294967296)
+      return months.flatMap((month, monthIndex) => regions.flatMap((regionName) => categories.map((categoryName, categoryIndex) => {
+        const orders = 40 + Math.floor(random() * 80) + monthIndex * 5
+        const average = 90 + categoryIndex * 65 + Math.floor(random() * 45)
+        const revenue = orders * average
+        return { month, monthIndex, region: regionName, category: categoryName, orders, revenue, spend: Math.round(revenue * (.48 + random() * .22)) }
+      })))
+    }
+
+    function selectedRows() {
+      const firstMonth = months.length - Number(periods.value)
+      return rows.filter((row) => row.monthIndex >= firstMonth)
+        .filter((row) => region.value === 'all' || row.region === region.value)
+        .filter((row) => category.value === 'all' || row.category === category.value)
+    }
+
+    function renderDashboard() {
+      const selected = selectedRows()
+      const revenueValue = sum(selected, 'revenue')
+      const orderValue = sum(selected, 'orders')
+      const spendValue = sum(selected, 'spend')
+      document.querySelector('#revenue').textContent = money(revenueValue)
+      document.querySelector('#orders').textContent = orderValue.toLocaleString()
+      document.querySelector('#aov').textContent = money(orderValue ? revenueValue / orderValue : 0)
+      document.querySelector('#margin').textContent = revenueValue ? `${Math.round((revenueValue - spendValue) / revenueValue * 100)}%` : '0%'
+      renderTrend(selected)
+      renderBars(selected)
+      renderDonut(selected)
+      renderScatter(selected)
+    }
+
+    function renderTrend(data) {
+      const values = months.map((month) => sum(data.filter((row) => row.month === month), 'revenue'))
+      const svg = clear('trend')
+      grid(svg)
+      const maximum = Math.max(...values, 1)
+      const points = values.map((value, index) => `${36 + index * 88},${190 - value / maximum * 150}`).join(' ')
+      add(svg, 'polyline', { points, fill: 'none', stroke: '#55d6be', 'stroke-width': 4 })
+      values.forEach((value, index) => mark(svg, 'circle', { cx: 36 + index * 88, cy: 190 - value / maximum * 150, r: 6, fill: '#55d6be' }, `${months[index]}: ${money(value)}`))
+    }
+
+    function renderBars(data) {
+      const svg = clear('bars')
+      grid(svg)
+      const values = categories.map((name) => sum(data.filter((row) => row.category === name), 'revenue'))
+      const maximum = Math.max(...values, 1)
+      values.forEach((value, index) => {
+        const height = value / maximum * 150
+        mark(svg, 'rect', { x: 65 + index * 150, y: 190 - height, width: 82, height, rx: 6, fill: ['#3a7dff', '#9b7bff', '#ff8b5c'][index] }, `${categories[index]}: ${money(value)}`)
+        text(svg, 106 + index * 150, 209, categories[index], 'middle')
+      })
+    }
+
+    function renderDonut(data) {
+      const svg = clear('donut')
+      const values = regions.map((name) => sum(data.filter((row) => row.region === name), 'revenue'))
+      const total = values.reduce((sumValue, value) => sumValue + value, 0) || 1
+      let offset = 0
+      values.forEach((value, index) => {
+        const length = value / total * 314
+        mark(svg, 'circle', { cx: 200, cy: 110, r: 50, fill: 'none', stroke: ['#3a7dff', '#55d6be'][index], 'stroke-width': 34, 'stroke-dasharray': `${length} ${314 - length}`, 'stroke-dashoffset': -offset, transform: 'rotate(-90 200 110)' }, `${regions[index]}: ${money(value)}`)
+        offset += length
+        add(svg, 'rect', { x: 300, y: 80 + index * 38, width: 14, height: 14, rx: 3, fill: ['#3a7dff', '#55d6be'][index] })
+        text(svg, 324, 92 + index * 38, `${regions[index]} ${Math.round(value / total * 100)}%`, 'start')
+      })
+    }
+
+    function renderScatter(data) {
+      const svg = clear('scatter')
+      grid(svg)
+      const maxSpend = Math.max(...data.map((row) => row.spend), 1)
+      const maxRevenue = Math.max(...data.map((row) => row.revenue), 1)
+      data.forEach((row) => mark(svg, 'circle', { cx: 36 + row.spend / maxSpend * 450, cy: 190 - row.revenue / maxRevenue * 150, r: 5, fill: row.region === 'East' ? '#3a7dff' : '#ff8b5c', opacity: .78 }, `${row.region} · ${row.category}: ${money(row.revenue)}`))
+    }
+
+    function grid(svg) {
+      for (let index = 0; index < 4; index += 1) add(svg, 'line', { x1: 30, x2: 500, y1: 40 + index * 50, y2: 40 + index * 50, class: 'grid' })
+    }
+
+    function clear(id) {
+      const svg = document.querySelector(`#${id}`)
+      svg.replaceChildren()
+      return svg
+    }
+
+    function add(svg, name, attributes) {
+      const node = document.createElementNS(NS, name)
+      for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, value)
+      svg.append(node)
+      return node
+    }
+
+    function mark(svg, name, attributes, label) {
+      const node = add(svg, name, { ...attributes, class: 'mark', 'data-value': label })
+      node.addEventListener('pointermove', (event) => {
+        tooltip.textContent = label
+        tooltip.style.display = 'block'
+        tooltip.style.left = `${event.clientX + 12}px`
+        tooltip.style.top = `${event.clientY + 12}px`
+      })
+      node.addEventListener('pointerleave', () => { tooltip.style.display = 'none' })
+      return node
+    }
+
+    function text(svg, x, y, value, anchor) {
+      const node = add(svg, 'text', { x, y, 'text-anchor': anchor, class: 'axis-label' })
+      node.textContent = value
+    }
+
+    function sum(items, key) { return items.reduce((total, item) => total + item[key], 0) }
+    function money(value) { return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value) }
+  </script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+{
+  "status": "ok",
+  "valid": true,
+  "summary": "画面已渲染出可辨识的星空背景、玩家飞船、敌人和分数界面。",
+  "model": "gpt-5.6-terra",
+  "durationMs": 3177
+}

@@ -1,0 +1,5 @@
+Open the existing file /home/ubuntu/deepseek-activation/docs/results/eval-v5-claude-models/runs/opencode-free/helicopter/artifact.html and fix it in place (do not create other files).
+
+The existing artifact.html does NOT render the 3D scene: the page shows only a HUD/background. Find the rendering bug (likely the Three.js renderer, camera, scene setup, or a missing render loop) and fix it so a visible helicopter with terrain actually renders. Keep HUD/controls working.
+
+After fixing, verify it loads without errors and stop. Write the fixed file to the SAME path /home/ubuntu/deepseek-activation/docs/results/eval-v5-claude-models/runs/opencode-free/helicopter/artifact.html.

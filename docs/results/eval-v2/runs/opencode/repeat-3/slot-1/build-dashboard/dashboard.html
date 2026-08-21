@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sales Analytics Dashboard</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --panel2: #182235;
+    --border: #334155;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --green: #34d399;
+    --amber: #fbbf24;
+    --violet: #a78bfa;
+    --rose: #fb7185;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+  h1 span { color: var(--accent); }
+  .subtitle { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .controls {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 16px;
+  }
+  .control-group { display: flex; flex-direction: column; gap: 4px; }
+  .control-group label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  select, input[type="range"] { background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: 13px; }
+  select { cursor: pointer; min-width: 140px; }
+  select:focus, input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .range-info {
+    font-size: 13px;
+    color: var(--text);
+    min-width: 130px;
+    font-variant-numeric: tabular-nums;
+  }
+  button {
+    background: linear-gradient(180deg, #38bdf8, #0284c7);
+    color: #04222e;
+    font-weight: 700;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 18px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: filter .15s;
+  }
+  button:hover { filter: brightness(1.1); }
+  button:active { transform: translateY(1px); }
+  .kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .kpi {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 18px;
+    position: relative;
+    overflow: hidden;
+  }
+  .kpi::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 4px;
+  }
+  .kpi.k-rev::before { background: var(--accent); }
+  .kpi.k-ord::before { background: var(--green); }
+  .kpi.k-aov::before { background: var(--amber); }
+  .kpi.k-pro::before { background: var(--violet); }
+  .kpi .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
+  .kpi .value { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .kpi .sub { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .kpi .icon { font-size: 14px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+  @media (max-width: 960px) { .grid { grid-template-columns: 1fr; } }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .panel h2 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text);
+  }
+  .panel h2 .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .chart-wrap { position: relative; }
+  svg text { user-select: none; }
+  .axis text, .tick-label { fill: var(--muted); font-size: 11px; }
+  .axis-line { stroke: var(--border); stroke-width: 1; }
+  .grid-line { stroke: var(--border); stroke-width: 1; stroke-dasharray: 3 3; opacity: .6; }
+  .bar { transition: opacity .15s; cursor: pointer; }
+  .bar:hover { opacity: .8; }
+  .dot-point { cursor: pointer; transition: opacity .15s; }
+  .dot-point:hover { opacity: .8; }
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend .swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  #tooltip {
+    position: fixed;
+    pointer-events: none;
+    background: #0b1220;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 12px;
+    color: var(--text);
+    box-shadow: 0 8px 20px rgba(0,0,0,.5);
+    opacity: 0;
+    transition: opacity .12s;
+    z-index: 100;
+    max-width: 260px;
+    white-space: nowrap;
+  }
+  #tooltip .tt-title { font-weight: 700; margin-bottom: 3px; color: #fff; }
+  #tooltip .tt-row { display: flex; justify-content: space-between; gap: 16px; }
+  #tooltip .tt-row b { color: #fff; font-variant-numeric: tabular-nums; margin-left: 8px; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Sales Analytics Dashboard</h1>
+    <div class="subtitle">Wholesale commerce performance overview</div>
+  </div>
+  <div class="controls">
+    <div class="control-group">
+      <label for="region-filter">Region</label>
+      <select id="region-filter"></select>
+    </div>
+    <div class="control-group">
+      <label for="category-filter">Category</label>
+      <select id="category-filter"></select>
+    </div>
+    <div class="control-group">
+      <label for="period-range">Period range</label>
+      <input type="range" id="period-range" min="0" max="5" value="0" step="1">
+      <div class="range-info" id="range-info"></div>
+    </div>
+    <div class="control-group">
+      <label>&nbsp;</label>
+      <button id="refresh-btn" type="button">Refresh data</button>
+    </div>
+  </div>
+</header>
+
+<section class="kpis" id="kpis">
+  <div class="kpi k-rev"><div class="label"><span>Revenue</span><span class="icon">&#128176;</span></div><div class="value" id="kpi-rev">0</div><div class="sub">Total across period</div></div>
+  <div class="kpi k-ord"><div class="label"><span>Orders</span><span class="icon">&#128722;</span></div><div class="value" id="kpi-ord">0</div><div class="sub">Total orders</div></div>
+  <div class="kpi k-aov"><div class="label"><span>Avg Order Value</span><span class="icon">&#128202;</span></div><div class="value" id="kpi-aov">0</div><div class="sub">Revenue / orders</div></div>
+  <div class="kpi k-pro"><div class="label"><span>Profit</span><span class="icon">&#128200;</span></div><div class="value" id="kpi-pro">0</div><div class="sub">Gross margin after costs</div></div>
+</section>
+
+<section class="grid">
+  <div class="panel">
+    <h2><span class="dot" style="background:var(--accent)"></span>Revenue Trend</h2>
+    <div class="chart-wrap"><svg id="chart-line" viewBox="0 0 520 260" role="img" aria-label="Revenue trend chart"></svg></div>
+  </div>
+  <div class="panel">
+    <h2><span class="dot" style="background:var(--green)"></span>Revenue by Category</h2>
+    <div class="chart-wrap"><svg id="chart-bars" viewBox="0 0 520 260" role="img" aria-label="Category bar chart"></svg></div>
+  </div>
+  <div class="panel">
+    <h2><span class="dot" style="background:var(--violet)"></span>Regional Share</h2>
+    <div class="chart-wrap"><svg id="chart-donut" viewBox="0 0 520 260" role="img" aria-label="Regional share donut chart"></svg></div>
+  </div>
+  <div class="panel">
+    <h2><span class="dot" style="background:var(--rose)"></span>Spend vs Revenue</h2>
+    <div class="chart-wrap"><svg id="chart-scatter" viewBox="0 0 520 260" role="img" aria-label="Spend vs revenue scatter chart"></svg></div>
+  </div>
+</section>
+
+<div id="tooltip"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- Deterministic PRNG (mulberry32) ----------
+  function mulberry32(seed) {
+    return function () {
+      seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+      var t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  // ---------- Dataset generation ----------
+  var REGIONS = ["North", "West"];
+  var CATEGORIES = ["Electronics", "Apparel", "Food"];
+  var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  var DEFAULT_PERIODS = 6;
+
+  // global dataset (flat records + counts for determinism)
+  var STATE = {
+    records: [],        // {region, category, month, revenue, orders, spend, cost}
+    periods: DEFAULT_PERIODS,
+    seed: 0
+  };
+
+  function generateData(seed, periods) {
+    var rnd = mulberry32(seed);
+    var records = [];
+    var year = 2025;
+    var baseRevenues = { Electronics: 9000, Apparel: 5200, Food: 3600 };
+    var orderCounts   = { Electronics: 60, Apparel: 120, Food: 200 };
+    var spendRatio    = { Electronics: 0.42, Apparel: 0.30, Food: 0.52 };
+    var slugs = ["a", "b", "c"];
+
+    REGIONS.forEach(function (region, ri) {
+      var regionFactor = 0.85 + ri * 0.18;           // West slightly bigger
+      var trend = 0.55 + (rnd() - 0.5) * 0.25;       // stable per-region growth offset
+      CATEGORIES.forEach(function (cat, ci) {
+        var base = baseRevenues[cat];
+        var slugsIdx = ri * CATEGORIES.length + ci;
+        for (var p = 0; p < periods; p++) {
+          var season = 1 + Math.sin((p / (periods - 1)) * Math.PI) * 0.18; // bell shape
+          var wobble = 0.85 + rnd() * 0.3;           // deterministic noise
+          var revenue = base * regionFactor * season * wobble * (1 + trend * (p / periods) * 0.4);
+          var ratio = 0.75 + rnd() * 0.5;
+          var orders = Math.max(3, Math.round(orderCounts[cat] * ratio + rnd() * 8) * (regionFactor / regionFactor));
+          var spend = revenue * (spendRatio[cat] + (rnd() - 0.5) * 0.12);
+          var costRatio = 0.52 + rnd() * 0.14 - (spend / revenue) * 0.1;
+          var cost = revenue * costRatio;
+          records.push({
+            slug: slugs[(seed + slugsIdx + p) % 3],
+            region: region,
+            category: cat,
+            month: (year * 100) + p + 1,
+            monthLabel: MONTHS[(5 + p) % 12],
+            revenue: Math.round(revenue),
+            orders: orders,
+            spend: Math.round(spend),
+            cost: Math.round(cost)
+          });
+        }
+      });
+    });
+    return records;
+  }
+
+  // ---------- State & filters ----------
+  var activeRegion = "All";
+  var activeCategory = "All";
+  var periodStart = 0;   // index into months 0..periods-1
+
+  function filteredRecords() {
+    return STATE.records.filter(function (r) {
+      var p = (r.month % 100) - 1;
+      if (p < periodStart || p > periodStart + 2) return false; // always a 3-month window
+      if (activeRegion !== "All" && r.region !== activeRegion) return false;
+      if (activeCategory !== "All" && r.category !== activeCategory) return false;
+      return true;
+    });
+  }
+
+  function windowMonths() {
+    var out = [];
+    for (var p = periodStart; p < Math.min(periodStart + 3, STATE.periods); p++) {
+      out.push(MONTHS[(5 + p) % 12]);
+    }
+    return out;
+  }
+
+  // ---------- Formatting ----------
+  function fmtMoney(n) {
+    return "$" + n.toLocaleString("en-US");
+  }
+  function fmtNum(n) {
+    return n.toLocaleString("en-US");
+  }
+
+  // ---------- Tooltip ----------
+  var tooltip = document.getElementById("tooltip");
+  function showTip(ev, title, rows) {
+    var html = '<div class="tt-title">' + title + "</div>";
+    rows.forEach(function (r) { html += '<div class="tt-row"><span>' + r[0] + "</span><b>" + r[1] + "</b></div>"; });
+    tooltip.innerHTML = html;
+    tooltip.style.opacity = "1";
+    positionTip(ev);
+  }
+  function positionTip(ev) {
+    var pad = 14;
+    var x = ev.clientX + pad, y = ev.clientY + pad;
+    var r = tooltip.getBoundingClientRect();
+    if (x + r.width > window.innerWidth - 8) x = ev.clientX - r.width - pad;
+    if (y + r.height > window.innerHeight - 8) y = ev.clientY - r.height - pad;
+    tooltip.style.left = x + "px";
+    tooltip.style.top = y + "px";
+  }
+  function hideTip() {
+    tooltip.style.opacity = "0";
+  }
+  document.addEventListener("mousemove", function (ev) {
+    if (tooltip.style.opacity === "1") positionTip(ev);
+  });
+
+  function attachTip(el, title, rows) {
+    el.addEventListener("mousemove", function (ev) { showTip(ev, title, rows); });
+    el.addEventListener("mouseleave", hideTip);
+  }
+
+  // ---------- Rendering: KPIs ----------
+  function renderKpis(records) {
+    var revenue = 0, orders = 0, profit = 0;
+    records.forEach(function (r) {
+      revenue += r.revenue;
+      orders += r.orders;
+      profit += (r.revenue - r.cost);
+    });
+    var aov = orders > 0 ? revenue / orders : 0;
+    document.getElementById("kpi-rev").textContent = fmtMoney(revenue);
+    document.getElementById("kpi-ord").textContent = fmtNum(orders);
+    document.getElementById("kpi-aov").textContent = fmtMoney(Math.round(aov));
+    document.getElementById("kpi-pro").textContent = fmtMoney(Math.round(profit));
+  }
+
+  // ---------- Chart: line trend ----------
+  function renderLine(records) {
+    var svg = document.getElementById("chart-line");
+    var W = 520, H = 260, padL = 58, padR = 18, padT = 16, padB = 30;
+    var labels = windowMonths();
+    var sums = [];
+    labels.forEach(function () { sums.push(0); });
+    records.forEach(function (r) {
+      var p = (r.month % 100) - 1;
+      var idx = p - periodStart;
+      if (idx >= 0 && idx < sums.length) sums[idx] += r.revenue;
+    });
+    var maxV = 1;
+    sums.forEach(function (s) { if (s > maxV) maxV = s; });
+    maxV = Math.ceil(maxV / 5000) * 5000 || 5000;
+    var ix = function (i) { return padL + (W - padL - padR) * (sums.length === 1 ? 0.5 : i / (sums.length - 1)); };
+    var iy = function (v) { return padT + (H - padT - padB) * (1 - v / maxV); };
+
+    var h = "<rect x=\"0\" y=\"0\" width=\"" + W + "\" height=\"" + H + "\" fill=\"transparent\"/>";
+    // gridlines + y labels
+    for (var g = 0; g <= 4; g++) {
+      var val = maxV - (maxV / 4) * g;
+      var y = iy(val);
+      h += '<line class="grid-line" x1="' + padL + '" y1="' + y + '" x2="' + (W - padR) + '" y2="' + y + '"/>';
+      h += '<text x="' + (padL - 8) + '" y="' + (y + 4) + '" text-anchor="end">' + Math.round(val / 1000) + "k</text>";
+    }
+    // x labels
+    labels.forEach(function (lab, i) {
+      h += '<text class="axis text" x="' + ix(i) + '" y="' + (H - 8) + '" text-anchor="middle">' + lab + "</text>";
+    });
+    // area + line
+    if (sums.length > 1) {
+      var pts = sums.map(function (s, i) { return ix(i) + "," + iy(s); }).join(" ");
+      h += '<polygon points="' + padL + "," + (H - padB) + " " + pts + " " + (W - padR) + "," + (H - padB) + '" fill="rgba(56,189,248,0.12)" stroke="none"/>';
+      h += '<polyline points="' + pts + '" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>';
+    }
+    // dots
+    sums.forEach(function (s, i) {
+      h += '<circle class="dot-point" cx="' + ix(i) + '" cy="' + iy(s) + '" r="5" fill="#0f172a" stroke="var(--accent)" stroke-width="2.5"/>';
+    });
+    svg.innerHTML = h;
+    // attach hover
+    var dots = svg.querySelectorAll("circle");
+    sums.forEach(function (s, i) {
+      attachTip(dots[i], labels[i] + " 2025", [["Revenue", fmtMoney(s)]]);
+    });
+  }
+
+  // ---------- Chart: category bars ----------
+  var CAT_COLORS = { Electronics: "#38bdf8", Apparel: "#34d399", Food: "#fbbf24" };
+  function catColor(c) { return CAT_COLORS[c] || "#94a3b8"; }
+
+  function renderBars(records) {
+    var svg = document.getElementById("chart-bars");
+    var W = 520, H = 260, padL = 58, padR = 18, padT = 16, padB = 30;
+    var sums = {};
+    CATEGORIES.forEach(function (c) { sums[c] = 0; });
+    records.forEach(function (r) { sums[r.category] += r.revenue; });
+    var maxV = 1;
+    CATEGORIES.forEach(function (c) { if (sums[c] > maxV) maxV = sums[c]; });
+    maxV = Math.ceil(maxV / 5000) * 5000 || 5000;
+    var slotW = (W - padL - padR) / CATEGORIES.length;
+    var barW = slotW * 0.5;
+    var iy = function (v) { return padT + (H - padT - padB) * (1 - v / maxV); };
+
+    var h = "<rect x=\"0\" y=\"0\" width=\"" + W + "\" height=\"" + H + "\" fill=\"transparent\"/>";
+    for (var g = 0; g <= 4; g++) {
+      var val = maxV - (maxV / 4) * g;
+      var y = iy(val);
+      h += '<line class="grid-line" x1="' + padL + '" y1="' + y + '" x2="' + (W - padR) + '" y2="' + y + '"/>';
+      h += '<text x="' + (padL - 8) + '" y="' + (y + 4) + '" text-anchor="end">' + Math.round(val / 1000) + "k</text>";
+    }
+    CATEGORIES.forEach(function (c, i) {
+      var cx = padL + slotW * i + slotW / 2;
+      var v = sums[c];
+      var y = iy(v), hgt = H - padB - y;
+      h += '<rect class="bar" x="' + (cx - barW / 2) + '" y="' + y + '" width="' + barW + '" height="' + Math.max(0, hgt) + '" rx="4" fill="' + catColor(c) + '"/>';
+      h += '<text x="' + cx + '" y="' + (H - 8) + '" text-anchor="middle">' + c + "</text>";
+      h += '<text x="' + cx + '" y="' + (y - 6) + '" text-anchor="middle" fill="var(--text)" font-size="11" font-weight="600">' + (Math.round(v / 1000)) + "k</text>";
+    });
+    svg.innerHTML = h;
+    var bars = svg.querySelectorAll(".bar");
+    CATEGORIES.forEach(function (c, i) {
+      attachTip(bars[i], c, [["Revenue", fmtMoney(sums[c])], ["Share", Math.round(sums[c] / totalSums(sums) * 100) + "%"]]);
+    });
+  }
+  function totalSums(obj) {
+    var t = 0; for (var k in obj) t += obj[k]; return t || 1;
+  }
+
+  // ---------- Chart: donut ----------
+  function renderDonut(records) {
+    var svg = document.getElementById("chart-donut");
+    var W = 520, H = 260;
+    var sums = {};
+    REGIONS.forEach(function (r) { sums[r] = 0; });
+    records.forEach(function (r) { sums[r.region] += r.revenue; });
+    var total = 0;
+    REGIONS.forEach(function (r) { total += sums[r]; });
+    var cx = W / 2 - 40, cy = H / 2 + 6, R = 78, R2 = 48;
+    var regionColors = ["#a78bfa", "#fb7185"];
+    var names = REGIONS.slice();
+    var angles = [];
+    var acc = -Math.PI / 2;
+    names.forEach(function (r, i) {
+      var frac = total > 0 ? sums[r] / total : 0;
+      angles.push({ start: acc, end: acc + frac * Math.PI * 2, r: r, w: i });
+      acc += frac * Math.PI * 2;
+    });
+
+    function arcPath(a0, a1, rr) {
+      var large = (a1 - a0) > Math.PI ? 1 : 0;
+      var rad = rr - (rr - R2); // outer radius
+      var x0 = cx + rad * Math.cos(a0), y0 = cy + rad * Math.sin(a0);
+      var x1 = cx + rad * Math.cos(a1), y1 = cy + rad * Math.sin(a1);
+      var x0i = cx + R2 * Math.cos(a0), y0i = cy + R2 * Math.sin(a0);
+      var x1i = cx + R2 * Math.cos(a1), y1i = cy + R2 * Math.sin(a1);
+      return "M " + x0i + " " + y0i +
+             " L " + x0 + " " + y0 +
+             " A " + rad + " " + rad + " 0 " + large + " 1 " + x1 + " " + y1 +
+             " L " + x1i + " " + y1i +
+             " A " + R2 + " " + R2 + " 0 " + large + " 0 " + x0i + " " + y0i + " Z";
+    }
+
+    var h = "";
+    angles.forEach(function (a, i) {
+      if (a.end - a.start <= 0.0001) return;
+      var path = arcPath(a.start, a.end, R);
+      h += '<path class="slice" data-i="' + i + '" fill="' + regionColors[i % regionColors.length] + '" d="' + path + '"/>';
+    });
+    h += '<text x="' + cx + '" y="' + (cy - 6) + '" text-anchor="middle" fill="var(--text)" font-size="24" font-weight="700">' + Math.round(total / 1000) + "k</text>";
+    h += '<text x="' + cx + '" y="' + (cy + 12) + '" text-anchor="middle" fill="var(--muted)" font-size="11">Revenue</text>';
+
+    // legend at right
+    var lx = cx + R + 40, ly = cy - 40;
+    names.forEach(function (r, i) {
+      h += '<rect x="' + lx + '" y="' + ly + '" width="11" height="11" rx="3" fill="' + regionColors[i % regionColors.length] + '"/>';
+      var pct = total > 0 ? Math.round(sums[r] / total * 100) : 0;
+      h += '<text x="' + (lx + 17) + '" y="' + (ly + 10) + '" fill="var(--text)" font-size="12">' + r + "</text>";
+      h += '<text x="' + (lx + 160) + '" y="' + (ly + 10) + '" text-anchor="end" fill="var(--muted)" font-size="12">' + fmtMoney(sums[r]) + " (" + pct + "%)</text>";
+      ly += 22;
+    });
+    svg.innerHTML = h;
+    var slices = svg.querySelectorAll(".slice");
+    angles.forEach(function (a, i) {
+      var pct = total > 0 ? Math.round(sums[a.r] / total * 100) : 0;
+      slices[i].setAttribute("data-real", "1");
+      attachTip(slices[i], a.r, [["Revenue", fmtMoney(sums[a.r])], ["Share", pct + "%"]]);
+    });
+  }
+
+  // ---------- Chart: scatter (spend vs revenue, colored per category) ----------
+  function renderScatter(records) {
+    var svg = document.getElementById("chart-scatter");
+    var W = 520, H = 260, padL = 58, padR = 18, padT = 16, padB = 34;
+    var maxX = 0, maxY = 0;
+    records.forEach(function (r) {
+      if (r.spend > maxX) maxX = r.spend;
+      if (r.revenue > maxY) maxY = r.revenue;
+    });
+    maxX = maxX || 1; maxY = maxY || 1;
+    maxX = Math.ceil(maxX / 2000) * 2000 || 2000;
+    maxY = Math.ceil(maxY / 2000) * 2000 || 2000;
+    var sx = function (v) { return padL + (W - padL - padR) * (v / maxX); };
+    var sy = function (v) { return padT + (H - padT - padB) * (1 - v / maxY); };
+
+    var h = "<rect x=\"0\" y=\"0\" width=\"" + W + "\" height=\"" + H + "\" fill=\"transparent\"/>";
+    for (var g = 0; g <= 4; g++) {
+      var xv = (maxX / 4) * g, yv = (maxY / 4) * g;
+      var xp = sx(xv), yp = sy(yv);
+      h += '<line class="grid-line" x1="' + padL + '" y1="' + yp + '" x2="' + (W - padR) + '" y2="' + yp + '"/>';
+      h += '<line class="grid-line" x1="' + xp + '" y1="' + padT + '" x2="' + xp + '" y2="' + (H - padB) + '"/>';
+      h += '<text x="' + (padL - 8) + '" y="' + (yp + 4) + '" text-anchor="end">' + Math.round(yv / 1000) + "k</text>";
+      h += '<text x="' + xp + '" y="' + (H - 12) + '" text-anchor="middle">' + Math.round(xv / 1000) + "k</text>";
+    }
+    h += '<text x="' + ((padL + W - padR) / 2) + '" y="' + (H - 2) + '" text-anchor="middle" fill="var(--muted)" font-size="10">Spend</text>';
+    h += '<text x="14" y="' + (H / 2) + '" fill="var(--muted)" font-size="10" transform="rotate(-90 14 ' + (H / 2) + ')" text-anchor="middle">Revenue</text>';
+
+    records.forEach(function (r, i) {
+      var cx = sx(r.spend), cy = sy(r.revenue);
+      h += '<circle class="dot-point" data-i="' + i + '" cx="' + cx + '" cy="' + cy + '" r="5" fill="' + catColor(r.category) + '" opacity="0.9" stroke="#0f172a" stroke-width="1"/>';
+    });
+
+    // median line for reference
+    var midSpend = maxX / 2, midRev = maxY / 2;
+    h += '<line x1="' + sx(0) + '" y1="' + sy(0) + '" x2="' + sx(midSpend) + '" y2="' + sy(midRev) + '" stroke="var(--border)" stroke-width="1" stroke-dasharray="4 4"/>';
+
+    svg.innerHTML = h;
+    var dots = svg.querySelectorAll("circle.dot-point");
+    records.forEach(function (r, i) {
+      attachTip(dots[i], r.region + " · " + r.category + " · " + r.monthLabel, [
+        ["Month", String(r.month % 100)],
+        ["Revenue", fmtMoney(r.revenue)],
+        ["Spend", fmtMoney(r.spend)],
+        ["Orders", fmtNum(r.orders)]
+      ]);
+    });
+  }
+
+  // ---------- Render all ----------
+  function renderAll() {
+    var recs = filteredRecords();
+    renderKpis(recs);
+    renderLine(recs);
+    renderBars(recs);
+    renderDonut(recs);
+    renderScatter(recs);
+  }
+
+  // ---------- Controls ----------
+  function populateFilter(selId, values, active) {
+    var sel = document.getElementById(selId);
+    var opts = ["All"].concat(values);
+    sel.innerHTML = "";
+    opts.forEach(function (v) {
+      var o = document.createElement("option");
+      o.value = v; o.textContent = v;
+      if (v === active) o.selected = true;
+      sel.appendChild(o);
+    });
+  }
+
+  function refreshOptions() {
+    populateFilter("region-filter", REGIONS, activeRegion);
+    populateFilter("category-filter", CATEGORIES, activeCategory);
+    var range = document.getElementById("period-range");
+    range.max = Math.max(0, STATE.periods - 3); // window always 3 months
+    if (periodStart > range.max) periodStart = parseInt(range.max, 10) || 0;
+    range.value = periodStart;
+    updateRangeInfo();
+    renderAll();
+  }
+
+  function updateRangeInfo() {
+    var labels = windowMonths();
+    var spanEl = document.getElementById("range-info");
+    var from = MONTHS[(5 + periodStart) % 12];
+    var to = labels[labels.length - 1];
+    if (labels.length === 1) to = from;
+    spanEl.textContent = from + " – " + to + " 2025";
+  }
+
+  document.getElementById("region-filter").addEventListener("change", function (e) {
+    activeRegion = e.target.value;
+    renderAll();
+  });
+  document.getElementById("category-filter").addEventListener("change", function (e) {
+    activeCategory = e.target.value;
+    renderAll();
+  });
+  document.getElementById("period-range").addEventListener("input", function (e) {
+    periodStart = parseInt(e.target.value, 10);
+    updateRangeInfo();
+    renderAll();
+  });
+  document.getElementById("refresh-btn").addEventListener("click", function () {
+    STATE.seed = (STATE.seed + 1) % 100000;
+    STATE.records = generateData(STATE.seed, DEFAULT_PERIODS);
+    refreshOptions();
+  });
+
+  // ---------- Init ----------
+  STATE.seed = 42;
+  STATE.records = generateData(STATE.seed, DEFAULT_PERIODS);
+  refreshOptions();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>WebAudio Music Visualizer</title>
+<style>
+  :root {
+    --bg: #070a14;
+    --panel: rgba(15, 22, 40, 0.72);
+    --accent: #4cd6ff;
+    --accent2: #ff5cc8;
+    --text: #e8eefc;
+    --muted: #8a96b8;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    overflow: hidden;
+  }
+  #canvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    background:
+      radial-gradient(circle at 30% 20%, rgba(76,214,255,0.08), transparent 55%),
+      radial-gradient(circle at 70% 80%, rgba(255,92,200,0.08), transparent 55%),
+      var(--bg);
+  }
+  .ui {
+    position: fixed;
+    left: 50%;
+    bottom: 22px;
+    transform: translateX(-50%);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 16px;
+    background: var(--panel);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.45);
+    max-width: calc(100vw - 24px);
+    z-index: 10;
+  }
+  .group {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    padding: 4px;
+    background: rgba(0,0,0,0.25);
+    border-radius: 12px;
+  }
+  .group .label {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 0 6px 0 4px;
+  }
+  button {
+    appearance: none;
+    border: 1px solid rgba(255,255,255,0.10);
+    background: rgba(255,255,255,0.04);
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 12px;
+    border-radius: 9px;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.05s ease;
+    white-space: nowrap;
+  }
+  button:hover { background: rgba(255,255,255,0.10); }
+  button:active { transform: translateY(1px); }
+  button.mode.active {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #04121a;
+    border-color: transparent;
+  }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  input[type="file"] { display: none; }
+  .filebtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  input[type="range"] {
+    width: 90px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+  .status {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 13px;
+    color: var(--muted);
+    background: var(--panel);
+    border: 1px solid rgba(255,255,255,0.08);
+    padding: 7px 14px;
+    border-radius: 999px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 10;
+    max-width: calc(100vw - 24px);
+    text-align: center;
+  }
+  .title {
+    position: fixed;
+    top: 16px;
+    left: 18px;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--text);
+    z-index: 10;
+    text-shadow: 0 2px 12px rgba(0,0,0,0.6);
+  }
+  .title small { color: var(--muted); font-weight: 500; }
+  .hint {
+    position: fixed;
+    bottom: 96px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 12px;
+    color: var(--muted);
+    z-index: 10;
+    text-align: center;
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+  }
+</style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+
+  <div class="title">◈ WebAudio Visualizer <small id="binInfo"></small></div>
+  <div class="status" id="status">Idle — load audio or enable the microphone</div>
+  <div class="hint" id="hint">Tip: pick a music file to begin. The canvas animates even before audio starts.</div>
+
+  <div class="ui">
+    <div class="group">
+      <span class="label">Mode</span>
+      <button class="mode active" data-mode="bars">Bars</button>
+      <button class="mode" data-mode="rings">Rings</button>
+      <button class="mode" data-mode="particles">Particles</button>
+    </div>
+
+    <div class="group">
+      <span class="label">Source</span>
+      <label class="filebtn"><input type="file" id="file" accept="audio/*" />🎵 File</label>
+      <button id="mic">🎤 Mic</button>
+    </div>
+
+    <div class="group">
+      <span class="label">Play</span>
+      <button id="play" disabled>▶ Play</button>
+      <button id="stop" disabled>■ Stop</button>
+    </div>
+
+    <div class="group">
+      <span class="label">Vol</span>
+      <input type="range" id="vol" min="0" max="1" step="0.01" value="0.9" />
+    </div>
+  </div>
+
+  <audio id="audio" crossorigin="anonymous"></audio>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- Configuration ----------
+  var FFT_SIZE = 512;              // -> frequencyBinCount = 256 (>= 60 bins required)
+  var NUM_BARS = 128;              // visual resolution (>= 60 bins required)
+  var SMOOTHING = 0.82;           // analyser smoothing
+  var VALUE_LERP = 0.25;          // our own value interpolation for smoothness
+
+  // ---------- DOM ----------
+  var canvas = document.getElementById("canvas");
+  var ctx = canvas.getContext("2d");
+  var statusEl = document.getElementById("status");
+  var hintEl = document.getElementById("hint");
+  var binInfoEl = document.getElementById("binInfo");
+  var audioEl = document.getElementById("audio");
+  var fileInput = document.getElementById("file");
+  var micBtn = document.getElementById("mic");
+  var playBtn = document.getElementById("play");
+  var stopBtn = document.getElementById("stop");
+  var volSlider = document.getElementById("vol");
+  var modeButtons = document.querySelectorAll("button.mode");
+
+  // ---------- State ----------
+  var AudioCtx = window.AudioContext || window.webkitAudioContext;
+  var audioCtx = null;
+  var analyser = null;
+  var freqData = null;            // Uint8Array from analyser
+  var rawData = null;             // raw byte data (for mic/file)
+  var values = new Float32Array(NUM_BARS);   // smoothed visual values [0..255]
+  var displayValues = new Float32Array(NUM_BARS); // extra-smoothed for render
+
+  var mode = "bars";
+  var sourceNode = null;          // current AnalyserNode-connected source
+  var mediaElSource = null;
+  var micStream = null;
+  var micActive = false;
+  var usingFile = false;
+  var audioReady = false;
+  var particles = [];
+  var startTime = null;
+
+  // ---------- Canvas sizing ----------
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  function resize() {
+    var w = window.innerWidth;
+    var h = window.innerHeight;
+    canvas.width = Math.floor(w * dpr);
+    canvas.height = Math.floor(h * dpr);
+    canvas.style.width = w + "px";
+    canvas.style.height = h + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    initParticles();
+  }
+  window.addEventListener("resize", resize);
+
+  // ---------- Audio setup ----------
+  function ensureAudio() {
+    if (audioCtx) return audioCtx;
+    audioCtx = new AudioCtx();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = FFT_SIZE;
+    analyser.smoothingTimeConstant = SMOOTHING;
+    freqData = new Uint8Array(analyser.frequencyBinCount);
+    rawData = new Uint8Array(analyser.frequencyBinCount);
+    binInfoEl.textContent = "· " + analyser.frequencyBinCount + " bins";
+    return audioCtx;
+  }
+
+  function resumeAudio() {
+    if (audioCtx && audioCtx.state === "suspended") {
+      audioCtx.resume();
+    }
+  }
+
+  function disconnectSource() {
+    if (sourceNode) {
+      try { sourceNode.disconnect(); } catch (e) {}
+      sourceNode = null;
+    }
+  }
+
+  // ---------- File playback ----------
+  function setupMediaElementSource() {
+    ensureAudio();
+    if (!mediaElSource) {
+      mediaElSource = audioCtx.createMediaElementSource(audioEl);
+    }
+    disconnectSource();
+    mediaElSource.connect(analyser);
+    analyser.connect(audioCtx.destination);
+    sourceNode = mediaElSource;
+  }
+
+  fileInput.addEventListener("change", function (e) {
+    var f = e.target.files && e.target.files[0];
+    if (!f) return;
+    var url = URL.createObjectURL(f);
+    audioEl.src = url;
+    usingFile = true;
+    audioReady = true;
+    playBtn.disabled = false;
+    stopBtn.disabled = false;
+    setupMediaElementSource();
+    resumeAudio();
+    audioEl.play().then(function () {
+      setStatus("Playing: " + f.name);
+      playBtn.textContent = "❚❚ Pause";
+      hideHint();
+    }).catch(function (err) {
+      setStatus("Tap Play to start audio (" + f.name + ")");
+    });
+  });
+
+  // ---------- Microphone ----------
+  micBtn.addEventListener("click", function () {
+    if (micActive) {
+      stopMic();
+      return;
+    }
+    ensureAudio();
+    resumeAudio();
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setStatus("Microphone not supported in this browser.");
+      return;
+    }
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+      micStream = stream;
+      micActive = true;
+      disconnectSource();
+      // Pause file playback so we don't double up
+      if (!audioEl.paused) audioEl.pause();
+      sourceNode = audioCtx.createMediaStreamSource(stream);
+      sourceNode.connect(analyser); // intentionally NOT to destination (avoid feedback)
+      micBtn.textContent = "🎤 Stop Mic";
+      micBtn.classList.add("active");
+      setStatus("Microphone live — make some noise!");
+      hideHint();
+    }).catch(function (err) {
+      setStatus("Microphone access denied or unavailable.");
+    });
+  });
+
+  function stopMic() {
+    micActive = false;
+    if (micStream) {
+      micStream.getTracks().forEach(function (t) { t.stop(); });
+      micStream = null;
+    }
+    disconnectSource();
+    micBtn.textContent = "🎤 Mic";
+    micBtn.classList.remove("active");
+    setStatus("Microphone stopped.");
+  }
+
+  // ---------- Playback controls ----------
+  playBtn.addEventListener("click", function () {
+    if (!usingFile) {
+      setStatus("Load an audio file first.");
+      return;
+    }
+    resumeAudio();
+    setupMediaElementSource();
+    if (audioEl.paused) {
+      audioEl.play();
+      playBtn.textContent = "❚❚ Pause";
+      setStatus("Playing");
+      hideHint();
+    } else {
+      audioEl.pause();
+      playBtn.textContent = "▶ Play";
+      setStatus("Paused");
+    }
+  });
+
+  stopBtn.addEventListener("click", function () {
+    audioEl.pause();
+    audioEl.currentTime = 0;
+    playBtn.textContent = "▶ Play";
+    setStatus("Stopped");
+    // decay visual values quickly
+    for (var i = 0; i < NUM_BARS; i++) values[i] *= 0.2;
+  });
+
+  audioEl.addEventListener("ended", function () {
+    playBtn.textContent = "▶ Play";
+    setStatus("Finished");
+  });
+
+  volSlider.addEventListener("input", function () {
+    audioEl.volume = parseFloat(volSlider.value);
+  });
+  audioEl.volume = parseFloat(volSlider.value);
+
+  // ---------- Mode switching ----------
+  modeButtons.forEach(function (b) {
+    b.addEventListener("click", function () {
+      mode = b.getAttribute("data-mode");
+      modeButtons.forEach(function (x) { x.classList.remove("active"); });
+      b.classList.add("active");
+      if (mode === "particles") initParticles();
+    });
+  });
+
+  // ---------- Helpers ----------
+  function setStatus(s) { statusEl.textContent = s; }
+  function hideHint() { hintEl.style.opacity = "0"; }
+
+  function initParticles() {
+    particles = [];
+    var count = 140;
+    for (var i = 0; i < count; i++) {
+      particles.push({
+        angle: Math.random() * Math.PI * 2,
+        radius: 40 + Math.random() * 60,
+        baseRadius: 40 + Math.random() * 60,
+        speed: (Math.random() * 0.4 + 0.1) * (Math.random() < 0.5 ? -1 : 1),
+        size: Math.random() * 2.5 + 1,
+        hue: Math.random() * 360
+      });
+    }
+  }
+
+  // ---------- Data acquisition (always produces motion) ----------
+  function updateData(t) {
+    var active = micActive || (!audioEl.paused && usingFile);
+    if (active && analyser) {
+      analyser.getByteFrequencyData(freqData);
+      var bins = analyser.frequencyBinCount;
+      for (var i = 0; i < NUM_BARS; i++) {
+        // log-ish mapping for nicer distribution
+        var idx = Math.floor(Math.pow(i / NUM_BARS, 1.4) * bins);
+        if (idx >= bins) idx = bins - 1;
+        var target = freqData[idx];
+        values[i] += (target - values[i]) * VALUE_LERP;
+      }
+    } else {
+      // Idle synthetic data so the canvas animates immediately on load
+      for (var j = 0; j < NUM_BARS; j++) {
+        var wave =
+          Math.sin(t * 0.0011 + j * 0.18) * 0.5 +
+          Math.sin(t * 0.0023 + j * 0.07) * 0.3 +
+          Math.sin(t * 0.0007 - j * 0.25) * 0.2;
+        var envelope = Math.sin((j / NUM_BARS) * Math.PI); // louder in the middle
+        var targetIdle = (wave * 0.5 + 0.5) * 110 * (0.35 + envelope * 0.65);
+        values[j] += (targetIdle - values[j]) * 0.08;
+      }
+    }
+    // extra smoothing layer for render
+    for (var k = 0; k < NUM_BARS; k++) {
+      displayValues[k] += (values[k] - displayValues[k]) * 0.5;
+    }
+  }
+
+  // ---------- Render modes ----------
+  function clearBg() {
+    var w = window.innerWidth, h = window.innerHeight;
+    ctx.globalCompositeOperation = "source-over";
+    ctx.fillStyle = "rgba(7,10,20,0.28)"; // motion trail
+    ctx.fillRect(0, 0, w, h);
+  }
+
+  function drawBars(t) {
+    var w = window.innerWidth, h = window.innerHeight;
+    var n = NUM_BARS;
+    var gap = 2;
+    var bw = (w / n) - gap;
+    var baseline = h * 0.92;
+    for (var i = 0; i < n; i++) {
+      var v = displayValues[i] / 255;
+      var bh = Math.max(2, v * h * 0.7);
+      var x = i * (bw + gap) + gap / 2;
+      var hue = 200 + (i / n) * 140;
+      var grad = ctx.createLinearGradient(0, baseline - bh, 0, baseline);
+      grad.addColorStop(0, "hsla(" + hue + ",100%,65%,0.95)");
+      grad.addColorStop(1, "hsla(" + (hue + 40) + ",90%,45%,0.55)");
+      ctx.fillStyle = grad;
+      ctx.fillRect(x, baseline - bh, bw, bh);
+      // reflection
+      ctx.fillStyle = "hsla(" + hue + ",100%,70%,0.08)";
+      ctx.fillRect(x, baseline, bw, bh * 0.35);
+    }
+  }
+
+  function drawRings(t) {
+    var w = window.innerWidth, h = window.innerHeight;
+    var cx = w / 2, cy = h / 2;
+    var n = NUM_BARS;
+    var baseR = Math.min(w, h) * 0.10;
+    var maxAdd = Math.min(w, h) * 0.30;
+    // central pulse
+    var avg = 0;
+    for (var a = 0; a < n; a++) avg += displayValues[a];
+    avg /= n;
+    var pulse = 1 + (avg / 255) * 0.25;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(pulse, pulse);
+    for (var i = 0; i < n; i++) {
+      var v = displayValues[i] / 255;
+      var r = baseR + (i / n) * maxAdd + v * 30;
+      var hue = (i / n) * 360 + t * 0.02;
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.lineWidth = 1 + v * 6;
+      ctx.strokeStyle = "hsla(" + hue + ",90%," + (45 + v * 25) + "%," + (0.25 + v * 0.6) + ")";
+      ctx.stroke();
+    }
+    // glowing core
+    var coreR = baseR * 0.6 * (1 + (avg / 255) * 0.6);
+    var g = ctx.createRadialGradient(0, 0, 0, 0, 0, coreR);
+    g.addColorStop(0, "rgba(120,230,255,0.9)");
+    g.addColorStop(1, "rgba(120,230,255,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(0, 0, coreR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawParticles(t) {
+    var w = window.innerWidth, h = window.innerHeight;
+    var cx = w / 2, cy = h / 2;
+    ctx.globalCompositeOperation = "lighter";
+    var n = particles.length;
+    for (var i = 0; i < n; i++) {
+      var p = particles[i];
+      var bin = displayValues[i % NUM_BARS] / 255;
+      p.angle += p.speed * 0.01 * (1 + bin * 3);
+      p.radius = p.baseRadius + bin * Math.min(w, h) * 0.32;
+      var x = cx + Math.cos(p.angle) * p.radius;
+      var y = cy + Math.sin(p.angle) * p.radius * 0.7;
+      var size = p.size + bin * 5;
+      var hue = (p.hue + t * 0.03 + bin * 80) % 360;
+      var g = ctx.createRadialGradient(x, y, 0, x, y, size * 3);
+      g.addColorStop(0, "hsla(" + hue + ",100%,70%," + (0.5 + bin * 0.5) + ")");
+      g.addColorStop(1, "hsla(" + hue + ",100%,70%,0)");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(x, y, size * 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalCompositeOperation = "source-over";
+  }
+
+  // ---------- Main loop ----------
+  function frame(t) {
+    if (startTime === null) startTime = t;
+    updateData(t);
+    clearBg();
+    if (mode === "bars") drawBars(t);
+    else if (mode === "rings") drawRings(t);
+    else drawParticles(t);
+    requestAnimationFrame(frame);
+  }
+
+  // ---------- Boot ----------
+  resize();
+  initParticles();
+  setStatus("Idle — load audio or enable the microphone");
+  requestAnimationFrame(frame);
+
+  // Safety: expose a tiny self-test hook so automated checks can confirm boot.
+  window.__vizBooted = true;
+  window.__vizState = function () {
+    return { mode: mode, bins: NUM_BARS, booted: true };
+  };
+})();
+</script>
+</body>
+</html>

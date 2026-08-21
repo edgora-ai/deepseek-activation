@@ -1,0 +1,7 @@
+{
+  "status": "ok",
+  "valid": true,
+  "summary": "画面已渲染出可辨识的太空射击游戏场景，包含玩家飞船、敌人、星空及分数和生命值界面。",
+  "model": "gpt-5.6-terra",
+  "durationMs": 4888
+}

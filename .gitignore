@@ -1,2 +1,7 @@
 *.log
 .DS_Store
+
+# 评测截图体积大，不入库（报告引用本地路径）
+docs/results/eval-v*/**/screenshot.png
+docs/results/eval-v*/**/*.png
+docs/results/eval-v*/**/*.jpg

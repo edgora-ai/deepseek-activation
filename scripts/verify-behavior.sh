@@ -1,48 +1,88 @@
 #!/usr/bin/env bash
-# 验证行为遵循：跑标准任务（写文件+验证），确认规则生效
-# 用法: ./scripts/verify-behavior.sh [claude|codex|opencode]
+# Verify behavior with a generated file, browser runtime, and interaction assertion.
 set -euo pipefail
 
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CLIENT="${1:-all}"
-WORKDIR="$(mktemp -d)"
+WORKDIR=$(mktemp -d /tmp/deepseek-activation-verify.XXXXXX)
+trap 'rm -rf "$WORKDIR"' EXIT
 
-test_claude() {
-  echo "=== Claude Code 行为验证 ==="
-  cd "$WORKDIR"
-  echo "创建 $WORKDIR/helper.js，含 throttle 和 once 函数。写文件后用 node 验证。" \
-    | claude -p --model deepseek-free 2>&1 \
-    | grep -qiE 'test|verify|passed|✓' && echo "✅ 行为遵循（验证步骤出现）" || echo "❌ 未见验证（检查规则）"
+prompt_for() {
+  local output=$1
+  printf '%s\n' "Create $output as one self-contained HTML file with no external assets. Add a button with id=\"increment\", a numeric output with id=\"count\" initially showing 0, and JavaScript that increments the count exactly once per click. Write the file, verify it, and do not modify any other file."
 }
 
-test_codex() {
-  echo "=== Codex 行为验证 ==="
-  cd "$WORKDIR"
-  if [ -z "${HROZE_TOKEN:-}" ]; then
-    echo "⚠️ 需要 HROZE_TOKEN"
-    return
+verify_output() {
+  local output=$1
+  if [[ ! -f "$output" ]]; then
+    printf 'FAIL: target file was not generated: %s\n' "$output" >&2
+    return 1
   fi
-  echo "创建 $WORKDIR/helper.js，含 throttle 和 once 函数。写文件后用 node 验证。" \
-    | codex exec --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox 2>&1 \
-    | grep -qiE 'test|verify|passed|✓' && echo "✅ 行为遵循" || echo "❌ 未见验证"
+  node "$REPO_DIR/eval/verify-counter.mjs" "$output"
 }
 
-test_opencode() {
-  echo "=== OpenCode 行为验证 ==="
-  cd "$WORKDIR"
-  timeout 180 opencode run --model opencode/deepseek-v4-flash-free \
-    "创建 $WORKDIR/helper.js，含 throttle 和 once 函数。写文件后用 node 验证。" 2>&1 \
-    | grep -qiE 'test|verify|passed|✓' && echo "✅ 行为遵循" || echo "❌ 未见验证"
+run_claude() {
+  command -v claude >/dev/null || { printf '%s\n' 'SKIP: claude is not installed' >&2; return 2; }
+  local dir="$WORKDIR/claude" output status
+  mkdir -p "$dir"
+  output="$dir/counter.html"
+  set +e
+  prompt_for "$output" | (cd "$dir" && timeout 1800 claude -p --model deepseek-free) >"$dir/client.log" 2>&1
+  status=$?
+  set -e
+  printf '[claude] generation-exit=%s\n' "$status"
+  verify_output "$output"
+}
+
+run_codex() {
+  command -v codex >/dev/null || { printf '%s\n' 'SKIP: codex is not installed' >&2; return 2; }
+  if [[ -z "${HROZE_TOKEN:-}" && -z "${ANTHROPIC_AUTH_TOKEN:-}" ]]; then
+    printf '%s\n' 'SKIP: Codex provider credential is not configured' >&2
+    return 2
+  fi
+  local dir="$WORKDIR/codex" output status
+  mkdir -p "$dir"
+  output="$dir/counter.html"
+  set +e
+  prompt_for "$output" | (cd "$dir" && HROZE_TOKEN="${HROZE_TOKEN:-$ANTHROPIC_AUTH_TOKEN}" timeout 3600 codex exec --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -) >"$dir/client.log" 2>&1
+  status=$?
+  set -e
+  printf '[codex] generation-exit=%s\n' "$status"
+  verify_output "$output"
+}
+
+run_opencode() {
+  command -v opencode >/dev/null || { printf '%s\n' 'SKIP: opencode is not installed' >&2; return 2; }
+  local dir="$WORKDIR/opencode" output status prompt
+  mkdir -p "$dir"
+  output="$dir/counter.html"
+  prompt=$(prompt_for "$output")
+  set +e
+  (cd "$dir" && timeout 1800 opencode run --model opencode/deepseek-v4-flash-free "$prompt") >"$dir/client.log" 2>&1
+  status=$?
+  set -e
+  printf '[opencode] generation-exit=%s\n' "$status"
+  verify_output "$output"
+}
+
+run_one() {
+  case "$1" in
+    claude) run_claude ;;
+    codex) run_codex ;;
+    opencode) run_opencode ;;
+    *) printf 'Unknown client: %s\n' "$1" >&2; return 2 ;;
+  esac
 }
 
 case "$CLIENT" in
-  claude) test_claude ;;
-  codex) test_codex ;;
-  opencode) test_opencode ;;
+  claude|codex|opencode) run_one "$CLIENT" ;;
   all)
-    test_claude || true
-    test_codex || true
-    test_opencode || true
+    result=0
+    for client in claude codex opencode; do
+      printf '=== %s behavior verification ===\n' "$client"
+      run_one "$client" || result=1
+    done
+    exit "$result"
     ;;
+  *) printf 'Usage: %s [claude|codex|opencode|all]\n' "$0" >&2; exit 2 ;;
 esac
-
-rm -rf "$WORKDIR"

@@ -1,0 +1,256 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-20T14:17:38.578Z",
+  "evaluationMethodVersion": 4,
+  "results": [
+    {
+      "id": "shared-filter-card-build",
+      "source": "docs/results/eval-v2/pilot-runs-semantic-control-cross-contamination/opencode/repeat-1/slot-1/build-dashboard/dashboard.html",
+      "methodVersion": 4,
+      "contractPassed": 11,
+      "contractTotal": 11,
+      "runtimePass": true,
+      "interactionPass": true,
+      "fullPass": true,
+      "controlCounts": {
+        "region": 3,
+        "category": 3,
+        "period": 2
+      },
+      "targets": {
+        "region": {
+          "kind": "region",
+          "tag": "button",
+          "type": "button",
+          "id": null,
+          "name": null,
+          "text": "North"
+        },
+        "category": {
+          "kind": "category",
+          "tag": "button",
+          "type": "button",
+          "id": null,
+          "name": null,
+          "text": "Electronics"
+        },
+        "period": {
+          "kind": "period",
+          "tag": "input",
+          "type": "range",
+          "id": "rFrom",
+          "name": null,
+          "text": ""
+        }
+      },
+      "postMutationKpis": {
+        "region": [
+          "36",
+          "11,1521,859",
+          "$148.80",
+          "$530.8K"
+        ],
+        "category": [
+          "36",
+          "12,2482,041",
+          "$124.68",
+          "$529.1K"
+        ],
+        "period": [
+          "45",
+          "13,6302,726",
+          "$158.84",
+          "$744.1K"
+        ]
+      },
+      "failedChecks": []
+    },
+    {
+      "id": "hidden-label-build",
+      "source": "docs/results/eval-v2/pilot-runs-control-discovery-false-negative/opencode/repeat-1/slot-1/build-dashboard/dashboard.html",
+      "methodVersion": 4,
+      "contractPassed": 11,
+      "contractTotal": 11,
+      "runtimePass": true,
+      "interactionPass": true,
+      "fullPass": true,
+      "controlCounts": {
+        "region": 4,
+        "category": 3,
+        "period": 2
+      },
+      "targets": {
+        "region": {
+          "kind": "region",
+          "tag": "input",
+          "type": "checkbox",
+          "id": null,
+          "name": null,
+          "text": ""
+        },
+        "category": {
+          "kind": "category",
+          "tag": "input",
+          "type": "checkbox",
+          "id": null,
+          "name": null,
+          "text": ""
+        },
+        "period": {
+          "kind": "period",
+          "tag": "select",
+          "type": "select-one",
+          "id": "fromSel",
+          "name": null,
+          "text": "Jan 2026Feb 2026Mar 2026Apr 2026May 2026Jun 2026"
+        }
+      },
+      "postMutationKpis": {
+        "region": [
+          "$1,826,195",
+          "23,534",
+          "$78",
+          "34.1%"
+        ],
+        "category": [
+          "$1,510,913",
+          "24,905",
+          "$61",
+          "33.1%"
+        ],
+        "period": [
+          "$2,243,934",
+          "28,866",
+          "$78",
+          "34.4%"
+        ]
+      },
+      "failedChecks": []
+    },
+    {
+      "id": "repaired-fix",
+      "source": "docs/results/eval-v2/pilot-runs-path-confounded/opencode/fix-dashboard/repeat-1/current/dashboard.html",
+      "methodVersion": 4,
+      "contractPassed": 10,
+      "contractTotal": 10,
+      "runtimePass": true,
+      "interactionPass": true,
+      "fullPass": true,
+      "controlCounts": {
+        "region": 1,
+        "category": 1,
+        "period": 1
+      },
+      "targets": {
+        "region": {
+          "kind": "region",
+          "tag": "select",
+          "type": "select-one",
+          "id": "region",
+          "name": null,
+          "text": "All regionsEastWest"
+        },
+        "category": {
+          "kind": "category",
+          "tag": "select",
+          "type": "select-one",
+          "id": "category",
+          "name": null,
+          "text": "All categoriesHardwareSoftwareServices"
+        },
+        "period": {
+          "kind": "period",
+          "tag": "input",
+          "type": "range",
+          "id": "periods",
+          "name": null,
+          "text": ""
+        }
+      },
+      "postMutationKpis": {
+        "region": [
+          "$282,999",
+          "1,585",
+          "$179",
+          "42%"
+        ],
+        "category": [
+          "$100,042",
+          "923",
+          "$108",
+          "44%"
+        ],
+        "period": [
+          "$482,815",
+          "2,665",
+          "$181",
+          "42%"
+        ]
+      },
+      "failedChecks": []
+    },
+    {
+      "id": "broken-fixture",
+      "source": "eval/fixtures/fix-dashboard-broken.html",
+      "methodVersion": 4,
+      "contractPassed": 5,
+      "contractTotal": 10,
+      "runtimePass": false,
+      "interactionPass": false,
+      "fullPass": false,
+      "controlCounts": {
+        "region": 1,
+        "category": 1,
+        "period": 1
+      },
+      "targets": {
+        "region": {
+          "kind": "region",
+          "tag": "select",
+          "type": "select-one",
+          "id": "region",
+          "name": null,
+          "text": "All regionsEastWest"
+        },
+        "category": {
+          "kind": "category",
+          "tag": "select",
+          "type": "select-one",
+          "id": "category",
+          "name": null,
+          "text": "All categoriesHardwareSoftwareServices"
+        },
+        "period": {
+          "kind": "period",
+          "tag": "input",
+          "type": "range",
+          "id": "periods",
+          "name": null,
+          "text": ""
+        }
+      },
+      "postMutationKpis": {
+        "region": [],
+        "category": [
+          "$0",
+          "0",
+          "$0",
+          "0%"
+        ],
+        "period": [
+          "$482,815",
+          "2,665",
+          "$181",
+          "42%"
+        ]
+      },
+      "failedChecks": [
+        "four-kpis",
+        "four-populated-charts",
+        "region-filter-updates",
+        "category-filter-updates",
+        "hover-behavior"
+      ]
+    }
+  ]
+}

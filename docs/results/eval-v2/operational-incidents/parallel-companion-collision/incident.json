@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "classification": "orchestration-collision",
+  "formalMatrixIncluded": false,
+  "sourceRunDirectory": "docs/results/eval-v2/runs/opencode/repeat-2/slot-2/fix-dashboard",
+  "preservedDirectory": "docs/results/eval-v2/operational-incidents/parallel-companion-collision/partial-run",
+  "treatment": "candidate-v2",
+  "repeat": 2,
+  "slot": 2,
+  "caseId": "fix-dashboard",
+  "reasonExcluded": "The parent and companion targeted the same formal directory, and the companion runner was stopped before meta.json and independent evaluation were completed.",
+  "ruleSwitchDuringModelSessionObserved": false,
+  "session": {
+    "id": "ses_fe02b6f40ffe472sSk4SbUe6Az",
+    "title": "opencode-fix-dashboard-r2-slot-2",
+    "directory": "/home/ubuntu/deepseek-activation/docs/results/eval-v2/runs/opencode/repeat-2/slot-2/fix-dashboard",
+    "providerID": "hroze-sp",
+    "modelId": "deepseek-v4-flash",
+    "timeCreated": 1787240419519,
+    "timeUpdated": 1787240686399,
+    "inputTokens": 33111,
+    "outputTokens": 9543,
+    "thinkingTokens": 0,
+    "cacheReadTokens": 423680,
+    "cacheWriteTokens": 0,
+    "totalTokens": 466334
+  },
+  "evidence": {
+    "sessionUpdatedAt": "2026-08-20T15:44:46.399Z",
+    "stdoutLastModifiedAt": "2026-08-20T15:44:52.260Z",
+    "concurrentBuildFinishedAt": "2026-08-20T15:46:10.005Z",
+    "stdoutStructuredEvents": 72,
+    "stdoutStructuredErrorEvents": 0,
+    "stderrBytes": 0,
+    "metaPresent": false,
+    "formalScreenshotPresent": false,
+    "fixtureSha256": "fbd60ec30bb13c6b6182201bf9275f47a4c871708d925c79e28b7fbbb7a06026",
+    "artifactSha256": "1dda87e91bb924f433ac18278820666076d4bf14c202b0971e962f98beb77a5a",
+    "stdoutSha256": "432ff8dc67e96de49ffcf68a063143251c8d47866ff467cf60d039959c126d56",
+    "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

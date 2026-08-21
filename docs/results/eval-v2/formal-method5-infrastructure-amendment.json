@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "createdOn": "2026-08-20",
+  "baseManifest": {
+    "path": "docs/results/eval-v2/formal-method5-source-manifest.json",
+    "sha256": "7a80c38109da755ff5d57ac64cbd0bdcd02a902da4afeaf16c9924ecddf024b9"
+  },
+  "evaluationMethodVersion": 5,
+  "infrastructureMethodVersion": 2,
+  "reason": "Infrastructure method 1 searched model-visible stdout text and treated two historical HTTP 429 strings in a tool result as current provider evidence. The run contained no structured error event and stderr was empty.",
+  "effect": {
+    "generationChanged": false,
+    "promptChanged": false,
+    "treatmentChanged": false,
+    "artifactEvaluationChanged": false,
+    "usageAttributionChanged": false,
+    "infrastructureClassificationChanged": true,
+    "batchResumeSupportAdded": true
+  },
+  "sourceSegments": [
+    {
+      "runs": "formal runs 1-8",
+      "runnerSha256": "8bb69e3a1c2aa4cf7a410e42dbddc2253a33ac19aa649da23fc9c7fc2f5f4a96",
+      "infrastructureClassification": "recomputed from preserved stdout/stderr with method 2"
+    },
+    {
+      "runs": "formal runs 9-18",
+      "runnerSha256": "8fc1c2e9e4c957c106d756d8c28a91660f7f359daff2b4d7888395bc62b2d8bc",
+      "infrastructureClassification": "computed at run completion with method 2"
+    }
+  ],
+  "changedFiles": {
+    "eval/run-ab.mjs": "8fc1c2e9e4c957c106d756d8c28a91660f7f359daff2b4d7888395bc62b2d8bc",
+    "eval/lib/opencode-infrastructure.mjs": "bf8261210bfd26d2aa1028f09540a807a43860a4b03b45e701802fecdb168183",
+    "eval/recheck-infrastructure.mjs": "c6bb285757d533d2383bdeae9242297aff900e06f3fe1cc565fcb69dcd838acc",
+    "eval/validate-existing-run.mjs": "47701f57ebedc39f417d5fdf74b85fbe228eda165ed612b64c63644f2b5a6112",
+    "scripts/eval.sh": "b1ff538b44d657b5cd019b2a65aa16c7774fb0c3e7f811760d9f1d2065eb1dc6"
+  },
+  "preservedEvidence": {
+    "metaBeforeReclassification": "72dc91397e39d13b83951ce51dbc265ca367cef4100247e0a9c11f3a07b61357",
+    "segment1Log": "2bedc6dfb6bce68ce06bb4eaa61efc5523ae94d2252108656d10bdca0c51b880",
+    "segment1Status": "f33f75001269addc1cb6a39294bb84812ed7351bc36d414bedbbc5e021804a2a"
+  },
+  "verification": {
+    "knownStructured429": {
+      "kind": "provider-api-error",
+      "name": "APIError",
+      "statusCode": 429,
+      "retryable": true
+    },
+    "completedRunHistorical429Text": null,
+    "reclassifiedFormalRuns": 8,
+    "validatedExistingRuns": 8,
+    "remainingRuns": 10
+  }
+}

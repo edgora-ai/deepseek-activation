@@ -1,0 +1,465 @@
+{
+  "schemaVersion": 1,
+  "runId": "opencode-build-dashboard-r1-current",
+  "sessionTitle": "opencode-build-dashboard-r1-slot-2",
+  "client": "opencode",
+  "model": "hroze-sp/deepseek-v4-flash",
+  "rules": "current",
+  "slot": 2,
+  "ruleHash": "94b1fb18e45afcb0892078e9924b1355e0601f557ae2fd51aa322105888c4213",
+  "ruleState": "94b1fb18e45afcb0892078e9924b1355e0601f557ae2fd51aa322105888c4213",
+  "promptHash": "6aa490f957bb8189c15b056a5995592519da363a3d76f3a95c63b46e32a496b8",
+  "fixtureHash": null,
+  "caseId": "build-dashboard",
+  "repeat": 1,
+  "startedAt": "2026-08-20T14:48:24.710Z",
+  "finishedAt": "2026-08-20T14:52:47.211Z",
+  "startedEpochMs": 1787237304710,
+  "finishedEpochMs": 1787237567211,
+  "durationMs": 262500,
+  "evaluationDurationMs": 6593,
+  "totalDurationMs": 269093,
+  "exitCode": 0,
+  "signal": null,
+  "timedOut": false,
+  "infrastructureFailure": null,
+  "command": [
+    "opencode",
+    "run",
+    "--model",
+    "hroze-sp/deepseek-v4-flash",
+    "--format",
+    "json",
+    "--title",
+    "opencode-build-dashboard-r1-slot-2",
+    "--dir",
+    "<RUN_DIR>",
+    "<PROMPT>"
+  ],
+  "stdout": "stdout.log",
+  "stderr": "stderr.log",
+  "artifact": "dashboard.html",
+  "usage": {
+    "status": "attributed",
+    "match": "title-directory-model-and-time",
+    "source": ".local/share/opencode/opencode.db",
+    "sessionId": "ses_fe05aef32ffeS4teDCaiiiqtxk",
+    "sessionDirectory": "/home/ubuntu/deepseek-activation/docs/results/eval-v2/runs/opencode/repeat-1/slot-2/build-dashboard",
+    "inputTokens": 33763,
+    "outputTokens": 17136,
+    "thinkingTokens": 0,
+    "cacheReadTokens": 418304,
+    "cacheWriteTokens": 0,
+    "cost": 0,
+    "model": {
+      "id": "deepseek-v4-flash",
+      "providerID": "hroze-sp",
+      "variant": "default"
+    },
+    "timeCreated": 1787237306573,
+    "timeUpdated": 1787237567078
+  },
+  "evaluation": {
+    "methodVersion": 5,
+    "generated": true,
+    "artifactChanged": true,
+    "artifactHash": "fceb52a5446b62e7545d151059ae34cc22fd8dd55684df5a0d3173f3ce6322ec",
+    "bytes": 27233,
+    "syntaxPass": true,
+    "syntaxFailures": [],
+    "runtimePass": true,
+    "runtimeErrors": [],
+    "browserFailure": null,
+    "contractPassed": 11,
+    "contractTotal": 11,
+    "contractChecks": [
+      {
+        "id": "four-kpis",
+        "pass": true,
+        "observed": [
+          "$36,077,117",
+          "908,479",
+          "$40",
+          "35.3%"
+        ]
+      },
+      {
+        "id": "four-populated-charts",
+        "pass": true,
+        "observed": {
+          "populated": 4,
+          "hosts": 4
+        }
+      },
+      {
+        "id": "two-filters",
+        "pass": true,
+        "observed": {
+          "region": 4,
+          "category": 1,
+          "period": 2
+        }
+      },
+      {
+        "id": "period-control",
+        "pass": true,
+        "observed": {
+          "region": 4,
+          "category": 1,
+          "period": 2
+        }
+      },
+      {
+        "id": "refresh-control",
+        "pass": true,
+        "observed": true
+      },
+      {
+        "id": "refresh-changes-data",
+        "pass": true,
+        "observed": {
+          "before": [
+            "$36,077,117",
+            "908,479",
+            "$40",
+            "35.3%"
+          ],
+          "after": [
+            "$36,434,973",
+            "891,365",
+            "$41",
+            "35.2%"
+          ]
+        }
+      },
+      {
+        "id": "region-filter-updates",
+        "pass": true,
+        "observed": {
+          "changed": true,
+          "descriptor": "regionchips chips northsoutheastwest",
+          "target": {
+            "kind": "region",
+            "tag": "button",
+            "type": "button",
+            "id": null,
+            "name": null,
+            "text": "North"
+          },
+          "before": [
+            "$36,077,117",
+            "908,479",
+            "$40",
+            "35.3%"
+          ],
+          "after": [
+            "$25,021,355",
+            "633,371",
+            "$40",
+            "35.3%"
+          ],
+          "positiveKpis": 4
+        }
+      },
+      {
+        "id": "category-filter-updates",
+        "pass": true,
+        "observed": {
+          "changed": true,
+          "descriptor": "categoryselect",
+          "target": {
+            "kind": "category",
+            "tag": "select",
+            "type": "select-one",
+            "id": "categorySelect",
+            "name": null,
+            "text": "All categoriesElectronicsFurnitureApparelToys"
+          },
+          "before": [
+            "$36,077,117",
+            "908,479",
+            "$40",
+            "35.3%"
+          ],
+          "after": [
+            "$14,448,392",
+            "376,416",
+            "$38",
+            "35.3%"
+          ],
+          "positiveKpis": 4
+        }
+      },
+      {
+        "id": "period-updates",
+        "pass": true,
+        "observed": {
+          "changed": true,
+          "descriptor": "periodfrom",
+          "target": {
+            "kind": "period",
+            "tag": "select",
+            "type": "select-one",
+            "id": "periodFrom",
+            "name": null,
+            "text": "Sep '25Oct '25Nov '25Dec '25Jan '26Feb '26Mar '26Apr '26May '26Jun '26Jul '26Aug"
+          },
+          "before": [
+            "$36,077,117",
+            "908,479",
+            "$40",
+            "35.3%"
+          ],
+          "after": [
+            "$33,922,715",
+            "850,419",
+            "$40",
+            "35.4%"
+          ],
+          "positiveKpis": 4
+        }
+      },
+      {
+        "id": "hover-behavior",
+        "pass": true,
+        "observed": {
+          "target": true,
+          "candidateCount": 16,
+          "attempts": 1,
+          "nativeTitle": false,
+          "detailAttribute": true,
+          "appeared": true,
+          "marked": false,
+          "selected": {
+            "x": 114.23125076293945,
+            "y": 569.1150207519531,
+            "source": "explicit",
+            "tag": "circle",
+            "id": null,
+            "nativeTitle": false,
+            "detailAttribute": true
+          },
+          "before": {
+            "visibleText": "",
+            "hoverMarks": 0
+          },
+          "after": {
+            "visibleText": "Sep '25 · Revenue $2,154,402Cost $1,426,904Profit $727,498",
+            "hoverMarks": 0
+          }
+        }
+      },
+      {
+        "id": "self-contained",
+        "pass": true,
+        "observed": []
+      }
+    ],
+    "interactionPass": true,
+    "visualSanity": true,
+    "screenshot": "screenshot.png",
+    "screenshotBytes": 112951,
+    "externalResources": [],
+    "placeholderCount": 0,
+    "runtimeSnapshot": {
+      "title": "Sales Analytics Dashboard",
+      "text": "Sales Analytics Dashboard 20240820 · 192 data points · regions North, South, East, and West · all categories · Sep '25 – Aug '26 Refresh data REGION North South East West CATEGORY All categories Electronics Furniture Apparel Toys PERIOD Sep '25 Oct '25 Nov '25 Dec '25 Jan '26 Feb '26 Mar '26 Apr '26 May '26 Jun '26 Jul '26 Aug '26 to Sep '25 Oct '25 Nov '25 Dec '25 Jan '26 Feb '26 Mar '26 Apr '26 May '26 Jun '26 Jul '26 Aug '26 REVENUE $36,077,117 ▲ 2.3% vs first half ORDERS 908,479 192 data points · avg order $40 AVERAGE ORDER VALUE $40 $36,077,117 revenue / 908,479 orders PROFIT MARGIN 35.3% profit $12,748,335 Revenue Trend hover points for details $3934.2k $3245.8k $2557.4k $1869k $1180.6k Sep '25 Oct '25 Nov '25 Dec '25 Jan '26 Feb '26 Mar '26 Apr '26 May '26 Jun '26 Jul '26 Aug '26 Revenue Cost Sales by Category hover bars $15463.5k $12418.2k $9372.9k $6327.6k $3282.2k Electronics $14448.4k Furniture $11456.2k Apparel $5875.2k Toys $4297.3k Regional Share hover slices North 30.6% South 18.1% East 23.8% West 27.5% $36,077,117 total revenue Spend vs Revenue hover points $15.9k $605k $93.9k $462.8k $171.9k $320.6k $249.9k $178.5k $327.9k $36.3k North South East West",
+      "textLength": 1186,
+      "buttons": [
+        "Refresh data",
+        "North",
+        "South",
+        "East",
+        "West"
+      ],
+      "inputs": [
+        {
+          "type": "select-one",
+          "value": "all"
+        },
+        {
+          "type": "select-one",
+          "value": "Sep '25"
+        },
+        {
+          "type": "select-one",
+          "value": "Aug '26"
+        }
+      ],
+      "canvasCount": 0,
+      "svgCount": 4,
+      "nonEmptySvgCount": 4,
+      "kpiLikeCount": 29,
+      "bodyWidth": 1265,
+      "bodyHeight": 1649
+    },
+    "visualStats": {
+      "meanLuma": 43.782322500002735,
+      "lumaVariance": 504.4760707871635,
+      "nonDarkRatio": 1,
+      "centerNonDarkRatio": 1,
+      "colorfulRatio": 0.9864583333333333,
+      "colorBuckets": 60
+    },
+    "benchmark": {
+      "initial": {
+        "kpis": [
+          "$36,077,117",
+          "908,479",
+          "$40",
+          "35.3%"
+        ],
+        "positiveKpis": 4,
+        "populatedCharts": 4,
+        "chartHosts": 4,
+        "selects": 3,
+        "ranges": 0,
+        "controlCounts": {
+          "region": 4,
+          "category": 1,
+          "period": 2
+        },
+        "hoverTargets": 216,
+        "tooltipElements": 1
+      },
+      "refreshed": {
+        "kpis": [
+          "$36,434,973",
+          "891,365",
+          "$41",
+          "35.2%"
+        ],
+        "positiveKpis": 4,
+        "populatedCharts": 4,
+        "chartHosts": 4,
+        "selects": 3,
+        "ranges": 0,
+        "controlCounts": {
+          "region": 4,
+          "category": 1,
+          "period": 2
+        },
+        "hoverTargets": 216,
+        "tooltipElements": 1
+      },
+      "controls": {
+        "region": {
+          "changed": true,
+          "descriptor": "regionchips chips northsoutheastwest",
+          "target": {
+            "kind": "region",
+            "tag": "button",
+            "type": "button",
+            "id": null,
+            "name": null,
+            "text": "North"
+          },
+          "before": [
+            "$36,077,117",
+            "908,479",
+            "$40",
+            "35.3%"
+          ],
+          "after": [
+            "$25,021,355",
+            "633,371",
+            "$40",
+            "35.3%"
+          ],
+          "positiveKpis": 4
+        },
+        "category": {
+          "changed": true,
+          "descriptor": "categoryselect",
+          "target": {
+            "kind": "category",
+            "tag": "select",
+            "type": "select-one",
+            "id": "categorySelect",
+            "name": null,
+            "text": "All categoriesElectronicsFurnitureApparelToys"
+          },
+          "before": [
+            "$36,077,117",
+            "908,479",
+            "$40",
+            "35.3%"
+          ],
+          "after": [
+            "$14,448,392",
+            "376,416",
+            "$38",
+            "35.3%"
+          ],
+          "positiveKpis": 4
+        },
+        "period": {
+          "changed": true,
+          "descriptor": "periodfrom",
+          "target": {
+            "kind": "period",
+            "tag": "select",
+            "type": "select-one",
+            "id": "periodFrom",
+            "name": null,
+            "text": "Sep '25Oct '25Nov '25Dec '25Jan '26Feb '26Mar '26Apr '26May '26Jun '26Jul '26Aug"
+          },
+          "before": [
+            "$36,077,117",
+            "908,479",
+            "$40",
+            "35.3%"
+          ],
+          "after": [
+            "$33,922,715",
+            "850,419",
+            "$40",
+            "35.4%"
+          ],
+          "positiveKpis": 4
+        }
+      },
+      "hover": {
+        "pass": true,
+        "observed": {
+          "target": true,
+          "candidateCount": 16,
+          "attempts": 1,
+          "nativeTitle": false,
+          "detailAttribute": true,
+          "appeared": true,
+          "marked": false,
+          "selected": {
+            "x": 114.23125076293945,
+            "y": 569.1150207519531,
+            "source": "explicit",
+            "tag": "circle",
+            "id": null,
+            "nativeTitle": false,
+            "detailAttribute": true
+          },
+          "before": {
+            "visibleText": "",
+            "hoverMarks": 0
+          },
+          "after": {
+            "visibleText": "Sep '25 · Revenue $2,154,402Cost $1,426,904Profit $727,498",
+            "hoverMarks": 0
+          }
+        }
+      }
+    },
+    "fullPass": true
+  },
+  "infrastructureClassificationHistory": [
+    {
+      "methodVersion": 1,
+      "failure": null,
+      "replacedBecause": "method 1 scanned model-visible stdout text; method 2 accepts structured stdout errors and process stderr only"
+    }
+  ],
+  "infrastructureMethodVersion": 2,
+  "executionMode": "serial-cases",
+  "concurrencyGroup": null,
+  "reevaluatedAt": "2026-08-20T16:37:13.907Z"
+}

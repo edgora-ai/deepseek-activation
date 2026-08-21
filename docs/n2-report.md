@@ -1,93 +1,74 @@
-# n2 三用例批量测试报告（2026-08-20）
+# 三类工程任务：历史探索与 v2 复核（2026-08-20）
 
-## 背景
+## 结论先行
 
-第四个批：**三个典型工程任务**，验证不同预设/规则在更广任务类型上的差异。吸取前三次教训：并行跑 + 90min timeout + 文件 stdin 传参 + 健康检查 cron。
+旧报告把 24 份已写出的 HTML 记为 24/24 成功。v2 在浏览器中检查 JavaScript runtime、任务合同、筛选/刷新/控制交互和截图像素后，**full pass 为 13/24**：仪表盘 2/8、太空射击 5/8、音乐可视化 6/8。文件存在和体积不能代表功能完成。
 
-**三个用例**：
-1. **仪表盘**（数据可视化）：4 图表 + 刷新 + 筛选器 + hover + KPI 卡片
-2. **太空射击**（游戏逻辑）：飞船 + 敌人 + 碰撞 + 计分 + 粒子爆炸 + 道具
-3. **音乐可视化**（WebAudio）：频谱 60+ 柱 + 3 主题 + 播放控制 + 平滑
+机器结果见 [`results/eval-v2/audit/artifact-scores.json`](results/eval-v2/audit/artifact-scores.json)，同客户端配对见 [`results/eval-v2/audit/comparisons.md`](results/eval-v2/audit/comparisons.md)。本轮每个配置只有一个样本，结果用于发现失败模式，不用于稳定增益声明。
 
-## 测试矩阵与结果（24/24 全部成功）
+## 用例
 
-### 仪表盘（dashboard.html）
+1. **仪表盘**：4 个 KPI、4 类图表、刷新、地区/类别/时间范围筛选、hover。
+2. **太空射击**：飞船、敌人、移动、射击、碰撞、计分、粒子与道具。
+3. **音乐可视化**：文件/麦克风入口、播放控制、60+ 频谱表示、3 种模式或主题、平滑动画。
 
-| 配置 | 大小 |
-|---|---|
-| Claude 带规则 | 43501 B |
-| Codex 无规则 | 40533 B |
-| DSH router-standard | 40550 B |
-| DSH minimal | 39480 B |
-| Codex 带规则 | 37281 B |
-| OpenCode 带规则 | 22120 B |
-| OpenCode 无规则 | 25118 B |
-| Claude 无规则 | 20232 B |
+## v2 汇总
 
-### 太空射击（game.html）
+| 用例 | 语法 | runtime | 合同满分 | full pass |
+|---|---:|---:|---:|---:|
+| 仪表盘 | 8/8 | 3/8 | 2/8 | **2/8** |
+| 太空射击 | 8/8 | 7/8 | 5/8 | **5/8** |
+| 音乐可视化 | 8/8 | 6/8 | 8/8 | **6/8** |
+| **合计** | **24/24** | **16/24** | **15/24** | **13/24** |
 
-| 配置 | 大小 |
-|---|---|
-| DSH minimal | 43247 B |
-| Codex 无规则 | 37738 B |
-| Claude 无规则 | 32568 B |
-| DSH router-standard | 31315 B |
-| Claude 带规则 | 28998 B |
-| OpenCode 无规则 | 26695 B |
-| Codex 带规则 | 23764 B |
-| OpenCode 带规则 | 18762 B |
+## 仪表盘（2/8 full pass）
 
-### 音乐可视化（music.html）
+| 配置 | runtime | 合同 | full pass | 主要原因 |
+|---|---:|---:|---:|---|
+| Claude 带规则 | ✅ | 6/7 | ❌ | 缺 1 项功能 |
+| Claude 无规则 | ❌ | 3/7 | ❌ | `renderAll` 未定义，文件以占位实现结束 |
+| Codex 带规则 | ❌ | 5/7 | ❌ | 对未定义数据读取 `length` |
+| Codex 无规则 | ❌ | 3/7 | ❌ | `$` 未定义 |
+| DSH router-standard | ✅ | 7/7 | ✅ | — |
+| DSH minimal | ❌ | 5/7 | ❌ | 对未定义项读取 `label` |
+| OpenCode 带规则 | ❌ | 6/7 | ❌ | 对不存在节点设置 `innerHTML` |
+| OpenCode 无规则 | ✅ | 7/7 | ✅ | — |
 
-| 配置 | 大小 |
-|---|---|
-| Claude 无规则 | 21436 B |
-| DSH router-standard | 19669 B |
-| DSH minimal | 19471 B |
-| Codex 带规则 | 19633 B |
-| Codex 无规则 | 18122 B |
-| Claude 带规则 | 15941 B |
-| OpenCode 无规则 | 15283 B |
-| OpenCode 带规则 | 13019 B |
+同客户端 N=1 观察：DSH router-standard 改善；OpenCode 带规则回退；Claude 和 Codex 都没有产生 full-pass 改善。
 
-## 关键发现
+## 太空射击（5/8 full pass）
 
-### 1. 24/24 全部成功（任务可完成性：三种都行）
+| 配置 | runtime | 合同 | full pass | 主要原因 |
+|---|---:|---:|---:|---|
+| Claude 带规则 / 无规则 | ✅ / ✅ | 8/8 / 8/8 | ✅ / ✅ | 两者都通过 |
+| Codex 带规则 / 无规则 | ❌ / ✅ | 7/8 / 8/8 | ❌ / ✅ | 带规则版本对未定义对象绑定事件 |
+| DSH router-standard / minimal | ✅ / ✅ | 8/8 / 8/8 | ✅ / ✅ | 两者都通过 |
+| OpenCode 带规则 / 无规则 | ✅ / ✅ | 7/8 / 7/8 | ❌ / ❌ | 两者各缺 1 项功能 |
 
-新任务类型（仪表盘/游戏/音频）对 free 模型都可完成——**无通道/无规则失败**。执行层面（并行 + 90min + 健康检查）消除了误杀。
+## 音乐可视化（6/8 full pass）
 
-### 2. 大小差异（按用例）
+Claude、Codex 和 DSH 的六份产物均为 7/7 full pass。OpenCode 两份产物静态合同都是 7/7，但浏览器 runtime 调用了空对象的 `fill`，所以都不通过。这个案例直接说明源码功能线索齐全仍不能替代运行验证。
 
-| 用例 | 最小 | 最大 | 差距 |
-|---|---|---|---|
-| 仪表盘 | 20232B (cc-nor) | 43501B (cc-rules) | 2.1× |
-| 太空射击 | 18762B (oc-rules) | 43247B (dsh-min) | 2.3× |
-| 音乐 | 13019B (oc-rules) | 21436B (cc-nor) | 1.6× |
+## 配对汇总
 
-**无一致规律**——带/无规则在不同用例互有胜负，DSH 在游戏上最大，claude 在音乐上最大。
+只看这三个 n2 任务：
 
-### 3. 规则影响（跨 3 用例汇总）
+| 通道 | 基线 full pass | 测试变体 full pass | 观察 |
+|---|---:|---:|---|
+| Claude no-rules → current | 2/3 | 2/3 | dashboard 合同提高但仍未满分，其余持平 |
+| Codex no-rules → current | 2/3 | 1/3 | game 发生 runtime 回退 |
+| OpenCode no-rules → current | 1/3 | 0/3 | dashboard 发生 runtime/合同回退 |
+| DSH minimal → router-standard | 2/3 | 3/3 | dashboard 从失败变为 full pass |
 
-| 通道 | 带规则平均 | 无规则平均 | 差 |
-|---|---|---|---|
-| OpenCode | 17967B | 22265B | 无规则 +24% |
-| Codex | 26893B | 32146B | 无规则 +20% |
-| Claude | 29480B | 24745B | 带规则 +19% |
+这些方向不一致，否定了旧报告的“规则在复杂任务上稳定保底”“输出收敛已证明 token 效率”结论。
 
-**模式**：opencode/codex 无规则更大；claude 带规则更大。**规则影响不一致**——与任务类型和客户端交互模式相关。
+## 文件大小的正确用途
 
-### 4. 任务复杂度 vs 规则增益（四用例横向）
+旧报告记录的字节数仍可复查实现规模，但不参与成功判定。例如最大或更大的文件同样可能在启动时抛异常；更小的 OpenCode 无规则仪表盘反而是两份 full-pass 仪表盘之一。字节数只能回答“输出有多大”，不能回答“功能是否可用”。
 
-| 用例 | 复杂度 | 规则作用 |
-|---|---|---|
-| 黑洞 | 中 | 放大器（粒子 3-4×）|
-| 直升机 | 高 | 保底（claude 无规则超时）|
-| 赛跑 | 中低 | 无一致差异 |
-| n2 三用例 | 中 | 无一致差异（±20% 波动）|
+## 产物与复现
 
-**总结论**：规则增益峰值在**高复杂度任务**（直升机）；中低复杂度任务上规则只是轻微波动。**deepseek-free 在简单-中等任务上足够可靠，规则主要收益是"复杂任务保底"和"输出收敛"（token 效率）**。
-
-## 产物 / 复现
-
-产物：`docs/results/n2/`（24 个 HTML，命名 `<用例>-<通道><规则>.html`）。
-复现：提示词在 `/tmp/dash|game|music-prompt.txt`（已内嵌报告）；执行同 tests-method.md（并行 + 90min + 文件 stdin）。
+- 原始 HTML：`docs/results/n2/`
+- v2 截图：`docs/results/eval-v2/audit/screenshots/n2__*.png`
+- 复核命令：`node eval/audit-existing.mjs && node eval/report-audit.mjs`
+- 方法：[`tests-method.md`](tests-method.md)

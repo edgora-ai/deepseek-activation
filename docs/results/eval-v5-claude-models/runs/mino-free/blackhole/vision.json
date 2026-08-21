@@ -1,0 +1,7 @@
+{
+  "status": "ok",
+  "valid": false,
+  "summary": "页面几乎全黑，仅有操作提示文字，未展现吸积盘、星场或辉光黑洞场景。",
+  "model": "gpt-5.6-terra",
+  "durationMs": 3075
+}

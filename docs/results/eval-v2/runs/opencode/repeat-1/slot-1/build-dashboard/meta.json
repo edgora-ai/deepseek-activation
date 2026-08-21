@@ -1,0 +1,465 @@
+{
+  "schemaVersion": 1,
+  "runId": "opencode-build-dashboard-r1-no-rules",
+  "sessionTitle": "opencode-build-dashboard-r1-slot-1",
+  "client": "opencode",
+  "model": "hroze-sp/deepseek-v4-flash",
+  "rules": "no-rules",
+  "slot": 1,
+  "ruleHash": null,
+  "ruleState": "absent",
+  "promptHash": "6aa490f957bb8189c15b056a5995592519da363a3d76f3a95c63b46e32a496b8",
+  "fixtureHash": null,
+  "caseId": "build-dashboard",
+  "repeat": 1,
+  "startedAt": "2026-08-20T14:40:10.753Z",
+  "finishedAt": "2026-08-20T14:45:02.596Z",
+  "startedEpochMs": 1787236810753,
+  "finishedEpochMs": 1787237102596,
+  "durationMs": 291842,
+  "evaluationDurationMs": 7039,
+  "totalDurationMs": 298881,
+  "exitCode": 0,
+  "signal": null,
+  "timedOut": false,
+  "infrastructureFailure": null,
+  "command": [
+    "opencode",
+    "run",
+    "--model",
+    "hroze-sp/deepseek-v4-flash",
+    "--format",
+    "json",
+    "--title",
+    "opencode-build-dashboard-r1-slot-1",
+    "--dir",
+    "<RUN_DIR>",
+    "<PROMPT>"
+  ],
+  "stdout": "stdout.log",
+  "stderr": "stderr.log",
+  "artifact": "dashboard.html",
+  "usage": {
+    "status": "attributed",
+    "match": "title-directory-model-and-time",
+    "source": ".local/share/opencode/opencode.db",
+    "sessionId": "ses_fe062786dffe5UE0717d6v9NQL",
+    "sessionDirectory": "/home/ubuntu/deepseek-activation/docs/results/eval-v2/runs/opencode/repeat-1/slot-1/build-dashboard",
+    "inputTokens": 41167,
+    "outputTokens": 21653,
+    "thinkingTokens": 0,
+    "cacheReadTokens": 568576,
+    "cacheWriteTokens": 0,
+    "cost": 0,
+    "model": {
+      "id": "deepseek-v4-flash",
+      "providerID": "hroze-sp",
+      "variant": "default"
+    },
+    "timeCreated": 1787236812690,
+    "timeUpdated": 1787237102449
+  },
+  "evaluation": {
+    "methodVersion": 5,
+    "generated": true,
+    "artifactChanged": true,
+    "artifactHash": "d5c68756ad945e91229154a8d1ee5d9e94d6bd580d830612d88488cb766e57a8",
+    "bytes": 29979,
+    "syntaxPass": true,
+    "syntaxFailures": [],
+    "runtimePass": true,
+    "runtimeErrors": [],
+    "browserFailure": null,
+    "contractPassed": 11,
+    "contractTotal": 11,
+    "contractChecks": [
+      {
+        "id": "four-kpis",
+        "pass": true,
+        "observed": [
+          "$2.07M",
+          "12,358",
+          "$167",
+          "37.3%"
+        ]
+      },
+      {
+        "id": "four-populated-charts",
+        "pass": true,
+        "observed": {
+          "populated": 4,
+          "hosts": 4
+        }
+      },
+      {
+        "id": "two-filters",
+        "pass": true,
+        "observed": {
+          "region": 1,
+          "category": 1,
+          "period": 2
+        }
+      },
+      {
+        "id": "period-control",
+        "pass": true,
+        "observed": {
+          "region": 1,
+          "category": 1,
+          "period": 2
+        }
+      },
+      {
+        "id": "refresh-control",
+        "pass": true,
+        "observed": true
+      },
+      {
+        "id": "refresh-changes-data",
+        "pass": true,
+        "observed": {
+          "before": [
+            "$2.07M",
+            "12,358",
+            "$167",
+            "37.3%"
+          ],
+          "after": [
+            "$2.06M",
+            "11,712",
+            "$176",
+            "36.9%"
+          ]
+        }
+      },
+      {
+        "id": "region-filter-updates",
+        "pass": true,
+        "observed": {
+          "changed": true,
+          "descriptor": "regionfilter region",
+          "target": {
+            "kind": "region",
+            "tag": "select",
+            "type": "select-one",
+            "id": "regionFilter",
+            "name": null,
+            "text": "All regionsNorthSouthEastWest"
+          },
+          "before": [
+            "$2.07M",
+            "12,358",
+            "$167",
+            "37.3%"
+          ],
+          "after": [
+            "$589.4k",
+            "3,621",
+            "$163",
+            "40.0%"
+          ],
+          "positiveKpis": 4
+        }
+      },
+      {
+        "id": "category-filter-updates",
+        "pass": true,
+        "observed": {
+          "changed": true,
+          "descriptor": "categoryfilter category",
+          "target": {
+            "kind": "category",
+            "tag": "select",
+            "type": "select-one",
+            "id": "categoryFilter",
+            "name": null,
+            "text": "All categoriesElectronicsClothingHome"
+          },
+          "before": [
+            "$2.07M",
+            "12,358",
+            "$167",
+            "37.3%"
+          ],
+          "after": [
+            "$1.04M",
+            "4,098",
+            "$253",
+            "36.9%"
+          ],
+          "positiveKpis": 4
+        }
+      },
+      {
+        "id": "period-updates",
+        "pass": true,
+        "observed": {
+          "changed": true,
+          "descriptor": "startmonth from",
+          "target": {
+            "kind": "period",
+            "tag": "select",
+            "type": "select-one",
+            "id": "startMonth",
+            "name": null,
+            "text": "2025-012025-022025-032025-042025-052025-062025-072025-082025-092025-102025-11202"
+          },
+          "before": [
+            "$2.07M",
+            "12,358",
+            "$167",
+            "37.3%"
+          ],
+          "after": [
+            "$1.94M",
+            "11,558",
+            "$168",
+            "37.3%"
+          ],
+          "positiveKpis": 4
+        }
+      },
+      {
+        "id": "hover-behavior",
+        "pass": true,
+        "observed": {
+          "target": true,
+          "candidateCount": 28,
+          "attempts": 3,
+          "nativeTitle": false,
+          "detailAttribute": false,
+          "appeared": true,
+          "marked": false,
+          "selected": {
+            "x": 97.4921875,
+            "y": 465.0975036621094,
+            "source": "svg-mark",
+            "tag": "circle",
+            "id": null,
+            "nativeTitle": false,
+            "detailAttribute": false
+          },
+          "before": {
+            "visibleText": "",
+            "hoverMarks": 0
+          },
+          "after": {
+            "visibleText": "Jan 2025Revenue$123.9kOrders800Costs$77.7kProfit$46.2k",
+            "hoverMarks": 0
+          }
+        }
+      },
+      {
+        "id": "self-contained",
+        "pass": true,
+        "observed": []
+      }
+    ],
+    "interactionPass": true,
+    "visualSanity": true,
+    "screenshot": "screenshot.png",
+    "screenshotBytes": 119665,
+    "externalResources": [],
+    "placeholderCount": 0,
+    "runtimeSnapshot": {
+      "title": "Sales Analytics Dashboard",
+      "text": "Sales Analytics Dashboard Refresh data REGION All regions North South East West CATEGORY All categories Electronics Clothing Home FROM 2025-01 2025-02 2025-03 2025-04 2025-05 2025-06 2025-07 2025-08 2025-09 2025-10 2025-11 2025-12 TO 2025-01 2025-02 2025-03 2025-04 2025-05 2025-06 2025-07 2025-08 2025-09 2025-10 2025-11 2025-12 REVENUE $2.07M vs Jan 2025: n/a ORDERS 12,358 vs Jan 2025: n/a AVG ORDER VALUE $167 vs Jan 2025: n/a PROFIT MARGIN 37.3% profit $770.3k Monthly Revenue Trend Revenue per month within the selected period 0 63.0k 126.0k 189.0k 252.0k Revenue Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec Revenue by Category Total revenue split across product categories 0 290.0k 580.0k 870.0k 1.16M Electronics $1.04M Clothing $383.3k Home $648.2k Regional Revenue Share Share of revenue by sales region $2.07M total revenue North · 28.5% South · 21.8% East · 24.7% West · 24.9% Spend vs Revenue Costs incurred against revenue per region × category 0 0 82.5k 49.3k 165.0k 98.5k 247.5k 147.8k 330.0k 197.0k Revenue Marketing & operating spend Electronics Clothing Home",
+      "textLength": 1081,
+      "buttons": [
+        "Refresh data"
+      ],
+      "inputs": [
+        {
+          "type": "select-one",
+          "value": "All"
+        },
+        {
+          "type": "select-one",
+          "value": "All"
+        },
+        {
+          "type": "select-one",
+          "value": "0"
+        },
+        {
+          "type": "select-one",
+          "value": "11"
+        }
+      ],
+      "canvasCount": 0,
+      "svgCount": 4,
+      "nonEmptySvgCount": 4,
+      "kpiLikeCount": 28,
+      "bodyWidth": 1265,
+      "bodyHeight": 1111
+    },
+    "visualStats": {
+      "meanLuma": 46.12239361111384,
+      "lumaVariance": 852.9622502887155,
+      "nonDarkRatio": 1,
+      "centerNonDarkRatio": 1,
+      "colorfulRatio": 0.9857638888888889,
+      "colorBuckets": 96
+    },
+    "benchmark": {
+      "initial": {
+        "kpis": [
+          "$2.07M",
+          "12,358",
+          "$167",
+          "37.3%"
+        ],
+        "positiveKpis": 4,
+        "populatedCharts": 4,
+        "chartHosts": 4,
+        "selects": 4,
+        "ranges": 0,
+        "controlCounts": {
+          "region": 1,
+          "category": 1,
+          "period": 2
+        },
+        "hoverTargets": 34,
+        "tooltipElements": 1
+      },
+      "refreshed": {
+        "kpis": [
+          "$2.06M",
+          "11,712",
+          "$176",
+          "36.9%"
+        ],
+        "positiveKpis": 4,
+        "populatedCharts": 4,
+        "chartHosts": 4,
+        "selects": 4,
+        "ranges": 0,
+        "controlCounts": {
+          "region": 1,
+          "category": 1,
+          "period": 2
+        },
+        "hoverTargets": 34,
+        "tooltipElements": 1
+      },
+      "controls": {
+        "region": {
+          "changed": true,
+          "descriptor": "regionfilter region",
+          "target": {
+            "kind": "region",
+            "tag": "select",
+            "type": "select-one",
+            "id": "regionFilter",
+            "name": null,
+            "text": "All regionsNorthSouthEastWest"
+          },
+          "before": [
+            "$2.07M",
+            "12,358",
+            "$167",
+            "37.3%"
+          ],
+          "after": [
+            "$589.4k",
+            "3,621",
+            "$163",
+            "40.0%"
+          ],
+          "positiveKpis": 4
+        },
+        "category": {
+          "changed": true,
+          "descriptor": "categoryfilter category",
+          "target": {
+            "kind": "category",
+            "tag": "select",
+            "type": "select-one",
+            "id": "categoryFilter",
+            "name": null,
+            "text": "All categoriesElectronicsClothingHome"
+          },
+          "before": [
+            "$2.07M",
+            "12,358",
+            "$167",
+            "37.3%"
+          ],
+          "after": [
+            "$1.04M",
+            "4,098",
+            "$253",
+            "36.9%"
+          ],
+          "positiveKpis": 4
+        },
+        "period": {
+          "changed": true,
+          "descriptor": "startmonth from",
+          "target": {
+            "kind": "period",
+            "tag": "select",
+            "type": "select-one",
+            "id": "startMonth",
+            "name": null,
+            "text": "2025-012025-022025-032025-042025-052025-062025-072025-082025-092025-102025-11202"
+          },
+          "before": [
+            "$2.07M",
+            "12,358",
+            "$167",
+            "37.3%"
+          ],
+          "after": [
+            "$1.94M",
+            "11,558",
+            "$168",
+            "37.3%"
+          ],
+          "positiveKpis": 4
+        }
+      },
+      "hover": {
+        "pass": true,
+        "observed": {
+          "target": true,
+          "candidateCount": 28,
+          "attempts": 3,
+          "nativeTitle": false,
+          "detailAttribute": false,
+          "appeared": true,
+          "marked": false,
+          "selected": {
+            "x": 97.4921875,
+            "y": 465.0975036621094,
+            "source": "svg-mark",
+            "tag": "circle",
+            "id": null,
+            "nativeTitle": false,
+            "detailAttribute": false
+          },
+          "before": {
+            "visibleText": "",
+            "hoverMarks": 0
+          },
+          "after": {
+            "visibleText": "Jan 2025Revenue$123.9kOrders800Costs$77.7kProfit$46.2k",
+            "hoverMarks": 0
+          }
+        }
+      }
+    },
+    "fullPass": true
+  },
+  "infrastructureClassificationHistory": [
+    {
+      "methodVersion": 1,
+      "failure": null,
+      "replacedBecause": "method 1 scanned model-visible stdout text; method 2 accepts structured stdout errors and process stderr only"
+    }
+  ],
+  "infrastructureMethodVersion": 2,
+  "executionMode": "serial-cases",
+  "concurrencyGroup": null,
+  "reevaluatedAt": "2026-08-20T16:37:00.787Z"
+}

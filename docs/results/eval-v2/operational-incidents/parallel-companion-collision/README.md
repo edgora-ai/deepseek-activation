@@ -1,0 +1,9 @@
+# Parallel companion collision
+
+A manually launched `fix-dashboard` companion overlapped the formal batch's `candidate-v2` build in repeat 2, slot 2. The companion created the neutral formal run directory before the serial parent reached the same case. After the build completed, `scripts/eval.sh --resume` found no `meta.json` to skip and `run-ab.mjs` correctly refused to overwrite the existing directory. The parent batch exited and restored the original OpenCode rule file.
+
+The companion is excluded from the formal matrix. Its OpenCode session wrote an artifact and positive usage, but the outer runner was stopped before it wrote the required metadata and before the independent evaluator completed. The original run directory is preserved byte-for-byte under `partial-run/`; no `meta.json` or formal screenshot exists.
+
+Timestamp evidence narrows the treatment concern. SQLite records the OpenCode session's final update at `2026-08-20T15:44:46.399Z`, and `stdout.log` was last written at `2026-08-20T15:44:52.260Z`. The concurrent build did not finish until `2026-08-20T15:46:10.005Z`, after which its 6.7-second evaluator ran and the parent restored the original rule file. The model stream therefore ended more than one minute before the rule restoration; there is no observed mid-session rule switch. The run remains invalid because orchestration collided and completion metadata is unavailable, not because artifact quality or provider infrastructure failed.
+
+The batch is corrected by making case concurrency native to `scripts/eval.sh`: both cases for one active treatment are preflighted, launched together, joined at a barrier, and any failing case terminates its sibling before rules may change. Resume validates completed metadata and rejects an incomplete directory before launching either case.

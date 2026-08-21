@@ -1,0 +1,7 @@
+{
+  "status": "ok",
+  "valid": false,
+  "summary": "页面仅显示HUD叠加层而主3D画面全黑，未渲染出可辨识的直升机或场景。",
+  "model": "gpt-5.6-terra",
+  "durationMs": 2776
+}

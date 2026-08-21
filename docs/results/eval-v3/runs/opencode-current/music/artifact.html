@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Pulse — WebAudio Music Visualizer</title>
+<style>
+  :root{
+    --accent: #7c6cff;
+    --accent2: #22e0ff;
+    --panel: rgba(12, 16, 26, 0.74);
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ height:100%; overflow:hidden; }
+  body{
+    background:#05070d;
+    color:#e8ecf8;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    user-select:none;
+    -webkit-user-select:none;
+  }
+  #viz{ position:fixed; inset:0; width:100%; height:100%; display:block; cursor:default; }
+  #ui{
+    position:fixed; left:50%; bottom:16px; transform:translateX(-50%);
+    width:min(960px, calc(100% - 24px));
+    background:var(--panel);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:16px;
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
+    box-shadow:0 12px 40px rgba(0,0,0,.5);
+    padding:12px 14px 14px;
+    display:flex; flex-direction:column; gap:10px;
+    z-index:10;
+  }
+  #titlebar{ display:flex; align-items:baseline; gap:10px; min-width:0; }
+  #titlebar h1{ font-size:15px; font-weight:700; letter-spacing:.4px; white-space:nowrap; }
+  #titlebar h1 span{ color:var(--accent2); }
+  #status{
+    margin-left:auto; font-size:12px; color:#9fb0c8; text-align:right;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:55%;
+  }
+  .row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .sep{ width:1px; height:22px; background:rgba(255,255,255,.12); margin:0 4px; flex:none; }
+  button{
+    appearance:none; border:none; cursor:pointer;
+    background:rgba(255,255,255,.06); color:#dbe4f2;
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:8px; padding:7px 13px; font-size:13px; font-weight:600;
+    letter-spacing:.3px;
+    transition:background .15s, transform .05s, box-shadow .15s, color .15s, border-color .15s;
+  }
+  button:hover{ background:rgba(255,255,255,.12); }
+  button:active{ transform:scale(.96); }
+  button.on{
+    background:linear-gradient(135deg, var(--accent), #4f7cff);
+    border-color:transparent; color:#fff;
+    box-shadow:0 0 18px rgba(124,108,255,.45);
+  }
+  .group-label{
+    font-size:11px; text-transform:uppercase; letter-spacing:1px; color:#7c8aa5;
+    margin-right:2px; flex:none;
+  }
+  #volumeBox{ display:flex; align-items:center; gap:8px; }
+  #volumeLabel{ font-size:12px; color:#9fb0c8; width:74px; }
+  input[type=range]{
+    -webkit-appearance:none; appearance:none; width:120px; height:4px; border-radius:4px;
+    background:linear-gradient(90deg, var(--accent2), var(--accent));
+    outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; appearance:none; width:14px; height:14px; border-radius:50%;
+    background:#fff; border:2px solid var(--accent); cursor:pointer;
+  }
+  input[type=range]::-moz-range-thumb{
+    width:14px; height:14px; border-radius:50%; background:#fff; border:2px solid var(--accent); cursor:pointer;
+  }
+  #hint{ font-size:11px; color:#67758e; margin-left:auto; }
+  @media (max-width:640px){
+    #ui{ bottom:8px; }
+    button{ padding:6px 10px; font-size:12px; }
+    #hint{ display:none; }
+  }
+</style>
+</head>
+<body>
+<canvas id="viz"></canvas>
+
+<div id="ui">
+  <div id="titlebar">
+    <h1>PULSE <span>·</span> WebAudio Visualizer</h1>
+    <div id="status">Ready — pick a source or play</div>
+  </div>
+  <div class="row">
+    <span class="group-label">Mode</span>
+    <button data-mode="bars" class="on" id="modeBars">Bars</button>
+    <button data-mode="rings" id="modeRings">Rings</button>
+    <button data-mode="particles" id="modeParticles">Particles</button>
+    <span class="sep"></span>
+    <span class="group-label">Source</span>
+    <button id="btnDemo">Demo</button>
+    <button id="btnFile">Load File</button>
+    <button id="btnMic">Microphone</button>
+    <input type="file" id="fileInput" accept="audio/*" hidden>
+  </div>
+  <div class="row">
+    <span class="group-label">Playback</span>
+    <button id="btnPlayPause">Pause</button>
+    <button id="btnStop">Stop</button>
+    <span class="sep"></span>
+    <span id="volumeBox">
+      <span id="volumeLabel">Volume 80%</span>
+      <input type="range" id="volume" min="0" max="100" value="80">
+    </span>
+    <span id="hint">Starts muted until your first click.</span>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  const canvas = document.getElementById('viz');
+  const c = canvas.getContext('2d');
+  const statusEl = document.getElementById('status');
+  const volumeEl = document.getElementById('volume');
+  const volumeLabel = document.getElementById('volumeLabel');
+  const fileInput = document.getElementById('fileInput');
+  const btnPlayPause = document.getElementById('btnPlayPause');
+  const btnStop = document.getElementById('btnStop');
+  const btnDemo = document.getElementById('btnDemo');
+  const btnFile = document.getElementById('btnFile');
+  const btnMic = document.getElementById('btnMic');
+  const modeBtns = [
+    document.getElementById('modeBars'),
+    document.getElementById('modeRings'),
+    document.getElementById('modeParticles')
+  ];
+
+  let audioCtx = null;
+  let analyser = null;
+  let master = null;
+  let sourceNode = null;
+  let activeSource = 'none';
+  let demoOscs = [];
+  let demoGain = null;
+  let fileBuffer = null;
+  let fileSource = null;
+  let heldPause = false;
+  let micStream = null;
+
+  const FFT = 512;
+  let freq = null;
+  let smooth = null;
+  let bass = 0, mid = 0, treble = 0, bassSmooth = 0;
+  let hasLiveSignal = false;
+
+  let mode = 'bars';
+  let W = 0, H = 0, dprActive = 1;
+
+  function status(msg){ statusEl.textContent = msg; }
+
+  function ensureAudio(){
+    if (audioCtx) return;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    audioCtx = new AC();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = FFT;
+    analyser.smoothingTimeConstant = 0.8;
+    freq = new Uint8Array(analyser.frequencyBinCount);
+    smooth = new Float32Array(analyser.frequencyBinCount);
+    master = audioCtx.createGain();
+    master.gain.value = Math.pow(volumeEl.value / 100, 2);
+    analyser.connect(master);
+    master.connect(audioCtx.destination);
+  }
+
+  function setVolume(v){
+    volumeLabel.textContent = 'Volume ' + v + '%';
+    if (master) master.gain.value = Math.pow(v / 100, 2);
+  }
+
+  function resumeCtx(){
+    if (audioCtx && audioCtx.state === 'suspended' && !heldPause){
+      audioCtx.resume();
+    }
+  }
+
+  function setPaused(p){
+    heldPause = !!p;
+    if (audioCtx){
+      if (heldPause && audioCtx.state === 'running') audioCtx.suspend();
+      else if (!heldPause && audioCtx.state === 'suspended') audioCtx.resume();
+    }
+    btnPlayPause.textContent = heldPause ? 'Play' : 'Pause';
+    btnPlayPause.classList.toggle('on', !heldPause);
+  }
+
+  function stopMic(){
+    if (micStream){
+      micStream.getTracks().forEach(function(t){ t.stop(); });
+      micStream = null;
+    }
+    if (activeSource === 'mic' && sourceNode){
+      try{ sourceNode.disconnect(); }catch(e){}
+    }
+  }
+
+  function stopDemo(){
+    demoOscs.forEach(function(o){ try{ o.stop(); o.disconnect(); }catch(e){} });
+    demoOscs = [];
+    if (demoGain){ try{ demoGain.disconnect(); }catch(e){} demoGain = null; }
+  }
+
+  function stopFile(){
+    if (fileSource){
+      try{ fileSource.stop(); fileSource.disconnect(); }catch(e){}
+      fileSource = null;
+    }
+  }
+
+  function teardown(){
+    setPaused(false);
+    stopDemo();
+    stopFile();
+    stopMic();
+    if (sourceNode && sourceNode !== analyser){
+      try{ sourceNode.disconnect(); }catch(e){}
+    }
+    sourceNode = null;
+    activeSource = 'none';
+    hasLiveSignal = false;
+  }
+
+  function updateSourceButtons(){
+    btnDemo.classList.toggle('on', activeSource === 'demo');
+    btnFile.classList.toggle('on', activeSource === 'file');
+    btnMic.classList.toggle('on', activeSource === 'mic');
+  }
+
+  function startDemo(){
+    ensureAudio();
+    teardown();
+    demoGain = audioCtx.createGain();
+    demoGain.gain.value = 0.4;
+    var specs = [
+      {type:'sine',     f:110.00, g:0.30},
+      {type:'sine',     f:164.81, g:0.22},
+      {type:'triangle', f:220.00, g:0.18},
+      {type:'sine',     f:329.63, g:0.12},
+      {type:'sawtooth', f:55.00,  g:0.10}
+    ];
+    specs.forEach(function(s, i){
+      var o = audioCtx.createOscillator();
+      o.type = s.type;
+      o.frequency.value = s.f;
+      o.detune.value = (i % 2 ? 1 : -1) * (3 + (i * 2));
+      var g = audioCtx.createGain();
+      g.gain.value = s.g;
+      o.connect(g);
+      g.connect(demoGain);
+      o.start();
+      demoOscs.push(o);
+    });
+    demoGain.connect(analyser);
+    sourceNode = demoGain;
+    activeSource = 'demo';
+    setPaused(false);
+    status('Playing demo tone');
+    updateSourceButtons();
+  }
+
+  function loadFile(file){
+    ensureAudio();
+    var reader = new FileReader();
+    reader.onload = function(){
+      audioCtx.decodeAudioData(reader.result, function(buf){
+        fileBuffer = buf;
+        status('Loaded "' + file.name + '"  (' + buf.duration.toFixed(1) + 's)');
+        playFile(0);
+      }, function(){
+        status('Could not decode that audio file.');
+      });
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function playFile(offset){
+    ensureAudio();
+    teardown();
+    if (!fileBuffer) return;
+    fileSource = audioCtx.createBufferSource();
+    fileSource.buffer = fileBuffer;
+    fileSource.connect(analyser);
+    sourceNode = fileSource;
+    fileSource.start(0, offset);
+    activeSource = 'file';
+    setPaused(false);
+    status('Playing loaded file');
+    updateSourceButtons();
+  }
+
+  function startMic(){
+    ensureAudio();
+    teardown();
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      status('Microphone not supported in this browser.');
+      return;
+    }
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream){
+      micStream = stream;
+      var micSource = audioCtx.createMediaStreamSource(stream);
+      micSource.connect(analyser);
+      sourceNode = micSource;
+      activeSource = 'mic';
+      setPaused(false);
+      status('Live microphone input');
+      updateSourceButtons();
+    }).catch(function(err){
+      status('Mic unavailable: ' + (err && err.name ? err.name : 'denied'));
+    });
+  }
+
+  function pausePlayToggle(){
+    ensureAudio();
+    if (activeSource === 'none'){
+      if (fileBuffer){ playFile(0); }
+      else { startDemo(); }
+      return;
+    }
+    setPaused(!heldPause);
+  }
+
+  function stopAll(){
+    teardown();
+    btnPlayPause.classList.remove('on');
+    status('Stopped — visual continues with demo animation');
+    updateSourceButtons();
+  }
+
+  function setMode(m){
+    mode = m;
+    modeBtns.forEach(function(b){
+      b.classList.toggle('on', b.dataset.mode === m);
+    });
+  }
+
+  function fitCanvas(){
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var w = window.innerWidth, h = window.innerHeight;
+    var cw = Math.round(w * dpr), ch = Math.round(h * dpr);
+    if (canvas.width !== cw || canvas.height !== ch){
+      canvas.width = cw;
+      canvas.height = ch;
+    }
+    W = w; H = h; dprActive = dpr;
+  }
+
+  function fallback(i){
+    var t = performance.now() / 1000;
+    var n = smooth.length;
+    var p = n > 1 ? i / n : 0;
+    var sweep = 0.5 + 0.5 * Math.sin(t * 2.0 - p * Math.PI * 2);
+    var wave = 0.5 + 0.5 * Math.sin(t * 3.1 + p * Math.PI * 4 + i * 0.7);
+    return (0.25 + 0.75 * wave) * (0.35 + 0.65 * sweep);
+  }
+
+  function updateLevels(){
+    if (!analyser) { hasLiveSignal = false; }
+    else {
+      analyser.getByteFrequencyData(freq);
+      var sum = 0, max = 0, i;
+      for (i = 0; i < freq.length; i++){
+        sum += freq[i];
+        if (freq[i] > max) max = freq[i];
+      }
+      hasLiveSignal = max > 2 && sum > freq.length * 8;
+    }
+
+    var n = smooth.length, i;
+    for (i = 0; i < n; i++){
+      var v = hasLiveSignal ? (freq[i] / 255) : fallback(i);
+      smooth[i] += (v - smooth[i]) * 0.35;
+    }
+
+    var nb = Math.floor(n / 3);
+    var b = 0, m = 0, t = 0;
+    for (i = 0; i < nb; i++) b += smooth[i];
+    b = nb ? b / nb : 0;
+    for (i = nb; i < nb * 2; i++) m += smooth[i];
+    m = nb ? m / nb : 0;
+    for (i = nb * 2; i < n; i++) t += smooth[i];
+    t = (n - nb * 2) > 0 ? t / (n - nb * 2) : 0;
+    bass = b; mid = m; treble = t;
+    bassSmooth += (bass - bassSmooth) * 0.08;
+  }
+
+  var BAR_COUNT = 96;
+  function drawBars(){
+    var nBins = smooth.length;
+    var half = Math.floor(BAR_COUNT / 2);
+    var barW = (W / BAR_COUNT) * 0.72;
+    var maxH = H * 0.44;
+    var fTop = nBins * 0.90;
+    var fBot = nBins * 0.02;
+    var span = fTop - fBot;
+    var pulse = 1 + bassSmooth * 0.6;
+    var k, p, idx, v, h, hue, xL, yTop, xR;
+    for (k = 0; k < half; k++){
+      p = half > 1 ? k / (half - 1) : 0.5;
+      idx = Math.floor(fBot + p * p * span);
+      v = smooth[idx] || 0;
+      v = Math.min(1, v * pulse);
+      h = Math.max(2, v * maxH);
+      hue = 205 + p * 180;
+      xL = W / 2 - (k + 0.5) * barW;
+      xR = W / 2 + (k + 0.5) * barW;
+      yTop = H / 2 - h;
+      c.fillStyle = 'hsla(' + hue + ',95%,62%,' + (0.25 + v * 0.75).toFixed(3) + ')';
+      c.fillRect(xL, yTop, barW, h * 2);
+      c.fillRect(xR, yTop, barW, h * 2);
+      c.fillStyle = 'hsla(' + hue + ',100%,82%,' + (0.4 + v * 0.6).toFixed(3) + ')';
+      c.fillRect(xL, yTop, barW, Math.max(1, h * 0.06));
+      c.fillRect(xR, yTop, barW, Math.max(1, h * 0.06));
+    }
+  }
+
+  var RING_COUNT = 42;
+  function drawRings(now){
+    var cx = W / 2, cy = H / 2;
+    var nBins = smooth.length;
+    var maxR = Math.min(W, H) * 0.46;
+    var k, p, idx, v, r, hue, alpha, sweep, oa, ox, oy;
+    for (k = 0; k < RING_COUNT; k++){
+      p = k / (RING_COUNT - 1);
+      idx = Math.min(nBins - 1, Math.floor(nBins * (0.02 + p * p * 0.95)));
+      v = smooth[idx] || 0;
+      r = 12 + p * (maxR - 12) + v * maxR * 0.5;
+      hue = (140 + p * 200 + now * 14) % 360;
+      alpha = Math.min(1, 0.15 + v * 0.5 + (1 - p) * 0.15);
+      c.strokeStyle = 'hsla(' + hue + ',95%,' + (60 + Math.round(v * 25)) + '%,' + alpha.toFixed(3) + ')';
+      c.lineWidth = 1 + (1 - p) * 1.5 + v * 3;
+      sweep = 6.283 * (0.35 + 0.55 * ((v + 1) / 2));
+      c.beginPath();
+      c.arc(cx, cy, r, now * 0.6 + p * 6.28, now * 0.6 + p * 6.28 + sweep);
+      c.stroke();
+      oa = now * 1.4 + k * 2.1;
+      ox = cx + Math.cos(oa) * (r + 5);
+      oy = cy + Math.sin(oa) * (r + 5);
+      c.fillStyle = 'hsla(' + ((hue + 40) % 360) + ',100%,76%,' + (0.4 + v * 0.6).toFixed(3) + ')';
+      c.beginPath();
+      c.arc(ox, oy, 1.5 + v * 3.5, 0, 6.283);
+      c.fill();
+    }
+  }
+
+  var particles = [];
+  var P_MAX = 240;
+  function drawParticles(now){
+    var cx = W / 2, cy = H / 2;
+    var i, a, r0, p, dx, dy, d, ang, force, sz;
+    var spawn = Math.floor(3 + bass * 30);
+    for (i = 0; i < spawn && particles.length < P_MAX; i++){
+      a = Math.random() * 6.283;
+      r0 = Math.random() * Math.min(W, H) * 0.5;
+      particles.push({
+        x: cx + Math.cos(a) * r0,
+        y: cy + Math.sin(a) * r0,
+        vx: (Math.random() - 0.5) * 2,
+        vy: (Math.random() - 0.5) * 2,
+        hue: 180 + Math.random() * 180,
+        life: 1,
+        decay: 0.006 + Math.random() * 0.02,
+        size: 1 + Math.random() * 2.5 + bass * 6
+      });
+    }
+    var swirl = Math.sin(now * 0.8) * 0.6;
+    for (i = particles.length - 1; i >= 0; i--){
+      p = particles[i];
+      dx = p.x - cx; dy = p.y - cy;
+      d = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+      ang = Math.atan2(dy, dx) + swirl * 0.02;
+      force = (0.4 + treble * 2) - Math.min(0.4, d / (Math.max(W, H) * 0.6));
+      p.vx += Math.cos(ang) * force * 0.03 - dx * 0.0004;
+      p.vy += Math.sin(ang) * force * 0.03 - dy * 0.0004;
+      p.vx *= 0.99; p.vy *= 0.99;
+      p.x += p.vx + (Math.random() - 0.5) * 0.4;
+      p.y += p.vy + (Math.random() - 0.5) * 0.4;
+      p.life -= p.decay;
+      if (p.life <= 0){ particles.splice(i, 1); continue; }
+      sz = Math.max(0.5, p.size * p.life);
+      c.fillStyle = 'hsla(' + p.hue + ',100%,' + (60 + p.life * 30) + '%,' + (p.life * 0.85).toFixed(3) + ')';
+      c.beginPath();
+      c.arc(p.x, p.y, sz, 0, 6.283);
+      c.fill();
+    }
+  }
+
+  function frame(now){
+    requestAnimationFrame(frame);
+    fitCanvas();
+    updateLevels();
+    now = now || performance.now() / 1000;
+    c.setTransform(dprActive, 0, 0, dprActive, 0, 0);
+    c.globalCompositeOperation = 'source-over';
+    c.fillStyle = 'rgba(5,9,16,0.32)';
+    c.fillRect(0, 0, W, H);
+    c.globalCompositeOperation = 'lighter';
+    if (mode === 'bars') drawBars();
+    else if (mode === 'rings') drawRings(now);
+    else if (mode === 'particles') drawParticles(now);
+    c.globalCompositeOperation = 'source-over';
+  }
+
+  btnDemo.addEventListener('click', startDemo);
+  btnFile.addEventListener('click', function(){ fileInput.click(); });
+  btnMic.addEventListener('click', startMic);
+  fileInput.addEventListener('change', function(e){
+    var f = e.target.files && e.target.files[0];
+    if (f) loadFile(f);
+    e.target.value = '';
+  });
+  btnPlayPause.addEventListener('click', pausePlayToggle);
+  btnStop.addEventListener('click', stopAll);
+  volumeEl.addEventListener('input', function(e){ setVolume(+e.target.value); });
+  modeBtns.forEach(function(b){
+    b.addEventListener('click', function(){ setMode(b.dataset.mode); });
+  });
+  window.addEventListener('resize', fitCanvas);
+  window.addEventListener('pointerdown', resumeCtx);
+  window.addEventListener('keydown', resumeCtx);
+
+  setVolume(80);
+  startDemo();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

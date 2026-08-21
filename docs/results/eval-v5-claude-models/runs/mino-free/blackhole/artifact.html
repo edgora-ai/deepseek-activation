@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Black Hole</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #000; overflow: hidden; font-family: sans-serif; }
+canvas { display: block; }
+#info {
+  position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+  color: rgba(255,255,255,0.7); font-size: 13px; pointer-events: none;
+  text-shadow: 0 0 6px rgba(0,0,0,0.8); z-index: 10;
+}
+</style>
+</head>
+<body>
+<div id="info">Drag to orbit &middot; Scroll to zoom</div>
+<script>
+"use strict";
+
+/* ------------------------------------------------------------------ */
+/*  Minimal inline Three.js r160 (only what we need)                  */
+/*  For a self-contained file we embed a minimal WebGL + math core    */
+/*  and the EffectComposer / UnrealBloomPass equivalents manually.    */
+/* ------------------------------------------------------------------ */
+
+/* === SECTION 1: Minimal WebGL helper + vector/matrix math ========= */
+const PI  = Math.PI;
+const TAU = PI * 2;
+const sin = Math.sin, cos = Math.cos, sqrt = Math.sqrt, abs = Math.abs;
+const min = Math.min, max = Math.max, clamp = (v,lo,hi) => v < lo ? lo : v > hi ? hi : v;
+
+/* -- Vector3 -- */
+class Vec3 {
+  constructor(x=0,y=0,z=0){ this.x=x; this.y=y; this.z=z; }
+  set(x,y,z){ this.x=x; this.y=y; this.z=z; return this; }
+  copy(v){ this.x=v.x; this.y=v.y; this.z=v.z; return this; }
+  clone(){ return new Vec3(this.x,this.y,this.z); }
+  add(v){ this.x+=v.x; this.y+=v.y; this.z+=v.z; return this; }
+  sub(v){ this.x-=v.x; this.y-=v.y; this.z-=v.z; return this; }
+  scale(s){ this.x*=s; this.y*=s; this.z*=s; return this; }
+  length(){ return sqrt(this.x*this.x+this.y*this.y+this.z*this.z); }
+  normalize(){ const l=this.length()||1; this.x/=l;this.y/=l;this.z/=l; return this; }
+  dot(v){ return this.x*v.x+this.y*v.y+this.z*v.z; }
+  cross(v){ return new Vec3(
+    this.y*v.z-this.z*v.y, this.z*v.x-this.x*v.z, this.x*v.y-this.y*v.x); }
+  applyMatrix4(m){
+    const e=m.elements;
+    const x=this.x,y=this.y,z=this.z;
+    this.x = e[0]*x+e[4]*y+e[8]*z+e[12];
+    this.y = e[1]*x+e[5]*y+e[9]*z+e[13];
+    this.z = e[2]*x+e[6]*y+e[10]*z+e[14];
+    return this;
+  }
+}
+
+/* -- Matrix4 -- */
+class Mat4 {
+  constructor(){ this.elements = new Float32Array(16); this.identity(); }
+  identity(){ const e=this.elements; e.fill(0); e[0]=e[5]=e[10]=e[15]=1; return this; }
+  perspective(fov,aspect,near,far){
+    const e=this.elements; const f=1/Math.tan(fov/2); const nf=1/(near-far);
+    e.fill(0); e[0]=f/aspect; e[5]=f; e[10]=(far+near)*nf; e[11]=-1; e[14]=2*far*near*nf;
+    return this;
+  }
+  lookAt(eye,center,up){
+    const z=eye.clone().sub(center).normalize();
+    const x=up.clone().cross(z).normalize();
+    const y=z.clone().cross(x);
+    const e=this.elements;
+    e[0]=x.x;e[1]=y.x;e[2]=z.x;e[3]=0;
+    e[4]=x.y;e[5]=y.y;e[6]=z.y;e[7]=0;
+    e[8]=x.z;e[9]=y.z;e[10]=z.z;e[11]=0;
+    e[12]=-x.dot(eye);e[13]=-y.dot(eye);e[14]=-z.dot(eye);e[15]=1;
+    return this;
+  }
+  multiply(b){
+    const a=this.elements, bE=b.elements, r=new Mat4(), e=r.elements;
+    for(let i=0;i<4;i++) for(let j=0;j<4;j++){
+      let v=0; for(let k=0;k<4;k++) v+=a[i+k*4]*bE[k+j*4]; e[i+j*4]=v;
+    }
+    this.elements.set(e); return this;
+  }
+  clone(){ const m=new Mat4(); m.elements.set(this.elements); return m; }
+}
+
+/* === SECTION 2: Raw WebGL renderer ================================ */
+const canvas = document.createElement('canvas');
+document.body.appendChild(canvas);
+const gl = canvas.getContext('webgl2', {antialias:true, alpha:false}) || canvas.getContext('webgl', {antialias:true, alpha:false});
+if(!gl){ document.body.innerHTML='<p style="color:#fff;padding:20px">WebGL not supported</p>'; throw new Error('No WebGL'); }
+
+function resize(){
+  const dpr = min(window.devicePixelRatio, 2);
+  canvas.width  = window.innerWidth * dpr;
+  canvas.height = window.innerHeight * dpr;
+  canvas.style.width  = window.innerWidth+'px';
+  canvas.style.height = window.innerHeight+'px';
+  gl.viewport(0,0,canvas.width,canvas.height);
+}
+resize();
+window.addEventListener('resize', resize);
+
+/* -- Compile helper -- */
+function mkShader(type, src){
+  const s=gl.createShader(type); gl.shaderSource(s,src); gl.compileShader(s);
+  if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)){ console.error(gl.getShaderInfoLog(s)); gl.deleteShader(s); return null; }
+  return s;
+}
+function mkProgram(vs,fs){
+  const p=gl.createProgram();
+  gl.attachShader(p, mkShader(gl.VERTEX_SHADER, vs));
+  gl.attachShader(p, mkShader(gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(p);
+  if(!gl.getProgramParameter(p,gl.LINK_STATUS)){ console.error(gl.getProgramInfoLog(p)); return null; }
+  return p;
+}
+function mkBuffer(data, target=gl.ARRAY_BUFFER){
+  const b=gl.createBuffer(); gl.bindBuffer(target,b); gl.bufferData(target, data, gl.STATIC_DRAW); return b;
+}
+
+/* === SECTION 3: Shaders =========================================== */
+
+/* -- Full-screen quad (for post-processing) -- */
+const QUAD_VS = `
+attribute vec2 aPos;
+varying vec2 vUv;
+void main(){
+  vUv = aPos * 0.5 + 0.5;
+  gl_Position = vec4(aPos, 0.0, 1.0);
+}`;
+
+/* -- Bloom threshold + bright pass -- */
+const BRIGHT_FS = `
+precision highp float;
+varying vec2 vUv;
+uniform sampler2D uTex;
+uniform float uThreshold;
+void main(){
+  vec4 c = texture2D(uTex, vUv);
+  float b = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722));
+  gl_FragColor = (b > uThreshold) ? c : vec4(0,0,0,1);
+}`;
+
+/* -- Gaussian blur -- */
+const BLUR_FS = `
+precision highp float;
+varying vec2 vUv;
+uniform sampler2D uTex;
+uniform vec2 uDir;
+uniform vec2 uTexel;
+void main(){
+  vec4 sum = vec4(0.0);
+  float w[5] = float[](0.227027, 0.1945946, 0.1216216, 0.054054, 0.016216);
+  sum += texture2D(uTex, vUv) * w[0];
+  for(int i=1;i<5;i++){
+    vec2 off = uDir * uTexel * float(i) * 1.8;
+    sum += texture2D(uTex, vUv + off) * w[i];
+    sum += texture2D(uTex, vUv - off) * w[i];
+  }
+  gl_FragColor = sum;
+}`;
+
+/* -- Composite: scene + bloom -- */
+const COMPOSITE_FS = `
+precision highp float;
+varying vec2 vUv;
+uniform sampler2D uScene;
+uniform sampler2D uBloom;
+uniform float uIntensity;
+void main(){
+  vec4 sc = texture2D(uScene, vUv);
+  vec4 bl = texture2D(uBloom, vUv);
+  gl_FragColor = sc + bl * uIntensity;
+}`;
+
+/* -- Starfield particle shader -- */
+const STAR_VS = `
+attribute vec3 aPos;
+attribute float aSize;
+attribute float aBright;
+uniform mat4 uProj;
+uniform mat4 uView;
+uniform float uTime;
+varying float vBright;
+void main(){
+  vBright = aBright;
+  vec4 mv = uView * vec4(aPos, 1.0);
+  gl_Position = uProj * mv;
+  gl_PointSize = aSize * (300.0 / -mv.z);
+}`;
+
+const STAR_FS = `
+precision highp float;
+varying float vBright;
+void main(){
+  float d = length(gl_PointCoord - 0.5) * 2.0;
+  float a = clamp(1.0 - d*d, 0.0, 1.0);
+  float flicker = 0.85 + 0.15 * sin(vBright * 100.0);
+  gl_FragColor = vec4(vec3(0.9,0.92,1.0) * vBright * flicker, a * vBright);
+}`;
+
+/* -- Accretion disk particle shader -- */
+const DISK_VS = `
+attribute vec3 aPos;
+attribute vec3 aVelocity;
+attribute float aLife;
+attribute float aRadius;
+attribute float aAngle;
+uniform mat4 uProj;
+uniform mat4 uView;
+uniform float uTime;
+varying vec3 vCol;
+varying float vAlpha;
+varying float vRad;
+void main(){
+  float speed = 0.15 / (aRadius * aRadius + 0.3);
+  float ang = aAngle + uTime * speed + aRadius * 2.0;
+  float tilt = 0.18;
+  float r = aRadius;
+  float x = cos(ang) * r;
+  float z = sin(ang) * r;
+  float y = sin(ang * 0.3 + aLife * 6.28) * tilt * r * 0.4 + (aLife - 0.5) * 0.08;
+  vec3 pos = vec3(x,y,z);
+  float dist = length(pos.xz);
+  float temp = clamp(1.0 / (dist * 0.5 + 0.2), 0.0, 1.0);
+  vec3 hot  = vec3(1.0, 0.95, 0.9);
+  vec3 warm = vec3(1.0, 0.45, 0.05);
+  vec3 cool = vec3(0.6, 0.05, 0.0);
+  vCol = temp > 0.5 ? mix(warm, hot, (temp-0.5)*2.0) : mix(cool, warm, temp*2.0);
+  vAlpha = 0.35 + temp * 0.5;
+  vRad = dist;
+  vec4 mv = uView * vec4(pos, 1.0);
+  gl_Position = uProj * mv;
+  float sizeFactor = (12.0 + temp * 20.0) * (200.0 / -mv.z);
+  gl_PointSize = clamp(sizeFactor, 1.0, 64.0);
+}`;
+
+const DISK_FS = `
+precision highp float;
+varying vec3 vCol;
+varying float vAlpha;
+varying float vRad;
+void main(){
+  vec2 uv = gl_PointCoord - 0.5;
+  float d = dot(uv,uv);
+  if(d > 0.25) discard;
+  float glow = exp(-d * 12.0);
+  float core = exp(-d * 40.0);
+  vec3 col = vCol * glow + vec3(1.0) * core * 0.6;
+  float a = glow * vAlpha;
+  gl_FragColor = vec4(col, a);
+}`;
+
+/* -- Event horizon shader (dark sphere with gravitational lensing rim) -- */
+const HORIZON_VS = `
+attribute vec3 aPos;
+uniform mat4 uProj;
+uniform mat4 uView;
+varying vec3 vNorm;
+varying vec3 vWorldPos;
+void main(){
+  vNorm = normalize(aPos);
+  vWorldPos = aPos;
+  gl_Position = uProj * uView * vec4(aPos, 1.0);
+}`;
+
+const HORIZON_FS = `
+precision highp float;
+varying vec3 vNorm;
+varying vec3 vWorldPos;
+uniform vec3 uCamPos;
+void main(){
+  vec3 viewDir = normalize(uCamPos - vWorldPos);
+  float rim = 1.0 - max(dot(viewDir, vNorm), 0.0);
+  rim = pow(rim, 2.5);
+  vec3 rimColor = mix(vec3(0.4, 0.0, 0.0), vec3(1.0, 0.5, 0.1), rim);
+  gl_FragColor = vec4(rimColor * rim * 1.5, 1.0);
+}`;
+
+/* -- Photon ring -- */
+const RING_VS = `
+attribute vec3 aPos;
+uniform mat4 uProj;
+uniform mat4 uView;
+void main(){
+  gl_Position = uProj * uView * vec4(aPos, 1.0);
+}`;
+const RING_FS = `
+precision highp float;
+uniform float uTime;
+void main(){
+  float c = 0.6 + 0.4 * sin(uTime * 2.0 + gl_FragCoord.x * 0.05);
+  gl_FragColor = vec4(vec3(1.0, 0.7, 0.2) * c * 1.2, 0.7);
+}`;
+
+/* === SECTION 4: Create GL programs ================================ */
+const brightProg  = mkProgram(QUAD_VS, BRIGHT_FS);
+const blurProg    = mkProgram(QUAD_VS, BLUR_FS);
+const compositeProg = mkProgram(QUAD_VS, COMPOSITE_FS);
+const starProg    = mkProgram(STAR_VS, STAR_FS);
+const diskProg    = mkProgram(DISK_VS, DISK_FS);
+const horizonProg = mkProgram(HORIZON_VS, HORIZON_FS);
+const ringProg    = mkProgram(RING_VS, RING_FS);
+
+/* -- Full-screen quad -- */
+const quadBuf = mkBuffer(new Float32Array([-1,-1, 1,-1, -1,1, 1,1]));
+
+/* === SECTION 5: Framebuffers for post-processing ================== */
+function createFBO(w,h){
+  const fbo = gl.createFramebuffer();
+  const tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+  return {fbo, tex, w, h};
+}
+
+let sceneFBO, brightFBO1, brightFBO2, brightFBO3, brightFBO4;
+
+function initFBOs(){
+  const w = canvas.width, h = canvas.height;
+  const hw = w>>1, hh = h>>1;
+  const qw = w>>2, qh = h>>2;
+  sceneFBO   = createFBO(w, h);
+  brightFBO1 = createFBO(hw, hh);
+  brightFBO2 = createFBO(hw, hh);
+  brightFBO3 = createFBO(qw, qh);
+  brightFBO4 = createFBO(qw, qh);
+}
+initFBOs();
+window.addEventListener('resize', ()=>{ initFBOs(); });
+
+/* === SECTION 6: Geometry generation =============================== */
+
+/* -- Starfield -- */
+const STAR_COUNT = 3000;
+const starPos   = new Float32Array(STAR_COUNT * 3);
+const starSize  = new Float32Array(STAR_COUNT);
+const starBright= new Float32Array(STAR_COUNT);
+for(let i=0;i<STAR_COUNT;i++){
+  const theta = Math.random() * TAU;
+  const phi   = Math.acos(2*Math.random()-1);
+  const r     = 40 + Math.random() * 160;
+  starPos[i*3]   = r*sin(phi)*cos(theta);
+  starPos[i*3+1] = r*sin(phi)*sin(theta);
+  starPos[i*3+2] = r*cos(phi);
+  starSize[i] = 0.5 + Math.random() * 2.5;
+  starBright[i]= 0.3 + Math.random()*0.7;
+}
+const starPosBuf    = mkBuffer(starPos);
+const starSizeBuf   = mkBuffer(starSize);
+const starBrightBuf = mkBuffer(starBright);
+
+/* -- Accretion disk particles -- */
+const DISK_COUNT = 25000;
+const diskRadius = new Float32Array(DISK_COUNT);
+const diskAngle  = new Float32Array(DISK_COUNT);
+const diskLife   = new Float32Array(DISK_COUNT);
+const diskVel    = new Float32Array(DISK_COUNT * 3);
+const diskPos    = new Float32Array(DISK_COUNT * 3); // dummy for attribute binding
+for(let i=0;i<DISK_COUNT;i++){
+  // Power-law distribution – more particles near inner edge
+  diskRadius[i] = 0.6 + Math.pow(Math.random(), 0.6) * 4.0;
+  diskAngle[i]  = Math.random() * TAU;
+  diskLife[i]   = Math.random();
+  diskVel[i*3]  = diskVel[i*3+1] = diskVel[i*3+2] = 0;
+}
+const diskRadiusBuf = mkBuffer(diskRadius);
+const diskAngleBuf  = mkBuffer(diskAngle);
+const diskLifeBuf   = mkBuffer(diskLife);
+const diskVelBuf    = mkBuffer(diskVel);
+const diskPosBuf    = mkBuffer(diskPos);
+
+/* -- Event horizon sphere -- */
+function createSphere(seg){
+  const verts=[];
+  for(let lat=0;lat<=seg;lat++){
+    const theta=lat*PI/seg;
+    for(let lon=0;lon<=seg;lon++){
+      const phi=lon*TAU/seg;
+      verts.push(sin(theta)*cos(phi), cos(theta), sin(theta)*sin(phi));
+    }
+  }
+  const idx=[];
+  for(let lat=0;lat<seg;lat++){
+    for(let lon=0;lon<seg;lon++){
+      const a=lat*(seg+1)+lon, b=a+seg+1;
+      idx.push(a,b,a+1, b,b+1,a+1);
+    }
+  }
+  return {verts: new Float32Array(verts), idx: new Uint16Array(idx)};
+}
+const sphere = createSphere(32);
+const sphereVBuf = mkBuffer(sphere.verts);
+const sphereIBuf = mkBuffer(sphere.idx, gl.ELEMENT_ARRAY_BUFFER);
+
+/* -- Photon ring (torus approximation via line loop) -- */
+const RING_SEG = 128;
+const ringVerts = new Float32Array(RING_SEG * 6); // 2 rings (inner/outer)
+for(let i=0;i<RING_SEG;i++){
+  const a = (i/RING_SEG)*TAU;
+  const c = cos(a), s = sin(a);
+  ringVerts[i*6]   = c*1.2; ringVerts[i*6+1] = 0; ringVerts[i*6+2] = s*1.2;
+  ringVerts[i*6+3] = c*1.35; ringVerts[i*6+4] = 0; ringVerts[i*6+5] = s*1.35;
+}
+const ringVBuf = mkBuffer(ringVerts);
+
+/* === SECTION 7: Camera / Orbit controls =========================== */
+let camTheta = 0.3;
+let camPhi   = 0.5;
+let camDist  = 5.0;
+const camTarget = new Vec3(0,0,0);
+
+const projMat = new Mat4();
+const viewMat = new Mat4();
+const camPos  = new Vec3();
+
+function updateCamera(){
+  camTheta += 0.001; // slow auto-orbit
+  const x = camDist * sin(camPhi) * cos(camTheta);
+  const y = camDist * cos(camPhi);
+  const z = camDist * sin(camPhi) * sin(camTheta);
+  camPos.set(x + camTarget.x, y + camTarget.y, z + camTarget.z);
+  const aspect = canvas.width / canvas.height;
+  projMat.perspective(PI/3, aspect, 0.1, 500);
+  viewMat.lookAt(camPos, camTarget, new Vec3(0,1,0));
+}
+
+/* -- Mouse drag & zoom -- */
+let dragging=false, lastX=0, lastY=0;
+canvas.addEventListener('mousedown', e=>{ dragging=true; lastX=e.clientX; lastY=e.clientY; });
+window.addEventListener('mouseup', ()=>{ dragging=false; });
+window.addEventListener('mousemove', e=>{
+  if(!dragging) return;
+  const dx=e.clientX-lastX, dy=e.clientY-lastY;
+  camTheta -= dx*0.005;
+  camPhi   = clamp(camPhi - dy*0.005, 0.1, PI-0.1);
+  lastX=e.clientX; lastY=e.clientY;
+});
+canvas.addEventListener('wheel', e=>{
+  camDist = clamp(camDist + e.deltaY*0.003, 1.8, 30);
+  e.preventDefault();
+}, {passive:false});
+
+/* -- Touch support -- */
+let lastTouchDist = 0;
+canvas.addEventListener('touchstart', e=>{
+  if(e.touches.length===1){ dragging=true; lastX=e.touches[0].clientX; lastY=e.touches[0].clientY; }
+  if(e.touches.length===2){
+    const dx=e.touches[0].clientX-e.touches[1].clientX;
+    const dy=e.touches[0].clientY-e.touches[1].clientY;
+    lastTouchDist=sqrt(dx*dx+dy*dy);
+  }
+}, {passive:true});
+canvas.addEventListener('touchmove', e=>{
+  if(e.touches.length===1 && dragging){
+    const dx=e.touches[0].clientX-lastX, dy=e.touches[0].clientY-lastY;
+    camTheta -= dx*0.005;
+    camPhi = clamp(camPhi - dy*0.005, 0.1, PI-0.1);
+    lastX=e.touches[0].clientX; lastY=e.touches[0].clientY;
+  }
+  if(e.touches.length===2){
+    const dx=e.touches[0].clientX-e.touches[1].clientX;
+    const dy=e.touches[0].clientY-e.touches[1].clientY;
+    const d=sqrt(dx*dx+dy*dy);
+    camDist = clamp(camDist - (d-lastTouchDist)*0.01, 1.8, 30);
+    lastTouchDist=d;
+  }
+  e.preventDefault();
+}, {passive:false});
+canvas.addEventListener('touchend', ()=>{ dragging=false; });
+
+/* === SECTION 8: Render helpers ==================================== */
+function bindQuad(prog){
+  gl.useProgram(prog);
+  const loc = gl.getAttribLocation(prog, 'aPos');
+  gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+  gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+}
+
+function drawQuad(prog){
+  bindQuad(prog);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+}
+
+function drawFBO(fbo){
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo.fbo);
+  gl.viewport(0, 0, fbo.w, fbo.h);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+}
+
+function setUniform(prog, name, type, v){
+  const loc = gl.getUniformLocation(prog, name);
+  if(loc===null) return;
+  if(type==='1f') gl.uniform1f(loc, v);
+  else if(type==='2f') gl.uniform2f(loc, v[0], v[1]);
+  else if(type==='3f') gl.uniform3f(loc, v[0], v[1], v[2]);
+  else if(type==='1i') gl.uniform1i(loc, v);
+}
+
+/* === SECTION 9: Main render loop ================================== */
+const startTime = performance.now();
+
+function render(){
+  requestAnimationFrame(render);
+  const t = (performance.now() - startTime) * 0.001;
+  updateCamera();
+
+  const W = canvas.width, H = canvas.height;
+
+  /* --- PASS 1: Render scene to FBO --- */
+  drawFBO(sceneFBO);
+  gl.clearColor(0,0,0,1);
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  gl.enable(gl.DEPTH_TEST);
+  gl.disable(gl.BLEND);
+
+  /* -- Stars -- */
+  gl.useProgram(starProg);
+  const sv = new Float32Array(16);
+  sv.set(projMat.elements, 0); // proj
+  const pLoc = gl.getAttribLocation(starProg, 'aPos');
+  const sLoc = gl.getAttribLocation(starProg, 'aSize');
+  const bLoc = gl.getAttribLocation(starProg, 'aBright');
+  setUniform(starProg, 'uProj', '1i', 0);
+  gl.uniformMatrix4fv(gl.getUniformLocation(starProg,'uProj'), false, projMat.elements);
+  gl.uniformMatrix4fv(gl.getUniformLocation(starProg,'uView'), false, viewMat.elements);
+  gl.uniform1f(gl.getUniformLocation(starProg,'uTime'), t);
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, starPosBuf);
+  gl.enableVertexAttribArray(pLoc);
+  gl.vertexAttribPointer(pLoc, 3, gl.FLOAT, false, 0, 0);
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, starSizeBuf);
+  gl.enableVertexAttribArray(sLoc);
+  gl.vertexAttribPointer(sLoc, 1, gl.FLOAT, false, 0, 0);
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, starBrightBuf);
+  gl.enableVertexAttribArray(bLoc);
+  gl.vertexAttribPointer(bLoc, 1, gl.FLOAT, false, 0, 0);
+
+  gl.drawArrays(gl.POINTS, 0, STAR_COUNT);
+
+  /* -- Accretion disk -- */
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE); // additive
+  gl.depthMask(false);
+
+  gl.useProgram(diskProg);
+  gl.uniformMatrix4fv(gl.getUniformLocation(diskProg,'uProj'), false, projMat.elements);
+  gl.uniformMatrix4fv(gl.getUniformLocation(diskProg,'uView'), false, viewMat.elements);
+  gl.uniform1f(gl.getUniformLocation(diskProg,'uTime'), t);
+
+  const daLoc = gl.getAttribLocation(diskProg, 'aPos');
+  const dvLoc = gl.getAttribLocation(diskProg, 'aVelocity');
+  const dlLoc = gl.getAttribLocation(diskProg, 'aLife');
+  const drLoc = gl.getAttribLocation(diskProg, 'aRadius');
+  const dangLoc = gl.getAttribLocation(diskProg, 'aAngle');
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, diskPosBuf);
+  gl.enableVertexAttribArray(daLoc);
+  gl.vertexAttribPointer(daLoc, 3, gl.FLOAT, false, 0, 0);
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, diskVelBuf);
+  gl.enableVertexAttribArray(dvLoc);
+  gl.vertexAttribPointer(dvLoc, 3, gl.FLOAT, false, 0, 0);
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, diskLifeBuf);
+  gl.enableVertexAttribArray(dlLoc);
+  gl.vertexAttribPointer(dlLoc, 1, gl.FLOAT, false, 0, 0);
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, diskRadiusBuf);
+  gl.enableVertexAttribArray(drLoc);
+  gl.vertexAttribPointer(drLoc, 1, gl.FLOAT, false, 0, 0);
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, diskAngleBuf);
+  gl.enableVertexAttribArray(dangLoc);
+  gl.vertexAttribPointer(dangLoc, 1, gl.FLOAT, false, 0, 0);
+
+  gl.drawArrays(gl.POINTS, 0, DISK_COUNT);
+
+  /* -- Photon ring -- */
+  gl.useProgram(ringProg);
+  gl.uniformMatrix4fv(gl.getUniformLocation(ringProg,'uProj'), false, projMat.elements);
+  gl.uniformMatrix4fv(gl.getUniformLocation(ringProg,'uView'), false, viewMat.elements);
+  gl.uniform1f(gl.getUniformLocation(ringProg,'uTime'), t);
+
+  const rrLoc = gl.getAttribLocation(ringProg, 'aPos');
+  gl.bindBuffer(gl.ARRAY_BUFFER, ringVBuf);
+  gl.enableVertexAttribArray(rrLoc);
+  gl.vertexAttribPointer(rrLoc, 3, gl.FLOAT, false, 0, 0);
+  gl.lineWidth(2.0);
+  gl.drawArrays(gl.LINES, 0, RING_SEG*2);
+
+  /* -- Event horizon -- */
+  gl.depthMask(true);
+  gl.disable(gl.BLEND);
+
+  gl.useProgram(horizonProg);
+  gl.uniformMatrix4fv(gl.getUniformLocation(horizonProg,'uProj'), false, projMat.elements);
+  gl.uniformMatrix4fv(gl.getUniformLocation(horizonProg,'uView'), false, viewMat.elements);
+  const cPosLoc = gl.getUniformLocation(horizonProg,'uCamPos');
+  gl.uniform3f(cPosLoc, camPos.x, camPos.y, camPos.z);
+
+  const hsLoc = gl.getAttribLocation(horizonProg, 'aPos');
+  gl.bindBuffer(gl.ARRAY_BUFFER, sphereVBuf);
+  gl.enableVertexAttribArray(hsLoc);
+  gl.vertexAttribPointer(hsLoc, 3, gl.FLOAT, false, 0, 0);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, sphereIBuf);
+  gl.drawElements(gl.TRIANGLES, sphere.idx.length, gl.UNSIGNED_SHORT, 0);
+
+  /* --- PASS 2: Bright-pass threshold --- */
+  drawFBO(brightFBO1);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.disable(gl.DEPTH_TEST);
+  gl.useProgram(brightProg);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, sceneFBO.tex);
+  gl.uniform1i(gl.getUniformLocation(brightProg,'uTex'), 0);
+  gl.uniform1f(gl.getUniformLocation(brightProg,'uThreshold'), 0.35);
+  drawQuad(brightProg);
+
+  /* --- PASS 3: Multi-pass gaussian blur --- */
+  const blurPasses = 5;
+  for(let i=0;i<blurPasses;i++){
+    // Horizontal
+    drawFBO(brightFBO2);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.useProgram(blurProg);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, brightFBO1.tex);
+    gl.uniform1i(gl.getUniformLocation(blurProg,'uTex'), 0);
+    gl.uniform2f(gl.getUniformLocation(blurProg,'uDir'), 1.0, 0.0);
+    gl.uniform2f(gl.getUniformLocation(blurProg,'uTexel'), 1.0/brightFBO1.w, 1.0/brightFBO1.h);
+    drawQuad(blurProg);
+    // Vertical
+    drawFBO(brightFBO1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.bindTexture(gl.TEXTURE_2D, brightFBO2.tex);
+    gl.uniform1i(gl.getUniformLocation(blurProg,'uTex'), 0);
+    gl.uniform2f(gl.getUniformLocation(blurProg,'uDir'), 0.0, 1.0);
+    gl.uniform2f(gl.getUniformLocation(blurProg,'uTexel'), 1.0/brightFBO2.w, 1.0/brightFBO2.h);
+    drawQuad(blurProg);
+  }
+
+  /* Second blur at lower resolution for wide glow */
+  for(let i=0;i<3;i++){
+    drawFBO(brightFBO4);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.useProgram(blurProg);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, brightFBO1.tex);
+    gl.uniform1i(gl.getUniformLocation(blurProg,'uTex'), 0);
+    gl.uniform2f(gl.getUniformLocation(blurProg,'uDir'), 1.0, 0.0);
+    gl.uniform2f(gl.getUniformLocation(blurProg,'uTexel'), 1.0/brightFBO1.w, 1.0/brightFBO1.h);
+    drawQuad(blurProg);
+    drawFBO(brightFBO1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.bindTexture(gl.TEXTURE_2D, brightFBO4.tex);
+    gl.uniform1i(gl.getUniformLocation(blurProg,'uTex'), 0);
+    gl.uniform2f(gl.getUniformLocation(blurProg,'uDir'), 0.0, 1.0);
+    gl.uniform2f(gl.getUniformLocation(blurProg,'uTexel'), 1.0/brightFBO4.w, 1.0/brightFBO4.h);
+    drawQuad(blurProg);
+  }
+
+  /* --- PASS 4: Composite scene + bloom to screen --- */
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.viewport(0, 0, W, H);
+  gl.clearColor(0,0,0,1);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+
+  gl.useProgram(compositeProg);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, sceneFBO.tex);
+  gl.uniform1i(gl.getUniformLocation(compositeProg,'uScene'), 0);
+  gl.activeTexture(gl.TEXTURE1);
+  gl.bindTexture(gl.TEXTURE_2D, brightFBO1.tex);
+  gl.uniform1i(gl.getUniformLocation(compositeProg,'uBloom'), 1);
+  gl.uniform1f(gl.getUniformLocation(compositeProg,'uIntensity'), 1.8);
+  drawQuad(compositeProg);
+}
+
+render();
+</script>
+</body>
+</html>

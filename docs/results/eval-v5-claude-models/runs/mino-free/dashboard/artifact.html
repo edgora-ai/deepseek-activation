@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sales Analytics Dashboard</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --surface-1: #fcfcfb;
+    --surface-page: #f9f9f7;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #898781;
+    --gridline: #e1e0d9;
+    --baseline: #c3c2b7;
+    --border: rgba(11,11,11,0.10);
+    --series-1: #2a78d6;
+    --series-2: #eb6834;
+    --series-3: #1baf7a;
+    --series-4: #eda100;
+    --series-5: #e87ba4;
+    --series-6: #008300;
+    --series-7: #4a3aa7;
+    --series-8: #e34948;
+    --font: system-ui, -apple-system, "Segoe UI", sans-serif;
+    --radius: 8px;
+  }
+
+  body {
+    font-family: var(--font);
+    background: var(--surface-page);
+    color: var(--text-primary);
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  .dashboard { max-width: 1200px; margin: 0 auto; padding: 24px; }
+
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .header h1 { font-size: 22px; font-weight: 600; }
+  .header button {
+    font-family: var(--font);
+    font-size: 14px;
+    font-weight: 500;
+    padding: 8px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface-1);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .header button:hover { background: #f0efec; }
+
+  /* Filters row */
+  .filters {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+  .filter-group { display: flex; flex-direction: column; gap: 4px; }
+  .filter-group label {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+  }
+  .filter-group select, .filter-group input {
+    font-family: var(--font);
+    font-size: 13px;
+    padding: 6px 10px;
+    border: 1px solid var(--baseline);
+    border-radius: 6px;
+    background: var(--surface-1);
+    color: var(--text-primary);
+    min-width: 120px;
+  }
+
+  /* KPI Cards */
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .kpi-card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+  }
+  .kpi-card .kpi-label {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+  .kpi-card .kpi-value {
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  .kpi-card .kpi-delta {
+    font-size: 13px;
+    margin-top: 4px;
+  }
+  .kpi-delta.up { color: #006300; }
+  .kpi-delta.down { color: #e34948; }
+
+  /* Chart grid */
+  .charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .chart-card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    position: relative;
+  }
+  .chart-card h3 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    color: var(--text-secondary);
+  }
+  .chart-card svg { width: 100%; display: block; }
+
+  /* Tooltip */
+  .tooltip {
+    position: fixed;
+    pointer-events: none;
+    background: #2a2a29;
+    color: #fff;
+    font-size: 12px;
+    line-height: 1.5;
+    padding: 8px 12px;
+    border-radius: 6px;
+    z-index: 1000;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.12s;
+    font-family: var(--font);
+  }
+  .tooltip.visible { opacity: 1; }
+  .tooltip .tt-label { color: #c3c2b7; }
+  .tooltip .tt-value { font-weight: 600; }
+  .tooltip .tt-key {
+    display: inline-block;
+    width: 10px;
+    height: 3px;
+    margin-right: 6px;
+    vertical-align: middle;
+    border-radius: 1px;
+  }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+    justify-content: center;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .legend-swatch {
+    width: 12px;
+    height: 3px;
+    border-radius: 1px;
+  }
+  .legend-swatch-round {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  @media (max-width: 768px) {
+    .charts-grid { grid-template-columns: 1fr; }
+    .kpi-row { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="dashboard" id="app">
+  <div class="header">
+    <h1>Sales Analytics Dashboard</h1>
+    <button onclick="refreshData()" aria-label="Refresh data">↻ Refresh data</button>
+  </div>
+
+  <div class="filters">
+    <div class="filter-group">
+      <label for="filter-region">Region</label>
+      <select id="filter-region" onchange="applyFilters()">
+        <option value="all">All Regions</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label for="filter-category">Category</label>
+      <select id="filter-category" onchange="applyFilters()">
+        <option value="all">All Categories</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label for="filter-start">From</label>
+      <select id="filter-start" onchange="applyFilters()"></select>
+    </div>
+    <div class="filter-group">
+      <label for="filter-end">To</label>
+      <select id="filter-end" onchange="applyFilters()"></select>
+    </div>
+  </div>
+
+  <div class="kpi-row" id="kpi-row"></div>
+  <div class="charts-grid">
+    <div class="chart-card"><h3>Revenue Trend</h3><div id="chart-line"></div></div>
+    <div class="chart-card"><h3>Revenue by Category</h3><div id="chart-bar"></div></div>
+    <div class="chart-card"><h3>Regional Share</h3><div id="chart-donut"></div></div>
+    <div class="chart-card"><h3>Spend vs Revenue</h3><div id="chart-scatter"></div></div>
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+// --- Deterministic PRNG (mulberry32) ---
+function mulberry32(a) {
+  return function() {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    var t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  }
+}
+
+const REGIONS = ['North', 'South', 'East', 'West'];
+const CATEGORIES = ['Electronics', 'Clothing', 'Home & Garden'];
+const MONTHS = [];
+for (let y = 2024; y <= 2025; y++) {
+  for (let m = 1; m <= 12; m++) {
+    if (MONTHS.length >= 8) break;
+    MONTHS.push({ year: y, month: m, label: `${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m-1]} ${y}` });
+  }
+}
+
+const SERIES_COLORS = ['#2a78d6','#eb6834','#1baf7a','#eda100','#e87ba4','#008300'];
+
+let seed = 42;
+let rawData = [];
+let filteredData = [];
+
+// --- Data generation ---
+function generateData(seedVal) {
+  const rng = mulberry32(seedVal);
+  const data = [];
+  for (const period of MONTHS) {
+    for (const region of REGIONS) {
+      for (const category of CATEGORIES) {
+        const baseRev = 15000 + rng() * 35000;
+        const seasonality = 1 + 0.2 * Math.sin((period.month - 1) / 12 * Math.PI * 2);
+        const regionFactor = region === 'North' ? 1.2 : region === 'East' ? 1.1 : region === 'South' ? 0.95 : 0.85;
+        const catFactor = category === 'Electronics' ? 1.3 : category === 'Clothing' ? 1.0 : 0.8;
+        const revenue = Math.round(baseRev * seasonality * regionFactor * catFactor);
+        const orders = Math.round(revenue / (50 + rng() * 80));
+        const spend = Math.round(revenue * (0.55 + rng() * 0.3));
+        const profit = revenue - spend;
+        data.push({ period: period.label, periodIdx: MONTHS.indexOf(period), region, category, revenue, orders, spend, profit });
+      }
+    }
+  }
+  return data;
+}
+
+// --- Populate filters ---
+function populateFilters() {
+  const regionSel = document.getElementById('filter-region');
+  const catSel = document.getElementById('filter-category');
+  const startSel = document.getElementById('filter-start');
+  const endSel = document.getElementById('filter-end');
+
+  // Keep "All" option, clear rest
+  regionSel.innerHTML = '<option value="all">All Regions</option>';
+  REGIONS.forEach(r => {
+    const o = document.createElement('option');
+    o.value = r; o.textContent = r;
+    regionSel.appendChild(o);
+  });
+
+  catSel.innerHTML = '<option value="all">All Categories</option>';
+  CATEGORIES.forEach(c => {
+    const o = document.createElement('option');
+    o.value = c; o.textContent = c;
+    catSel.appendChild(o);
+  });
+
+  startSel.innerHTML = '';
+  endSel.innerHTML = '';
+  MONTHS.forEach((p, i) => {
+    const o1 = document.createElement('option');
+    o1.value = i; o1.textContent = p.label;
+    startSel.appendChild(o1);
+    const o2 = document.createElement('option');
+    o2.value = i; o2.textContent = p.label;
+    endSel.appendChild(o2);
+  });
+  startSel.value = 0;
+  endSel.value = MONTHS.length - 1;
+}
+
+// --- Apply filters ---
+function applyFilters() {
+  const region = document.getElementById('filter-region').value;
+  const category = document.getElementById('filter-category').value;
+  const startIdx = parseInt(document.getElementById('filter-start').value);
+  const endIdx = parseInt(document.getElementById('filter-end').value);
+
+  filteredData = rawData.filter(d => {
+    if (region !== 'all' && d.region !== region) return false;
+    if (category !== 'all' && d.category !== category) return false;
+    if (d.periodIdx < startIdx || d.periodIdx > endIdx) return false;
+    return true;
+  });
+
+  renderKPIs();
+  renderLineChart();
+  renderBarChart();
+  renderDonutChart();
+  renderScatterChart();
+}
+
+// --- Refresh ---
+function refreshData() {
+  seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+  rawData = generateData(seed);
+  applyFilters();
+}
+
+// --- KPIs ---
+function renderKPIs() {
+  const totalRev = filteredData.reduce((s, d) => s + d.revenue, 0);
+  const totalOrders = filteredData.reduce((s, d) => s + d.orders, 0);
+  const aov = totalOrders > 0 ? totalRev / totalOrders : 0;
+  const totalProfit = filteredData.reduce((s, d) => s + d.profit, 0);
+  const margin = totalRev > 0 ? (totalProfit / totalRev * 100) : 0;
+
+  const fmt = (n) => {
+    if (n >= 1e6) return '$' + (n/1e6).toFixed(2) + 'M';
+    if (n >= 1e3) return '$' + (n/1e3).toFixed(1) + 'K';
+    return '$' + n.toFixed(0);
+  };
+
+  const kpis = [
+    { label: 'Total Revenue', value: fmt(totalRev), delta: '+12.3%', dir: 'up' },
+    { label: 'Total Orders', value: totalOrders.toLocaleString(), delta: '+8.7%', dir: 'up' },
+    { label: 'Avg Order Value', value: fmt(aov), delta: '+3.2%', dir: 'up' },
+    { label: 'Profit Margin', value: margin.toFixed(1) + '%', delta: margin > 30 ? '+1.8pp' : '-0.5pp', dir: margin > 30 ? 'up' : 'down' }
+  ];
+
+  const container = document.getElementById('kpi-row');
+  container.innerHTML = '';
+  kpis.forEach(k => {
+    const card = document.createElement('div');
+    card.className = 'kpi-card';
+    card.innerHTML = `
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value">${k.value}</div>
+      <div class="kpi-delta ${k.dir}">${k.dir === 'up' ? '↑' : '↓'} ${k.delta} vs prior</div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+// --- Tooltip helper ---
+const tooltipEl = document.getElementById('tooltip');
+function showTooltip(evt, html) {
+  tooltipEl.innerHTML = html;
+  tooltipEl.classList.add('visible');
+  const x = evt.clientX + 12;
+  const y = evt.clientY - 10;
+  tooltipEl.style.left = Math.min(x, window.innerWidth - 200) + 'px';
+  tooltipEl.style.top = Math.max(y, 4) + 'px';
+}
+function hideTooltip() {
+  tooltipEl.classList.remove('visible');
+}
+
+// --- SVG helpers ---
+function svgEl(tag, attrs) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+  return el;
+}
+
+// --- Line Chart ---
+function renderLineChart() {
+  const container = document.getElementById('chart-line');
+  container.innerHTML = '';
+
+  // Aggregate by period
+  const periodMap = {};
+  filteredData.forEach(d => {
+    if (!periodMap[d.period]) periodMap[d.period] = { idx: d.periodIdx, revenue: 0, period: d.period };
+    periodMap[d.period].revenue += d.revenue;
+  });
+  const points = Object.values(periodMap).sort((a, b) => a.idx - b.idx);
+  if (points.length === 0) return;
+
+  const W = 500, H = 220, pad = { t: 16, r: 16, b: 32, l: 56 };
+  const plotW = W - pad.l - pad.r, plotH = H - pad.t - pad.b;
+  const maxRev = Math.max(...points.map(p => p.revenue));
+  const yMax = Math.ceil(maxRev / 50000) * 50000 || 50000;
+
+  const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: 'xMidYMid meet' });
+
+  // Gridlines
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.t + plotH - (i / 4) * plotH;
+    svg.appendChild(svgEl('line', { x1: pad.l, y1: y, x2: W - pad.r, y2: y, stroke: '#e1e0d9', 'stroke-width': 1 }));
+    const label = svgEl('text', { x: pad.l - 6, y: y + 4, 'text-anchor': 'end', fill: '#898781', 'font-size': '10', 'font-family': 'var(--font)' });
+    const val = (yMax * i / 4);
+    label.textContent = val >= 1e6 ? (val/1e6).toFixed(1)+'M' : (val/1e3).toFixed(0)+'K';
+    svg.appendChild(label);
+  }
+
+  // Line path
+  const pathPoints = points.map((p, i) => {
+    const x = pad.l + (i / (points.length - 1 || 1)) * plotW;
+    const y = pad.t + plotH - (p.revenue / yMax) * plotH;
+    return { x, y, data: p };
+  });
+
+  const pathD = pathPoints.map((pt, i) => (i === 0 ? 'M' : 'L') + pt.x.toFixed(1) + ',' + pt.y.toFixed(1)).join(' ');
+  // Area
+  const areaD = pathD + ` L${pathPoints[pathPoints.length-1].x},${pad.t + plotH} L${pathPoints[0].x},${pad.t + plotH} Z`;
+  svg.appendChild(svgEl('path', { d: areaD, fill: '#2a78d6', opacity: '0.10' }));
+  svg.appendChild(svgEl('path', { d: pathD, fill: 'none', stroke: '#2a78d6', 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+
+  // Dots + hit areas
+  pathPoints.forEach((pt, i) => {
+    const hitArea = svgEl('rect', { x: pt.x - 14, y: pt.y - 14, width: 28, height: 28, fill: 'transparent', style: 'cursor:pointer' });
+    hitArea.addEventListener('mousemove', (e) => showTooltip(e,
+      `<div><span class="tt-label">Period:</span> ${points[i].data.period}</div><div><span class="tt-value">$${points[i].data.revenue.toLocaleString()}</span> revenue</div>`
+    ));
+    hitArea.addEventListener('mouseleave', hideTooltip);
+    svg.appendChild(hitArea);
+
+    svg.appendChild(svgEl('circle', { cx: pt.x, cy: pt.y, r: 4, fill: '#2a78d6', stroke: '#fcfcfb', 'stroke-width': 2 }));
+  });
+
+  // X-axis labels
+  points.forEach((p, i) => {
+    const x = pad.l + (i / (points.length - 1 || 1)) * plotW;
+    const parts = p.period.split(' ');
+    const label = svgEl('text', { x, y: H - 6, 'text-anchor': 'middle', fill: '#898781', 'font-size': '9', 'font-family': 'var(--font)' });
+    label.textContent = parts[0];
+    svg.appendChild(label);
+  });
+
+  container.appendChild(svg);
+}
+
+// --- Bar Chart ---
+function renderBarChart() {
+  const container = document.getElementById('chart-bar');
+  container.innerHTML = '';
+
+  const catMap = {};
+  filteredData.forEach(d => {
+    if (!catMap[d.category]) catMap[d.category] = 0;
+    catMap[d.category] += d.revenue;
+  });
+  const cats = Object.entries(catMap).sort((a, b) => b[1] - a[1]);
+  if (cats.length === 0) return;
+
+  const W = 500, H = 220, pad = { t: 16, r: 16, b: 40, l: 56 };
+  const plotW = W - pad.l - pad.r, plotH = H - pad.t - pad.b;
+  const maxVal = Math.max(...cats.map(c => c[1]));
+  const yMax = Math.ceil(maxVal / 50000) * 50000 || 50000;
+  const barW = Math.min(40, (plotW / cats.length) * 0.6);
+  const gap = (plotW - barW * cats.length) / (cats.length + 1);
+
+  const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: 'xMidYMid meet' });
+
+  // Gridlines
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.t + plotH - (i / 4) * plotH;
+    svg.appendChild(svgEl('line', { x1: pad.l, y1: y, x2: W - pad.r, y2: y, stroke: '#e1e0d9', 'stroke-width': 1 }));
+    const label = svgEl('text', { x: pad.l - 6, y: y + 4, 'text-anchor': 'end', fill: '#898781', 'font-size': '10', 'font-family': 'var(--font)' });
+    const val = yMax * i / 4;
+    label.textContent = val >= 1e6 ? (val/1e6).toFixed(1)+'M' : (val/1e3).toFixed(0)+'K';
+    svg.appendChild(label);
+  }
+
+  // Bars
+  cats.forEach(([cat, val], i) => {
+    const x = pad.l + gap + i * (barW + gap);
+    const barH = (val / yMax) * plotH;
+    const y = pad.t + plotH - barH;
+    const color = SERIES_COLORS[i % SERIES_COLORS.length];
+
+    const rect = svgEl('rect', { x, y, width: barW, height: barH, fill: color, rx: 4, style: 'cursor:pointer' });
+    rect.addEventListener('mousemove', (e) => showTooltip(e,
+      `<div><span class="tt-label">Category:</span> ${cat}</div><div><span class="tt-value">$${val.toLocaleString()}</span> revenue</div>`
+    ));
+    rect.addEventListener('mouseleave', hideTooltip);
+    svg.appendChild(rect);
+
+    // Label below
+    const label = svgEl('text', { x: x + barW/2, y: H - 6, 'text-anchor': 'middle', fill: '#898781', 'font-size': '10', 'font-family': 'var(--font)' });
+    label.textContent = cat.length > 12 ? cat.substring(0,11)+'…' : cat;
+    svg.appendChild(label);
+  });
+
+  container.appendChild(svg);
+}
+
+// --- Donut Chart ---
+function renderDonutChart() {
+  const container = document.getElementById('chart-donut');
+  container.innerHTML = '';
+
+  const regionMap = {};
+  filteredData.forEach(d => {
+    if (!regionMap[d.region]) regionMap[d.region] = 0;
+    regionMap[d.region] += d.revenue;
+  });
+  const regions = Object.entries(regionMap).sort((a, b) => b[1] - a[1]);
+  if (regions.length === 0) return;
+
+  const total = regions.reduce((s, r) => s + r[1], 0);
+  const W = 500, H = 240;
+  const cx = W / 2, cy = H / 2 - 4;
+  const outerR = 85, innerR = 50;
+
+  const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: 'xMidYMid meet' });
+
+  let startAngle = -Math.PI / 2;
+  regions.forEach(([region, val], i) => {
+    const slice = (val / total) * Math.PI * 2;
+    const endAngle = startAngle + slice;
+    const color = SERIES_COLORS[i % SERIES_COLORS.length];
+
+    const x1o = cx + outerR * Math.cos(startAngle);
+    const y1o = cy + outerR * Math.sin(startAngle);
+    const x2o = cx + outerR * Math.cos(endAngle);
+    const y2o = cy + outerR * Math.sin(endAngle);
+    const x1i = cx + innerR * Math.cos(endAngle);
+    const y1i = cy + innerR * Math.sin(endAngle);
+    const x2i = cx + innerR * Math.cos(startAngle);
+    const y2i = cy + innerR * Math.sin(startAngle);
+
+    const largeArc = slice > Math.PI ? 1 : 0;
+    const d = `M${x1o},${y1o} A${outerR},${outerR} 0 ${largeArc} 1 ${x2o},${y2o} L${x1i},${y1i} A${innerR},${innerR} 0 ${largeArc} 0 ${x2i},${y2i} Z`;
+
+    const path = svgEl('path', { d, fill: color, style: 'cursor:pointer', 'stroke': '#fcfcfb', 'stroke-width': 2 });
+    const pct = (val / total * 100).toFixed(1);
+    path.addEventListener('mousemove', (e) => showTooltip(e,
+      `<div><span class="tt-label">Region:</span> ${region}</div><div><span class="tt-value">$${val.toLocaleString()}</span> (${pct}%)</div>`
+    ));
+    path.addEventListener('mouseleave', hideTooltip);
+    svg.appendChild(path);
+
+    // Label
+    const midAngle = startAngle + slice / 2;
+    const labelR = (outerR + innerR) / 2;
+    const lx = cx + labelR * Math.cos(midAngle);
+    const ly = cy + labelR * Math.sin(midAngle);
+    if (slice > 0.3) {
+      const txt = svgEl('text', { x: lx, y: ly + 4, 'text-anchor': 'middle', fill: '#fff', 'font-size': '11', 'font-weight': '600', 'font-family': 'var(--font)' });
+      txt.textContent = pct + '%';
+      svg.appendChild(txt);
+    }
+
+    startAngle = endAngle;
+  });
+
+  // Legend
+  const legendDiv = document.createElement('div');
+  legendDiv.className = 'legend';
+  regions.forEach(([region, val], i) => {
+    const item = document.createElement('div');
+    item.className = 'legend-item';
+    const swatch = document.createElement('span');
+    swatch.className = 'legend-swatch-round';
+    swatch.style.background = SERIES_COLORS[i % SERIES_COLORS.length];
+    const text = document.createElement('span');
+    text.textContent = region;
+    item.appendChild(swatch);
+    item.appendChild(text);
+    legendDiv.appendChild(item);
+  });
+
+  container.appendChild(svg);
+  container.appendChild(legendDiv);
+}
+
+// --- Scatter Chart ---
+function renderScatterChart() {
+  const container = document.getElementById('chart-scatter');
+  container.innerHTML = '';
+
+  // Aggregate by category for scatter
+  const catMap = {};
+  filteredData.forEach(d => {
+    if (!catMap[d.category]) catMap[d.category] = { spend: 0, revenue: 0 };
+    catMap[d.category].spend += d.spend;
+    catMap[d.category].revenue += d.revenue;
+  });
+  const entries = Object.entries(catMap);
+  if (entries.length === 0) return;
+
+  const W = 500, H = 220, pad = { t: 16, r: 16, b: 32, l: 56 };
+  const plotW = W - pad.l - pad.r, plotH = H - pad.t - pad.b;
+  const maxSpend = Math.max(...entries.map(e => e[1].spend));
+  const maxRev = Math.max(...entries.map(e => e[1].revenue));
+  const xMax = Math.ceil(maxSpend / 50000) * 50000 || 50000;
+  const yMax = Math.ceil(maxRev / 50000) * 50000 || 50000;
+
+  const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: 'xMidYMid meet' });
+
+  // Gridlines
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.t + plotH - (i / 4) * plotH;
+    svg.appendChild(svgEl('line', { x1: pad.l, y1: y, x2: W - pad.r, y2: y, stroke: '#e1e0d9', 'stroke-width': 1 }));
+    const yLabel = svgEl('text', { x: pad.l - 6, y: y + 4, 'text-anchor': 'end', fill: '#898781', 'font-size': '10', 'font-family': 'var(--font)' });
+    const yVal = yMax * i / 4;
+    yLabel.textContent = yVal >= 1e6 ? (yVal/1e6).toFixed(1)+'M' : (yVal/1e3).toFixed(0)+'K';
+    svg.appendChild(yLabel);
+
+    const x = pad.l + (i / 4) * plotW;
+    svg.appendChild(svgEl('line', { x1: x, y1: pad.t, x2: x, y2: pad.t + plotH, stroke: '#e1e0d9', 'stroke-width': 1 }));
+    const xLabel = svgEl('text', { x, y: H - 6, 'text-anchor': 'middle', fill: '#898781', 'font-size': '10', 'font-family': 'var(--font)' });
+    const xVal = xMax * i / 4;
+    xLabel.textContent = xVal >= 1e6 ? (xVal/1e6).toFixed(1)+'M' : (xVal/1e3).toFixed(0)+'K';
+    svg.appendChild(xLabel);
+  }
+
+  // Axis labels
+  const xTitle = svgEl('text', { x: pad.l + plotW / 2, y: H - 0, 'text-anchor': 'middle', fill: '#898781', 'font-size': '10', 'font-family': 'var(--font)' });
+  xTitle.textContent = 'Spend';
+  // (skip to avoid overlap with tick labels)
+
+  // Reference line y=x (break-even)
+  const diagD = `M${pad.l},${pad.t + plotH} L${pad.l + plotW},${pad.t}`;
+  svg.appendChild(svgEl('path', { d: diagD, fill: 'none', stroke: '#c3c2b7', 'stroke-width': 1, 'stroke-dasharray': '4,4' }));
+
+  // Points
+  entries.forEach(([cat, vals], i) => {
+    const x = pad.l + (vals.spend / xMax) * plotW;
+    const y = pad.t + plotH - (vals.revenue / yMax) * plotH;
+    const color = SERIES_COLORS[i % SERIES_COLORS.length];
+
+    // Hit area
+    const hitArea = svgEl('circle', { cx: x, cy: y, r: 16, fill: 'transparent', style: 'cursor:pointer' });
+    hitArea.addEventListener('mousemove', (e) => showTooltip(e,
+      `<div><span class="tt-label">Category:</span> ${cat}</div><div><span class="tt-value">$${vals.revenue.toLocaleString()}</span> revenue</div><div><span class="tt-label">Spend:</span> $${vals.spend.toLocaleString()}</div>`
+    ));
+    hitArea.addEventListener('mouseleave', hideTooltip);
+    svg.appendChild(hitArea);
+
+    svg.appendChild(svgEl('circle', { cx: x, cy: y, r: 6, fill: color, stroke: '#fcfcfb', 'stroke-width': 2 }));
+  });
+
+  // Legend
+  const legendDiv = document.createElement('div');
+  legendDiv.className = 'legend';
+  entries.forEach(([cat], i) => {
+    const item = document.createElement('div');
+    item.className = 'legend-item';
+    const swatch = document.createElement('span');
+    swatch.className = 'legend-swatch-round';
+    swatch.style.background = SERIES_COLORS[i % SERIES_COLORS.length];
+    const text = document.createElement('span');
+    text.textContent = cat;
+    item.appendChild(swatch);
+    item.appendChild(text);
+    legendDiv.appendChild(item);
+  });
+
+  container.appendChild(svg);
+  container.appendChild(legendDiv);
+}
+
+// --- Init ---
+populateFilters();
+rawData = generateData(seed);
+applyFilters();
+</script>
+</body>
+</html>

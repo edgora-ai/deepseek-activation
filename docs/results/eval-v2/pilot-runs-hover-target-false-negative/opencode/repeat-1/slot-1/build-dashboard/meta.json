@@ -1,0 +1,432 @@
+{
+  "schemaVersion": 1,
+  "runId": "opencode-build-dashboard-r1-no-rules",
+  "sessionTitle": "opencode-build-dashboard-r1-slot-1",
+  "client": "opencode",
+  "model": "hroze-sp/deepseek-v4-flash",
+  "rules": "no-rules",
+  "slot": 1,
+  "ruleHash": null,
+  "ruleState": "absent",
+  "promptHash": "6aa490f957bb8189c15b056a5995592519da363a3d76f3a95c63b46e32a496b8",
+  "fixtureHash": null,
+  "caseId": "build-dashboard",
+  "repeat": 1,
+  "startedAt": "2026-08-20T14:20:23.212Z",
+  "finishedAt": "2026-08-20T14:27:46.769Z",
+  "startedEpochMs": 1787235623212,
+  "finishedEpochMs": 1787236066769,
+  "durationMs": 443556,
+  "evaluationDurationMs": 10232,
+  "totalDurationMs": 453788,
+  "exitCode": 0,
+  "signal": null,
+  "timedOut": false,
+  "infrastructureFailure": null,
+  "command": [
+    "opencode",
+    "run",
+    "--model",
+    "hroze-sp/deepseek-v4-flash",
+    "--format",
+    "json",
+    "--title",
+    "opencode-build-dashboard-r1-slot-1",
+    "--dir",
+    "<RUN_DIR>",
+    "<PROMPT>"
+  ],
+  "stdout": "stdout.log",
+  "stderr": "stderr.log",
+  "artifact": "dashboard.html",
+  "usage": {
+    "status": "attributed",
+    "match": "title-directory-model-and-time",
+    "source": ".local/share/opencode/opencode.db",
+    "sessionId": "ses_fe074949bffeD03RdyWOwvBYOA",
+    "sessionDirectory": "/home/ubuntu/deepseek-activation/docs/results/eval-v2/runs/opencode/repeat-1/slot-1/build-dashboard",
+    "inputTokens": 78864,
+    "outputTokens": 25514,
+    "thinkingTokens": 0,
+    "cacheReadTokens": 1010688,
+    "cacheWriteTokens": 0,
+    "cost": 0,
+    "model": {
+      "id": "deepseek-v4-flash",
+      "providerID": "hroze-sp",
+      "variant": "default"
+    },
+    "timeCreated": 1787235625828,
+    "timeUpdated": 1787236066621
+  },
+  "evaluation": {
+    "methodVersion": 4,
+    "generated": true,
+    "artifactChanged": true,
+    "artifactHash": "f77192ce469ffe66b7ad974474de9cb2d7255dae238b3bce3dc1944a0a7ad973",
+    "bytes": 30803,
+    "syntaxPass": true,
+    "syntaxFailures": [],
+    "runtimePass": true,
+    "runtimeErrors": [],
+    "browserFailure": null,
+    "contractPassed": 10,
+    "contractTotal": 11,
+    "contractChecks": [
+      {
+        "id": "four-kpis",
+        "pass": true,
+        "observed": [
+          "$2,104,655",
+          "4,082",
+          "$516",
+          "13.6%"
+        ]
+      },
+      {
+        "id": "four-populated-charts",
+        "pass": true,
+        "observed": {
+          "populated": 4,
+          "hosts": 4
+        }
+      },
+      {
+        "id": "two-filters",
+        "pass": true,
+        "observed": {
+          "region": 1,
+          "category": 1,
+          "period": 2
+        }
+      },
+      {
+        "id": "period-control",
+        "pass": true,
+        "observed": {
+          "region": 1,
+          "category": 1,
+          "period": 2
+        }
+      },
+      {
+        "id": "refresh-control",
+        "pass": true,
+        "observed": true
+      },
+      {
+        "id": "refresh-changes-data",
+        "pass": true,
+        "observed": {
+          "before": [
+            "$2,104,655",
+            "4,082",
+            "$516",
+            "13.6%"
+          ],
+          "after": [
+            "$1,943,063",
+            "4,000",
+            "$486",
+            "9.7%"
+          ]
+        }
+      },
+      {
+        "id": "region-filter-updates",
+        "pass": true,
+        "observed": {
+          "changed": true,
+          "descriptor": "region-filter region",
+          "target": {
+            "kind": "region",
+            "tag": "select",
+            "type": "select-one",
+            "id": "region-filter",
+            "name": null,
+            "text": "All RegionsNorthSouthWestEast"
+          },
+          "before": [
+            "$2,104,655",
+            "4,082",
+            "$516",
+            "13.6%"
+          ],
+          "after": [
+            "$399,687",
+            "1,135",
+            "$352",
+            "16.3%"
+          ],
+          "positiveKpis": 4
+        }
+      },
+      {
+        "id": "category-filter-updates",
+        "pass": true,
+        "observed": {
+          "changed": true,
+          "descriptor": "category-filter category",
+          "target": {
+            "kind": "category",
+            "tag": "select",
+            "type": "select-one",
+            "id": "category-filter",
+            "name": null,
+            "text": "All CategoriesElectronicsApparelHomeGrocery"
+          },
+          "before": [
+            "$2,104,655",
+            "4,082",
+            "$516",
+            "13.6%"
+          ],
+          "after": [
+            "$428,560",
+            "1,029",
+            "$416",
+            "15.7%"
+          ],
+          "positiveKpis": 4
+        }
+      },
+      {
+        "id": "period-updates",
+        "pass": true,
+        "observed": {
+          "changed": true,
+          "descriptor": "period-from",
+          "target": {
+            "kind": "period",
+            "tag": "input",
+            "type": "range",
+            "id": "period-from",
+            "name": null,
+            "text": ""
+          },
+          "before": [
+            "$2,104,655",
+            "4,082",
+            "$516",
+            "13.6%"
+          ],
+          "after": [
+            "$1,749,804",
+            "3,436",
+            "$509",
+            "13.5%"
+          ],
+          "positiveKpis": 4
+        }
+      },
+      {
+        "id": "hover-behavior",
+        "pass": false,
+        "observed": {
+          "target": true,
+          "nativeTitle": false,
+          "detailAttribute": false,
+          "appeared": false,
+          "marked": false,
+          "before": {
+            "visibleText": "",
+            "hoverMarks": 0
+          },
+          "after": {
+            "visibleText": "",
+            "hoverMarks": 0
+          }
+        }
+      },
+      {
+        "id": "self-contained",
+        "pass": true,
+        "observed": []
+      }
+    ],
+    "interactionPass": true,
+    "visualSanity": true,
+    "screenshot": "screenshot.png",
+    "screenshotBytes": 97210,
+    "externalResources": [],
+    "placeholderCount": 0,
+    "runtimeSnapshot": {
+      "title": "Sales Analytics Dashboard",
+      "text": "Sales Analytics Dashboard Interactive KPI dashboard with deterministic in-browser sample data REGION All Regions North South West East CATEGORY All Categories Electronics Apparel Home Grocery PERIOD RANGE From 1 — 6 To Refresh data REVENUE $2,104,655 All periods selected ORDERS 4,082 orders total AVG ORDER VALUE $516 per order PROFIT MARGIN 13.6% profit / revenue Revenue Trend $229756 $285007 $340257 $395507 $450758 Jan Feb Mar Apr May Jun Revenue by Category $0 $176039 $352078 $528116 $704155 Electronics Apparel Home Grocery Revenue by Region Total $2.10M North South West East Spend vs Revenue $0 $0 $19,933 $6,918 $39,866 $13,837 $59,799 $20,755 $79,731 $27,674 Marketing Spend Revenue North South West East",
+      "textLength": 716,
+      "buttons": [
+        "Refresh data"
+      ],
+      "inputs": [
+        {
+          "type": "select-one",
+          "value": "All Regions"
+        },
+        {
+          "type": "select-one",
+          "value": "All Categories"
+        },
+        {
+          "type": "range",
+          "value": "1"
+        },
+        {
+          "type": "range",
+          "value": "6"
+        }
+      ],
+      "canvasCount": 0,
+      "svgCount": 4,
+      "nonEmptySvgCount": 4,
+      "kpiLikeCount": 27,
+      "bodyWidth": 1265,
+      "bodyHeight": 973
+    },
+    "visualStats": {
+      "meanLuma": 44.70232694444683,
+      "lumaVariance": 866.0189579230293,
+      "nonDarkRatio": 1,
+      "centerNonDarkRatio": 1,
+      "colorfulRatio": 0.9821180555555555,
+      "colorBuckets": 111
+    },
+    "benchmark": {
+      "initial": {
+        "kpis": [
+          "$2,104,655",
+          "4,082",
+          "$516",
+          "13.6%"
+        ],
+        "positiveKpis": 4,
+        "populatedCharts": 4,
+        "chartHosts": 4,
+        "selects": 2,
+        "ranges": 2,
+        "controlCounts": {
+          "region": 1,
+          "category": 1,
+          "period": 2
+        },
+        "hoverTargets": 120,
+        "tooltipElements": 1
+      },
+      "refreshed": {
+        "kpis": [
+          "$1,943,063",
+          "4,000",
+          "$486",
+          "9.7%"
+        ],
+        "positiveKpis": 4,
+        "populatedCharts": 4,
+        "chartHosts": 4,
+        "selects": 2,
+        "ranges": 2,
+        "controlCounts": {
+          "region": 1,
+          "category": 1,
+          "period": 2
+        },
+        "hoverTargets": 120,
+        "tooltipElements": 1
+      },
+      "controls": {
+        "region": {
+          "changed": true,
+          "descriptor": "region-filter region",
+          "target": {
+            "kind": "region",
+            "tag": "select",
+            "type": "select-one",
+            "id": "region-filter",
+            "name": null,
+            "text": "All RegionsNorthSouthWestEast"
+          },
+          "before": [
+            "$2,104,655",
+            "4,082",
+            "$516",
+            "13.6%"
+          ],
+          "after": [
+            "$399,687",
+            "1,135",
+            "$352",
+            "16.3%"
+          ],
+          "positiveKpis": 4
+        },
+        "category": {
+          "changed": true,
+          "descriptor": "category-filter category",
+          "target": {
+            "kind": "category",
+            "tag": "select",
+            "type": "select-one",
+            "id": "category-filter",
+            "name": null,
+            "text": "All CategoriesElectronicsApparelHomeGrocery"
+          },
+          "before": [
+            "$2,104,655",
+            "4,082",
+            "$516",
+            "13.6%"
+          ],
+          "after": [
+            "$428,560",
+            "1,029",
+            "$416",
+            "15.7%"
+          ],
+          "positiveKpis": 4
+        },
+        "period": {
+          "changed": true,
+          "descriptor": "period-from",
+          "target": {
+            "kind": "period",
+            "tag": "input",
+            "type": "range",
+            "id": "period-from",
+            "name": null,
+            "text": ""
+          },
+          "before": [
+            "$2,104,655",
+            "4,082",
+            "$516",
+            "13.6%"
+          ],
+          "after": [
+            "$1,749,804",
+            "3,436",
+            "$509",
+            "13.5%"
+          ],
+          "positiveKpis": 4
+        }
+      },
+      "hover": {
+        "pass": false,
+        "observed": {
+          "target": true,
+          "nativeTitle": false,
+          "detailAttribute": false,
+          "appeared": false,
+          "marked": false,
+          "before": {
+            "visibleText": "",
+            "hoverMarks": 0
+          },
+          "after": {
+            "visibleText": "",
+            "hoverMarks": 0
+          }
+        }
+      }
+    },
+    "fullPass": false
+  }
+}

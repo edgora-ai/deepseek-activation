@@ -1,0 +1,7 @@
+{
+  "status": "ok",
+  "valid": true,
+  "summary": "仪表盘布局正常渲染，筛选器、指标卡和多种图表均清晰可见且无明显破损。",
+  "model": "gpt-5.6-terra",
+  "durationMs": 3630
+}

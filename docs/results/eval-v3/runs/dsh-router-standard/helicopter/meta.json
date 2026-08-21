@@ -1,0 +1,57 @@
+{
+  "runId": "dsh-router-standard-helicopter",
+  "task": "helicopter",
+  "config": "dsh-router-standard",
+  "startedAt": "2026-08-20T18:19:25.451Z",
+  "rules": "dsh-router-standard",
+  "ruleState": "dsh-preset",
+  "settings": {
+    "original": "6bb1717de3dc65aa81569787e8c70eb98141d4038494aad50ecd09603816c214",
+    "patched": "864e77e2973d3d862d689472d6f0d53a25aeb0e90715b81fb7f2eccc7f2f550e"
+  },
+  "generation": {
+    "exitCode": 0,
+    "signal": null,
+    "timedOut": false,
+    "durationMs": 1413677,
+    "startedEpochMs": 1787249965458,
+    "stdout": "All checks pass on the exact on-disk file. The work is complete — every requirement is verified:\n\n## Summary\n\n**Deliverable:** `/home/ubuntu/code/deepseek-harness/artifact.html` — a single self-contained 629KB HTML file, with **Three.js r128 (MIT) embedded inline**, all CSS/JS inline, zero external assets, and no modifications to any other files in the repo.\n\n**Verified in a real Chromium browser (puppeteer + WebGL):**\n- **0 console errors / 0 page errors** on load — scene renders immediately (first frame at `load`)\n- **Model** — red fuselage with tapered nose, glass cockpit canopy, tail boom, vertical/horizontal stabilizers, 4-blade main rotor with coning + translucent rotor disc, spinning tail rotor, skid landing gear with struts\n- **Physics** — RPM spool-up with throttle lag; main-rotor reaction torque counteracted by tail rotor with its own lag (visible yaw kick on collective slam + slight trim drift); hover bobbing + attitude wobble; banking with coordinated-turn yaw coupling; ground effect; drag; landing/bounce; world bounds\n- **Controls** — W/S and ▲/▼ pitch, A/D and ◀/▶ roll, Q/E yaw, Space collective up / C down, R reset, all driven through real DOM keyboard events (tested via CDP `keyboard.down`): throttle 62→75%, RPM 55→138+, pitch −0.266 forward, roll +0.33 left, yaw −0.408 right — all correct directions\n- **HUD** — altitude, speed, V/S, RPM (+bar), throttle % (+bar), all live and matching sim state\n- **Terrain** — textured grass ground with grid, helipad \"H\", hills, mountains, 50 trees, rocks, hangar\n- **Robustness** — software-GL detection (SwiftShader/llvmpipe) disables MSAA and lowers resolution so even GPU-less environments animate (FPS 2.4→5.5 in headless software rendering; real GPUs get full quality 60fps)\n- Bonus: procedural rotor-noise audio via WebAudio (autoplay-safe), chase camera with shake on hard landings\n\nOne environment note: this machine runs concurrent eval agents sharing this workspace, and a sibling \"race\" task rewrote `artifact.html` twice mid-session; I detected it, switched composition to `/tmp`, copied the finished build in atomically, and re-verified the on-disk file is hash-identical to my final build (untouched for 5+ minutes).\n",
+    "stderr": "$ node --import tsx/esm apps/cli/src/bin.ts --profile headless 'Create artifact.html as one self-contained HTML file with no external assets or libraries (all JavaScript and CSS inline). Do not modify any files outside artifact.html.\n\nBuild an interactive 3D helicopter with Three.js: accurate model (fuselage, tail boom, tail rotor, 4-blade main rotor, skids, cockpit), physics (RPM, torque counteraction, hover bobbing, banking), controls (W/S pitch, A/D roll, Q/E yaw, Space collective, arrow keys), a HUD (altitude, speed, RPM, throttle), and a terrain/ground. The scene must render immediately. Write the file, verify it loads without errors, fix any failed requirement, and stop.'\n"
+  },
+  "durationMs": 1413677,
+  "finishedAt": "2026-08-20T18:42:59.141Z",
+  "exitCode": 0,
+  "signal": null,
+  "timedOut": false,
+  "usage": {
+    "status": "unavailable",
+    "reason": "dsh does not expose an implemented run-attribution source",
+    "candidateSessionIds": []
+  },
+  "artifact": null,
+  "evaluation": {
+    "methodVersion": 6,
+    "generated": false,
+    "artifactHash": null,
+    "bytes": 0,
+    "syntaxPass": false,
+    "syntaxFailures": [],
+    "runtimePass": false,
+    "runtimeErrors": [],
+    "browserFailure": "target artifact was not generated",
+    "contractPassed": 0,
+    "contractTotal": 0,
+    "contractChecks": [],
+    "interactionPass": false,
+    "interaction": null,
+    "visualSanity": false,
+    "screenshot": null,
+    "screenshotBytes": 0,
+    "externalResources": [],
+    "placeholderCount": 0,
+    "runtimeSnapshot": null,
+    "visualStats": null,
+    "fullPass": false
+  },
+  "vision": null
+}

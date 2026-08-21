@@ -1,0 +1,57 @@
+{
+  "runId": "dsh-router-standard-dashboard",
+  "task": "dashboard",
+  "config": "dsh-router-standard",
+  "startedAt": "2026-08-20T19:09:01.441Z",
+  "rules": "dsh-router-standard",
+  "ruleState": "dsh-preset",
+  "settings": {
+    "original": "864e77e2973d3d862d689472d6f0d53a25aeb0e90715b81fb7f2eccc7f2f550e",
+    "patched": "864e77e2973d3d862d689472d6f0d53a25aeb0e90715b81fb7f2eccc7f2f550e"
+  },
+  "generation": {
+    "exitCode": 0,
+    "signal": null,
+    "timedOut": false,
+    "durationMs": 717511,
+    "startedEpochMs": 1787252941445,
+    "stdout": "Done. `artifact.html` is complete and all acceptance requirements pass.\n\n## What was built\n\nA single self-contained HTML file (`/home/ubuntu/code/deepseek-harness/artifact.html`, ~26 KB, no external assets or libraries — only the required XML namespace string appears) containing a sales analytics dashboard:\n\n- **Dataset (in-browser, deterministic):** mulberry32 seeded PRNG generates 3 regions × 3 categories × 12 months (exceeds the ≥2/≥3/≥6 minimums) with revenue, orders, spend, and profit per cell. Initial seed is fixed (same data every load — verified identical across loads); **Refresh data** increments the seed for a new deterministic dataset.\n- **KPI cards:** exactly 4 — Revenue, Orders, Avg Order Value, Profit (with margin %).\n- **Charts (inline SVG):** revenue/profit line trend, category bar chart, regional revenue-share donut, and spend-vs-revenue scatter (108 points colored by region).\n- **Filters:** toggle chips for regions and categories (at least one always stays active) plus a from/to month range control — all changes re-render KPIs and all four charts (verified: each filter/range change alters KPI values and chart marks).\n- **Tooltips:** hover on any chart mark (line points, bars, donut arcs, scatter points) shows a styled tooltip with detailed values.\n- **No JS errors, data visible on load** (e.g., $5,858,750 revenue, 63,166 orders on load).\n\n## Verification performed\n\n1. **Syntax:** inline JS extracted and `node --check` passed.\n2. **Behavior (jsdom, 37 checks):** all pass — clean load, 4 populated KPI cards, populated charts, determinism across loads, region/category/range filter effects, inverted-range swap, refresh changes seed/KPIs, per-seed refresh determinism, tooltip show/hide on all four chart types, no errors after interactions.\n3. **Real browser (headless Chromium 151):** clean load with zero console messages/uncaught errors, dumped DOM shows 4 KPI cards with meaningful values and all four charts populated with marks; a screenshot rendered successfully (144 KB PNG).\n4. **Self-containment:** no external `src`/`href`/`@import` — the only URL string is the SVG namespace.\n\nOne fix was made during verification: `Intl.NumberFormat` instances were initially called as functions (`fmtMoney(...)`); wrapped them in helper functions calling `.format()` — caught by the first jsdom run, fixed, and the whole suite then passed 37/37.\n",
+    "stderr": "$ node --import tsx/esm apps/cli/src/bin.ts --profile headless 'Create artifact.html as one self-contained HTML file with no external assets or libraries. Do not modify files outside that path.\n\nBuild a working sales analytics dashboard with these exact acceptance requirements:\n1. Generate a deterministic, non-empty sample dataset in the browser for at least 2 regions, 3 categories, and 6 monthly periods.\n2. Show exactly four populated KPI cards: revenue, orders, average order value, and profit or margin.\n3. Render four populated charts: line trend, category bars, regional share donut/pie, and spend-vs-revenue scatter. Use inline SVG or canvas.\n4. Provide region and category filters plus a period range control; changing them must update KPIs and charts.\n5. Provide a Refresh data button that generates a different dataset and updates every KPI and chart.\n6. Provide hover details/tooltips on chart marks.\n7. Load with no JavaScript errors and with meaningful data already visible.\n\nWrite the file, open or execute an appropriate verification, fix any failed requirement, and stop once the acceptance requirements pass.'\n"
+  },
+  "durationMs": 717511,
+  "finishedAt": "2026-08-20T19:20:58.960Z",
+  "exitCode": 0,
+  "signal": null,
+  "timedOut": false,
+  "usage": {
+    "status": "unavailable",
+    "reason": "dsh does not expose an implemented run-attribution source",
+    "candidateSessionIds": []
+  },
+  "artifact": null,
+  "evaluation": {
+    "methodVersion": 6,
+    "generated": false,
+    "artifactHash": null,
+    "bytes": 0,
+    "syntaxPass": false,
+    "syntaxFailures": [],
+    "runtimePass": false,
+    "runtimeErrors": [],
+    "browserFailure": "target artifact was not generated",
+    "contractPassed": 0,
+    "contractTotal": 0,
+    "contractChecks": [],
+    "interactionPass": false,
+    "interaction": null,
+    "visualSanity": false,
+    "screenshot": null,
+    "screenshotBytes": 0,
+    "externalResources": [],
+    "placeholderCount": 0,
+    "runtimeSnapshot": null,
+    "visualStats": null,
+    "fullPass": false
+  },
+  "vision": null
+}

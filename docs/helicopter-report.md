@@ -1,11 +1,14 @@
-# 直升机渲染对比测试报告（2026-08-19）
+# 直升机渲染对比：历史探索与 v2 复核（2026-08-20）
 
-## 背景
+## 结论先行
 
-第二个用例：**交互物理模拟**。直升机需要建模（机身/尾梁/旋翼/滑橇）+ 物理（RPM/扭矩/悬停）+ 控制（W/S/A/D/Q/E/空格）+ 细节（旋翼模糊/仪表板）。比黑洞更难，是 free 模型的实际压力测试。
+2026-08-19 的旧报告把“HTML 已写出”记为 8/8 成功。2026-08-20 使用 JavaScript 语法、浏览器 runtime、需求合同、控制交互和截图像素重新审计后，**full pass 为 4/8**。timeout 确实造成过误判，但不能据此把已写出的文件全部判为可运行。
 
-**提示词**：
-```
+本轮每个配置只有一个历史样本，因此以下差异是故障定位和假设来源，不是可重复因果证据。机器结果见 [`results/eval-v2/audit/artifact-scores.json`](results/eval-v2/audit/artifact-scores.json)，同客户端配对见 [`results/eval-v2/audit/comparisons.md`](results/eval-v2/audit/comparisons.md)。
+
+## 提示词
+
+```text
 Create helicopter.html: an interactive 3D helicopter with Three.js:
 1. Accurate model: fuselage, tail boom, tail rotor, main rotor (4 blades), skids, cockpit.
 2. Physics: rotor RPM, tail torque counteraction, hover bob, banking.
@@ -14,52 +17,48 @@ Create helicopter.html: an interactive 3D helicopter with Three.js:
 5. Camera follows; mouse drag rotates.
 ```
 
-## 测试矩阵与结果（8/8 全部成功）
+## v2 机器复核
 
-| 配置 | 大小 | 关键特征 |
-|---|---|---|
-| **Codex 带规则** | 632039 B | rotor×27, events×36（1.5h 慢工出细活）|
-| **Claude 带规则** | 31587 B | rotor×28, throttle×24, RPM×14, skid×10, HUD×3 |
-| **Codex 无规则** | 30599 B | 完成 |
-| **DSH minimal** | 29143 B | rotor×22, skid×19（1h 完成）|
-| **DSH router-standard** | 26663 B | 完成 |
-| **Claude 无规则** | 23477 B | 极慢~15min 但完成 |
-| **OpenCode 带规则** | 21360 B | RPM×7, throttle×10 |
-| **OpenCode 无规则** | 23071 B | RPM×10, rotor×15 |
+`full pass` 要求语法和浏览器 runtime 无错误、7 项合同全部通过、控制交互产生状态或画面变化、截图通过非空/非黑像素检查。
 
-> 注：初判 5 个"失败"全部是 timeout 误杀——文件实际都写出，被我杀在收尾阶段（大教训，见 lessons-learned.md）。长 timeout 后全部转正。
+| 配置 | 语法 | runtime | 合同 | full pass | 主要原因 |
+|---|---:|---:|---:|---:|---|
+| Claude 带规则 | ❌ | ❌ | 5/7 | ❌ | 顶层 `collective` 重复声明，页面脚本无法执行 |
+| Claude 无规则 | ✅ | ✅ | 6/7 | ❌ | 缺 1 项明确需求 |
+| Codex 带规则 | ✅ | ✅ | 7/7 | ✅ | — |
+| Codex 无规则 | ✅ | ✅ | 7/7 | ✅ | — |
+| DSH router-standard | ✅ | ✅ | 7/7 | ✅ | — |
+| DSH minimal | ✅ | ✅ | 6/7 | ❌ | 缺 1 项明确需求 |
+| OpenCode 带规则 | ✅ | ✅ | 5/7 | ❌ | 缺 2 项明确需求 |
+| OpenCode 无规则 | ✅ | ✅ | 7/7 | ✅ | — |
 
-## 过程指标（token / 耗时 / 思维特征）
+汇总：语法 7/8、runtime 7/8、合同满分 4/8、full pass 4/8。
 
-| 配置 | input | output | thinking | 耗时 |
-|---|---|---|---|---|
-| Codex 带规则 | 130.5k | 15k | 0 | **1.5h** |
-| Codex 无规则 | 672.8k | 27.9k | 0 | **1h** |
-| OpenCode 带规则 | 12.7k | 12k | 0 | ~5min |
-| OpenCode 无规则 | 38.4k | 6.1k | 1.8k | ~5min |
-| Claude 带规则 | 194.8k | 102.4k | 0* | 9min |
-| Claude 无规则 | 151.7k | 154.1k | 0* | 15min |
-| DSH minimal / rs | 未采集 | — | — | ~1h |
+## 配对观察
 
-## 关键发现
+- Claude：两份都未 full pass；带规则版本还新增重复声明的硬失败。
+- Codex：带规则和无规则都 full pass。
+- OpenCode：无规则 full pass，带规则版本回退到 5/7。
+- DSH：router-standard 从 minimal 的 6/7 提升到 7/7。
 
-### 1. 直升机任务难度显著高于黑洞
-8 配置初判 3/8 成功→修正 8/8（timeout 误杀为主因）。复杂建模+物理+控制是真实压力。
+这些方向彼此不一致，不能支持“规则在高复杂度任务上稳定保底”的旧结论。
 
-### 2. 规则的作用随难度变化
-- 无规则 claude 极慢（15min vs 9min）——规则维持节奏
-- 但无规则也能完成（长 timeout 下）——规则是"提速"不是"必需"
+## 旧过程指标为何不再用于结论
 
-### 3. 规模对比（成功者）
-| 通道 | 大小 | 详细度 |
-|---|---|---|
-| Codex 带规则 | **632KB** | 最详尽（慢工）|
-| Claude 带规则 | 31587B | rotor×28 最密 |
-| OpenCode | 21-23KB | 最快 |
+旧表中的多组 token 数值后来在黑洞、直升机和赛跑报告中重复出现，无法证明与该任务的一次独立 session 一一对应；thinking 字段在各客户端也不是同一统计口径。因此旧 token/thinking 数字不再作为效率证据。受控 v2 只接受运行目录、时间窗和 session 唯一匹配的 usage，归属不唯一时记录 `null`。
 
-### 4. 大教训：timeout 误杀
-6 个"失败"全部是 timeout 杀在文件写出后——判断成败必须看进程活性（ps stat/CPU/网络），非"是否超时"。详见 lessons-learned.md。
+文件大小和 `rotor`、`RPM` 等关键词次数仍可描述实现规模，但不能证明浏览器可运行或需求完成。
 
-## 产物 / 复现
+## timeout 与截图纠正
 
-产物：`docs/results/helo/`（8 配置 HTML + 7 截图，claude-sonnet 对照黑帧未含）。复现：`docs/tests-method.md` + `docs/lessons-learned.md`（命令注意事项）。
+- timeout 只代表达到时间上限，不能单独判失败；应同时检查进程状态、CPU、网络、日志和目标文件。
+- 历史轮只有 **3/8** 直升机截图，不是旧报告所称的 7 张；v2 审计已为 8 份 HTML 重新生成 8 张固定 viewport 截图。
+- “文件已写出”只满足 `generated`，不能替代 runtime 和合同验收。
+
+## 产物与复现
+
+- 原始 HTML：`docs/results/helo/`
+- 历史截图：`docs/results/screenshots/helo/`
+- v2 截图：`docs/results/eval-v2/audit/screenshots/helo__*.png`
+- 复核命令：`node eval/audit-existing.mjs && node eval/report-audit.mjs`
+- 方法：[`tests-method.md`](tests-method.md)

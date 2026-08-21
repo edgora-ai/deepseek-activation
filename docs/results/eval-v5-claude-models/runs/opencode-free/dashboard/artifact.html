@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sales Analytics Dashboard</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7;
+    --surface-1: #fcfcfb;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #898781;
+    --grid: #e1e0d9;
+    --baseline: #c3c2b7;
+    --border: rgba(11,11,11,0.10);
+    --series-1: #2a78d6;
+    --series-2: #eb6834;
+    --series-3: #1baf7a;
+    --delta-good: #006300;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --page: #0d0d0d;
+      --surface-1: #1a1a19;
+      --text-primary: #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted: #898781;
+      --grid: #2c2c2a;
+      --baseline: #383835;
+      --border: rgba(255,255,255,0.10);
+      --series-1: #3987e5;
+      --series-2: #d95926;
+      --series-3: #199e70;
+      --delta-good: #0ca30c;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 24px 20px 48px; }
+  header.bar {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 16px; flex-wrap: wrap; margin-bottom: 16px;
+  }
+  h1 { font-size: 20px; font-weight: 650; margin: 0; }
+  .subtitle { color: var(--text-secondary); font-size: 13px; }
+  button#refresh {
+    font: inherit; font-weight: 550; padding: 7px 14px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--surface-1);
+    color: var(--text-primary); cursor: pointer;
+  }
+  button#refresh:hover { background: var(--grid); }
+
+  /* Filter row — one row, above everything it scopes */
+  .filters {
+    display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap;
+    padding: 12px 16px; margin-bottom: 16px;
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
+  }
+  .filters label { display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
+  .filters select {
+    font: inherit; color: var(--text-primary); background: var(--page);
+    border: 1px solid var(--border); border-radius: 7px; padding: 6px 8px; min-width: 130px;
+  }
+  .range-group { display: flex; align-items: flex-end; gap: 8px; }
+
+  /* KPI stat tiles */
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .kpi {
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .kpi .label { font-size: 12px; color: var(--text-secondary); }
+  .kpi .value { font-size: 28px; font-weight: 600; margin-top: 2px; } /* proportional figures */
+  .kpi .delta { font-size: 12px; margin-top: 2px; color: var(--text-muted); }
+  .kpi .delta.up { color: var(--delta-good); }
+
+  /* Chart cards */
+  .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 12px; }
+  @media (max-width: 480px) { .charts { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 16px 10px; position: relative;
+  }
+  .card h2 { font-size: 13px; font-weight: 600; margin: 0; }
+  .card .sub { font-size: 12px; color: var(--text-muted); margin: 1px 0 8px; }
+  .card svg { display: block; width: 100%; height: auto; }
+  svg text { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+
+  /* Legends */
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--text-secondary); margin: 6px 0 2px; }
+  .legend .key { display: inline-flex; align-items: center; gap: 6px; }
+  .legend .swatch { width: 10px; height: 10px; border-radius: 3px; }
+  .legend .dot { width: 9px; height: 9px; border-radius: 50%; }
+
+  /* Tooltip */
+  #tooltip {
+    position: fixed; z-index: 10; pointer-events: none; display: none;
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.18); padding: 8px 10px; font-size: 12px;
+    max-width: 240px;
+  }
+  #tooltip .tt-title { color: var(--text-secondary); margin-bottom: 4px; }
+  #tooltip .tt-row { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+  #tooltip .tt-key { width: 12px; height: 2px; border-radius: 1px; flex: none; }
+  #tooltip .tt-val { font-weight: 600; color: var(--text-primary); }
+  #tooltip .tt-name { color: var(--text-secondary); }
+
+  /* Table view */
+  details.table-view { margin-top: 16px; background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 10px 16px; }
+  details.table-view summary { cursor: pointer; font-size: 13px; font-weight: 600; }
+  .table-scroll { max-height: 320px; overflow: auto; margin-top: 8px; }
+  table.data { border-collapse: collapse; width: 100%; font-size: 12px; }
+  table.data th, table.data td { text-align: right; padding: 4px 10px; border-bottom: 1px solid var(--grid); font-variant-numeric: tabular-nums; }
+  table.data th:first-child, table.data td:first-child,
+  table.data th:nth-child(2), table.data td:nth-child(2),
+  table.data th:nth-child(3), table.data td:nth-child(3) { text-align: left; }
+  table.data th { position: sticky; top: 0; background: var(--surface-1); color: var(--text-secondary); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="bar">
+    <div>
+      <h1>Sales Analytics</h1>
+      <div class="subtitle">Revenue, orders and profitability across regions and categories</div>
+    </div>
+    <button id="refresh" type="button">↻ Refresh data</button>
+  </header>
+
+  <div class="filters" id="filters">
+    <div>
+      <label for="region-sel">Region</label>
+      <select id="region-sel"></select>
+    </div>
+    <div>
+      <label for="category-sel">Category</label>
+      <select id="category-sel"></select>
+    </div>
+    <div class="range-group">
+      <div>
+        <label for="from-sel">Period from</label>
+        <select id="from-sel"></select>
+      </div>
+      <div>
+        <label for="to-sel">Period to</label>
+        <select id="to-sel"></select>
+      </div>
+    </div>
+  </div>
+
+  <section class="kpis" aria-label="Key performance indicators">
+    <div class="kpi"><div class="label">Revenue</div><div class="value" id="kpi-revenue">—</div><div class="delta" id="kpi-revenue-delta"></div></div>
+    <div class="kpi"><div class="label">Orders</div><div class="value" id="kpi-orders">—</div><div class="delta" id="kpi-orders-delta"></div></div>
+    <div class="kpi"><div class="label">Average order value</div><div class="value" id="kpi-aov">—</div><div class="delta" id="kpi-aov-delta"></div></div>
+    <div class="kpi"><div class="label">Profit margin</div><div class="value" id="kpi-margin">—</div><div class="delta" id="kpi-margin-delta"></div></div>
+  </section>
+
+  <section class="charts">
+    <div class="card">
+      <h2>Revenue trend</h2>
+      <div class="sub">Monthly revenue, selected filters</div>
+      <svg id="chart-line" viewBox="0 0 520 290" role="img" aria-label="Line chart of monthly revenue"></svg>
+    </div>
+    <div class="card">
+      <h2>Revenue by category</h2>
+      <div class="sub">Total revenue per category, selected filters</div>
+      <svg id="chart-bars" viewBox="0 0 520 290" role="img" aria-label="Bar chart of revenue by category"></svg>
+    </div>
+    <div class="card">
+      <h2>Regional share</h2>
+      <div class="sub">Share of total revenue by region</div>
+      <svg id="chart-donut" viewBox="0 0 520 290" role="img" aria-label="Donut chart of revenue share by region"></svg>
+    </div>
+    <div class="card">
+      <h2>Spend vs revenue</h2>
+      <div class="sub">Each point is a region × category combination</div>
+      <svg id="chart-scatter" viewBox="0 0 520 290" role="img" aria-label="Scatter plot of spend against revenue"></svg>
+      <div class="legend" id="scatter-legend"></div>
+    </div>
+  </section>
+
+  <details class="table-view">
+    <summary>View as table</summary>
+    <div class="table-scroll">
+      <table class="data" id="data-table">
+        <thead>
+          <tr><th>Month</th><th>Region</th><th>Category</th><th>Revenue</th><th>Orders</th><th>Spend</th><th>Profit</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </details>
+</div>
+
+<div id="tooltip" role="status"></div>
+
+<script>
+"use strict";
+
+/* ---------- Deterministic sample data ---------- */
+
+const REGIONS = ["North", "South", "West"];
+const CATEGORIES = ["Electronics", "Apparel", "Home & Garden"];
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const YEAR = 2025;
+
+// mulberry32 — small deterministic PRNG
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const REGION_WEIGHT = { North: 1.15, South: 0.95, West: 0.80 };
+const CATEGORY_BASE = { "Electronics": 42000, "Apparel": 31000, "Home & Garden": 24000 };
+const CATEGORY_MARGIN = { "Electronics": 0.34, "Apparel": 0.48, "Home & Garden": 0.41 };
+const CATEGORY_PRICE = { "Electronics": 260, "Apparel": 70, "Home & Garden": 95 };
+
+let seed = 20260821;
+let DATA = []; // rows: {monthIdx, region, category, revenue, orders, spend, profit}
+
+function generateData(newSeed) {
+  const rand = mulberry32(newSeed);
+  // Per-dataset shape factors: each refresh produces a visibly different business
+  const gScale = 0.78 + rand() * 0.55;
+  const rScale = {}, cScale = {};
+  for (const rg of REGIONS) rScale[rg] = 0.80 + rand() * 0.45;
+  for (const c of CATEGORIES) cScale[c] = 0.82 + rand() * 0.42;
+  const rows = [];
+  for (const region of REGIONS) {
+    const rw = REGION_WEIGHT[region];
+    for (const category of CATEGORIES) {
+      const phase = rand() * Math.PI * 2;
+      for (let m = 0; m < 12; m++) {
+        const seasonal = 1 + 0.28 * Math.sin((m / 12) * Math.PI * 2 + phase);
+        const growth = 1 + m * 0.012;
+        const noise = 0.86 + rand() * 0.28;
+        const revenue = Math.round(CATEGORY_BASE[category] * rw * gScale * rScale[region] * cScale[category] * seasonal * growth * noise);
+        const aov = CATEGORY_PRICE[category] * (0.9 + rand() * 0.25);
+        const orders = Math.max(1, Math.round(revenue / aov));
+        const spend = Math.round(revenue * (1 - CATEGORY_MARGIN[category]) * (0.92 + rand() * 0.16));
+        rows.push({ monthIdx: m, region, category, revenue, orders, spend, profit: revenue - spend });
+      }
+    }
+  }
+  return rows;
+}
+
+/* ---------- State & elements ---------- */
+
+const state = { region: "all", category: "all", from: 0, to: 11 };
+
+const els = {
+  regionSel: document.getElementById("region-sel"),
+  categorySel: document.getElementById("category-sel"),
+  fromSel: document.getElementById("from-sel"),
+  toSel: document.getElementById("to-sel"),
+  tooltip: document.getElementById("tooltip"),
+};
+
+const fmt$ = n => "$" + Math.round(n).toLocaleString("en-US");
+const fmtCompact = n => {
+  if (n >= 1e6) return "$" + (n / 1e6).toFixed(1) + "M";
+  if (n >= 1e3) return "$" + (n / 1e3).toFixed(0) + "K";
+  return fmt$(n);
+};
+const fmtInt = n => Math.round(n).toLocaleString("en-US");
+const monthLabel = i => MONTHS[i] + " " + YEAR;
+
+/* ---------- Filtering & aggregation ---------- */
+
+function filteredRows() {
+  return DATA.filter(r =>
+    r.monthIdx >= state.from && r.monthIdx <= state.to &&
+    (state.region === "all" || r.region === state.region) &&
+    (state.category === "all" || r.category === state.category)
+  );
+}
+
+function totals(rows) {
+  const t = { revenue: 0, orders: 0, spend: 0, profit: 0 };
+  for (const r of rows) {
+    t.revenue += r.revenue; t.orders += r.orders;
+    t.spend += r.spend; t.profit += r.profit;
+  }
+  t.aov = t.orders ? t.revenue / t.orders : 0;
+  t.margin = t.revenue ? t.profit / t.revenue : 0;
+  return t;
+}
+
+/* ---------- SVG helpers ---------- */
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+function svgEl(name, attrs, parent) {
+  const el = document.createElementNS(SVG_NS, name);
+  for (const k in attrs) el.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(el);
+  return el;
+}
+function clearSvg(svg) { while (svg.firstChild) svg.removeChild(svg.firstChild); }
+
+function niceMax(v) {
+  if (v <= 0) return 1;
+  const pow = Math.pow(10, Math.floor(Math.log10(v)));
+  for (const m of [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]) {
+    if (m * pow >= v) return m * pow;
+  }
+  return 10 * pow;
+}
+
+/* Tooltip built with textContent only — labels are untrusted data */
+function showTooltip(x, y, title, rows) {
+  const tt = els.tooltip;
+  tt.textContent = "";
+  const t = document.createElement("div");
+  t.className = "tt-title";
+  t.textContent = title;
+  tt.appendChild(t);
+  for (const r of rows) {
+    const row = document.createElement("div");
+    row.className = "tt-row";
+    if (r.color) {
+      const key = document.createElement("span");
+      key.className = "tt-key";
+      key.style.background = r.color;
+      row.appendChild(key);
+    }
+    const val = document.createElement("span");
+    val.className = "tt-val";
+    val.textContent = r.value;
+    row.appendChild(val);
+    const name = document.createElement("span");
+    name.className = "tt-name";
+    name.textContent = r.name;
+    row.appendChild(name);
+    tt.appendChild(row);
+  }
+  tt.style.display = "block";
+  const pad = 14;
+  const w = tt.offsetWidth, h = tt.offsetHeight;
+  let left = x + pad, top = y + pad;
+  if (left + w > window.innerWidth - 8) left = x - w - pad;
+  if (top + h > window.innerHeight - 8) top = y - h - pad;
+  tt.style.left = Math.max(8, left) + "px";
+  tt.style.top = Math.max(8, top) + "px";
+}
+function hideTooltip() { els.tooltip.style.display = "none"; }
+
+/* ---------- Chart 1: line trend (crosshair + tooltip) ---------- */
+
+function renderLineChart(rows) {
+  const svg = document.getElementById("chart-line");
+  clearSvg(svg);
+  const W = 520, H = 290, m = { top: 16, right: 20, bottom: 34, left: 56 };
+  const pw = W - m.left - m.right, ph = H - m.top - m.bottom;
+
+  const byMonth = MONTHS.map((_, i) =>
+    totals(rows.filter(r => r.monthIdx >= state.from && r.monthIdx <= state.to && r.monthIdx === i))
+  );
+  const active = [];
+  for (let i = state.from; i <= state.to; i++) active.push({ i, v: byMonth[i].revenue });
+
+  const vmax = niceMax(Math.max(...active.map(d => d.v)) * 1.05);
+  const x = k => m.left + (active.length === 1 ? pw / 2 : (k / (active.length - 1)) * pw);
+  const y = v => m.top + ph - (v / vmax) * ph;
+
+  // gridlines + y ticks (solid hairlines)
+  for (let g = 0; g <= 4; g++) {
+    const gv = (vmax / 4) * g;
+    const gy = y(gv);
+    svgEl("line", { x1: m.left, x2: m.left + pw, y1: gy, y2: gy, stroke: "var(--grid)", "stroke-width": 1 }, svg);
+    const lbl = svgEl("text", { x: m.left - 8, y: gy + 4, "text-anchor": "end", "font-size": 11, fill: "var(--text-muted)" }, svg);
+    lbl.textContent = fmtCompact(gv);
+  }
+  // baseline
+  svgEl("line", { x1: m.left, x2: m.left + pw, y1: y(0), y2: y(0), stroke: "var(--baseline)", "stroke-width": 1 }, svg);
+
+  // x tick labels (thin to avoid collisions)
+  const step = Math.ceil(active.length / 12);
+  active.forEach((d, k) => {
+    if (k % step !== 0 && k !== active.length - 1) return;
+    const lbl = svgEl("text", { x: x(k), y: m.top + ph + 18, "text-anchor": "middle", "font-size": 11, fill: "var(--text-muted)" }, svg);
+    lbl.textContent = MONTHS[d.i];
+  });
+
+  // area wash (~10% opacity) + 2px line
+  const pts = active.map((d, k) => [x(k), y(d.v)]);
+  const lineD = pts.map((p, idx) => (idx ? "L" : "M") + p[0] + "," + p[1]).join(" ");
+  const areaD = lineD + " L" + pts[pts.length - 1][0] + "," + y(0) + " L" + pts[0][0] + "," + y(0) + " Z";
+  svgEl("path", { d: areaD, fill: "var(--series-1)", "fill-opacity": 0.1 }, svg);
+  svgEl("path", { d: lineD, fill: "none", stroke: "var(--series-1)", "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }, svg);
+
+  // end marker with 2px surface ring
+  const lastP = pts[pts.length - 1];
+  svgEl("circle", { cx: lastP[0], cy: lastP[1], r: 6, fill: "var(--surface-1)" }, svg);
+  svgEl("circle", { cx: lastP[0], cy: lastP[1], r: 4, fill: "var(--series-1)" }, svg);
+
+  // selective direct label: endpoint value
+  const endLbl = svgEl("text", { x: lastP[0] - 6, y: lastP[1] - 10, "text-anchor": "end", "font-size": 11, "font-weight": 600, fill: "var(--text-primary)" }, svg);
+  endLbl.textContent = fmtCompact(active[active.length - 1].v);
+
+  // crosshair layer (hidden until hover)
+  const cross = svgEl("line", { x1: 0, x2: 0, y1: m.top, y2: m.top + ph, stroke: "var(--baseline)", "stroke-width": 1, visibility: "hidden" }, svg);
+  const hoverDotRing = svgEl("circle", { r: 6, fill: "var(--surface-1)", visibility: "hidden" }, svg);
+  const hoverDot = svgEl("circle", { r: 4, fill: "var(--series-1)", visibility: "hidden" }, svg);
+
+  const hit = svgEl("rect", { x: m.left, y: m.top, width: pw, height: ph, fill: "transparent" }, svg);
+  hit.addEventListener("pointermove", ev => {
+    const rect = svg.getBoundingClientRect();
+    const px = (ev.clientX - rect.left) * (W / rect.width);
+    let best = 0, bd = Infinity;
+    pts.forEach((p, k) => { const d = Math.abs(p[0] - px); if (d < bd) { bd = d; best = k; } });
+    const p = pts[best], d = active[best];
+    cross.setAttribute("x1", p[0]); cross.setAttribute("x2", p[0]);
+    cross.setAttribute("visibility", "visible");
+    hoverDot.setAttribute("cx", p[0]); hoverDot.setAttribute("cy", p[1]);
+    hoverDotRing.setAttribute("cx", p[0]); hoverDotRing.setAttribute("cy", p[1]);
+    hoverDot.setAttribute("visibility", "visible"); hoverDotRing.setAttribute("visibility", "visible");
+    const tot = byMonth[d.i];
+    showTooltip(ev.clientX, ev.clientY, monthLabel(d.i), [
+      { color: "var(--series-1)", value: fmt$(tot.revenue), name: "revenue" },
+      { value: fmtInt(tot.orders), name: "orders" },
+      { value: fmt$(tot.profit), name: "profit" },
+    ]);
+  });
+  hit.addEventListener("pointerleave", () => {
+    cross.setAttribute("visibility", "hidden");
+    hoverDot.setAttribute("visibility", "hidden");
+    hoverDotRing.setAttribute("visibility", "hidden");
+    hideTooltip();
+  });
+}
+
+/* ---------- Chart 2: category bars ---------- */
+
+function renderBarChart(rows) {
+  const svg = document.getElementById("chart-bars");
+  clearSvg(svg);
+  const W = 520, H = 290, m = { top: 20, right: 20, bottom: 34, left: 56 };
+  const pw = W - m.left - m.right, ph = H - m.top - m.bottom;
+
+  const perCat = CATEGORIES.map(c => ({ c, v: totals(rows.filter(r => r.category === c)).revenue }));
+  const vmax = niceMax(Math.max(...perCat.map(d => d.v)) * 1.05);
+  const y = v => m.top + ph - (v / vmax) * ph;
+
+  for (let g = 0; g <= 4; g++) {
+    const gv = (vmax / 4) * g;
+    svgEl("line", { x1: m.left, x2: m.left + pw, y1: y(gv), y2: y(gv), stroke: "var(--grid)", "stroke-width": 1 }, svg);
+    const lbl = svgEl("text", { x: m.left - 8, y: y(gv) + 4, "text-anchor": "end", "font-size": 11, fill: "var(--text-muted)" }, svg);
+    lbl.textContent = fmtCompact(gv);
+  }
+  svgEl("line", { x1: m.left, x2: m.left + pw, y1: y(0), y2: y(0), stroke: "var(--baseline)", "stroke-width": 1 }, svg);
+
+  // nominal categories: one series → slot-1 hue for every bar, no legend
+  const band = pw / perCat.length;
+  const bw = Math.min(24, band * 0.5);
+  perCat.forEach((d, k) => {
+    const cx = m.left + band * k + band / 2;
+    const bx = cx - bw / 2;
+    const by = y(d.v);
+    const bh = Math.max(1, y(0) - by);
+    const r = Math.min(4, bh); // rounded data-end, square baseline
+    const bar = svgEl("path", {
+      d: `M${bx},${by + bh} L${bx},${by + r} Q${bx},${by} ${bx + r},${by} L${bx + bw - r},${by} Q${bx + bw},${by} ${bx + bw},${by + r} L${bx + bw},${by + bh} Z`,
+      fill: "var(--series-1)",
+    }, svg);
+
+    // value on the cap (text tokens, not series color)
+    const cap = svgEl("text", { x: cx, y: by - 6, "text-anchor": "middle", "font-size": 11, "font-weight": 600, fill: "var(--text-primary)" }, svg);
+    cap.textContent = fmtCompact(d.v);
+
+    const xl = svgEl("text", { x: cx, y: m.top + ph + 18, "text-anchor": "middle", "font-size": 11, fill: "var(--text-muted)" }, svg);
+    xl.textContent = d.c;
+
+    // full-height band hit target, hovered mark lifts
+    const hit = svgEl("rect", { x: m.left + band * k, y: m.top, width: band, height: ph, fill: "transparent" }, svg);
+    hit.addEventListener("pointermove", ev => {
+      bar.setAttribute("fill-opacity", "0.8");
+      const sub = rows.filter(r => r.category === d.c);
+      const t = totals(sub);
+      showTooltip(ev.clientX, ev.clientY, d.c, [
+        { color: "var(--series-1)", value: fmt$(t.revenue), name: "revenue" },
+        { value: fmtInt(t.orders), name: "orders" },
+        { value: (t.margin * 100).toFixed(1) + "%", name: "margin" },
+      ]);
+    });
+    hit.addEventListener("pointerleave", () => {
+      bar.removeAttribute("fill-opacity");
+      hideTooltip();
+    });
+  });
+}
+
+/* ---------- Chart 3: regional share donut ---------- */
+
+function arcPath(cx, cy, rO, rI, a0, a1) {
+  const large = a1 - a0 > Math.PI ? 1 : 0;
+  const p = (r, a) => (cx + r * Math.cos(a)).toFixed(2) + "," + (cy + r * Math.sin(a)).toFixed(2);
+  return `M${p(rO, a0)} A${rO},${rO} 0 ${large} 1 ${p(rO, a1)} L${p(rI, a1)} A${rI},${rI} 0 ${large} 0 ${p(rI, a0)} Z`;
+}
+
+function renderDonut(rows) {
+  const svg = document.getElementById("chart-donut");
+  clearSvg(svg);
+  const W = 520, H = 290, cx = 150, cy = 150, rO = 105, rI = 64;
+
+  const perRegion = REGIONS.map((rg, idx) => ({
+    rg, idx, v: totals(rows.filter(r => r.region === rg)).revenue,
+  }));
+  const total = perRegion.reduce((s, d) => s + d.v, 0);
+
+  // 2px surface gap between segments via pad angle
+  const gapA = 2 / rO;
+  let a = -Math.PI / 2;
+  perRegion.forEach(d => {
+    if (total <= 0) return;
+    const sweep = (d.v / total) * Math.PI * 2;
+    const a0 = a + gapA / 2, a1 = a + sweep - gapA / 2;
+    if (a1 > a0) {
+      const seg = svgEl("path", { d: arcPath(cx, cy, rO, rI, a0, a1), fill: `var(--series-${d.idx + 1})` }, svg);
+      seg.addEventListener("pointermove", ev => {
+        seg.setAttribute("fill-opacity", "0.8");
+        const t = totals(rows.filter(r => r.region === d.rg));
+        showTooltip(ev.clientX, ev.clientY, d.rg, [
+          { color: `var(--series-${d.idx + 1})`, value: (d.v / total * 100).toFixed(1) + "%", name: "share" },
+          { value: fmt$(t.revenue), name: "revenue" },
+          { value: fmtInt(t.orders), name: "orders" },
+        ]);
+      });
+      seg.addEventListener("pointerleave", () => {
+        seg.removeAttribute("fill-opacity");
+        hideTooltip();
+      });
+    }
+    a += sweep;
+  });
+
+  // center readout
+  const c1 = svgEl("text", { x: cx, y: cy - 4, "text-anchor": "middle", "font-size": 20, "font-weight": 600, fill: "var(--text-primary)" }, svg);
+  c1.textContent = fmtCompact(total);
+  const c2 = svgEl("text", { x: cx, y: cy + 16, "text-anchor": "middle", "font-size": 11, fill: "var(--text-muted)" }, svg);
+  c2.textContent = "total revenue";
+
+  // legend (identity channel) with values — right side
+  const lx = 300;
+  perRegion.forEach((d, k) => {
+    const yy = 96 + k * 36;
+    svgEl("rect", { x: lx, y: yy - 9, width: 11, height: 11, rx: 3, fill: `var(--series-${d.idx + 1})` }, svg);
+    const name = svgEl("text", { x: lx + 18, y: yy + 1, "font-size": 12, fill: "var(--text-secondary)" }, svg);
+    name.textContent = d.rg;
+    const val = svgEl("text", { x: lx + 110, y: yy + 1, "font-size": 12, "font-weight": 600, fill: "var(--text-primary)" }, svg);
+    val.textContent = total ? (d.v / total * 100).toFixed(1) + "%" : "—";
+  });
+}
+
+/* ---------- Chart 4: spend vs revenue scatter ---------- */
+
+function renderScatter(rows) {
+  const svg = document.getElementById("chart-scatter");
+  clearSvg(svg);
+  const W = 520, H = 250, m = { top: 14, right: 20, bottom: 32, left: 56 };
+  const pw = W - m.left - m.right, ph = H - m.top - m.bottom;
+
+  const pts = [];
+  for (const rg of REGIONS) {
+    for (const c of CATEGORIES) {
+      const sub = rows.filter(r => r.region === rg && r.category === c);
+      if (!sub.length) continue;
+      const t = totals(sub);
+      pts.push({ rg, c, spend: t.spend, revenue: t.revenue, orders: t.orders, margin: t.margin, idx: REGIONS.indexOf(rg) });
+    }
+  }
+  const xmax = niceMax(Math.max(...pts.map(p => p.spend)) * 1.05);
+  const ymax = niceMax(Math.max(...pts.map(p => p.revenue)) * 1.05);
+  const x = v => m.left + (v / xmax) * pw;
+  const y = v => m.top + ph - (v / ymax) * ph;
+
+  for (let g = 0; g <= 4; g++) {
+    const gxv = (xmax / 4) * g, gyv = (ymax / 4) * g;
+    svgEl("line", { x1: x(gxv), x2: x(gxv), y1: m.top, y2: m.top + ph, stroke: "var(--grid)", "stroke-width": 1 }, svg);
+    svgEl("line", { x1: m.left, x2: m.left + pw, y1: y(gyv), y2: y(gyv), stroke: "var(--grid)", "stroke-width": 1 }, svg);
+    const xt = svgEl("text", { x: x(gxv), y: m.top + ph + 16, "text-anchor": "middle", "font-size": 11, fill: "var(--text-muted)" }, svg);
+    xt.textContent = fmtCompact(gxv);
+    const yt = svgEl("text", { x: m.left - 8, y: y(gyv) + 4, "text-anchor": "end", "font-size": 11, fill: "var(--text-muted)" }, svg);
+    yt.textContent = fmtCompact(gyv);
+  }
+  svgEl("line", { x1: m.left, x2: m.left + pw, y1: y(0), y2: y(0), stroke: "var(--baseline)", "stroke-width": 1 }, svg);
+
+  const xl = svgEl("text", { x: m.left + pw / 2, y: H - 2, "text-anchor": "middle", "font-size": 11, fill: "var(--text-muted)" }, svg);
+  xl.textContent = "Spend";
+  const yl = svgEl("text", { x: 14, y: m.top + ph / 2, "text-anchor": "middle", "font-size": 11, fill: "var(--text-muted)", transform: `rotate(-90 14 ${m.top + ph / 2})` }, svg);
+  yl.textContent = "Revenue";
+
+  // dots: ≥8px markers with 2px surface ring; per-point hit target ≥24px.
+  // Marks live in one <g> per point so the whole area is the event target —
+  // otherwise the topmost visible dot would swallow pointermove.
+  for (const p of pts) {
+    const px = x(p.spend), py = y(p.revenue);
+    const g = svgEl("g", {}, svg);
+    svgEl("circle", { cx: px, cy: py, r: 13, fill: "transparent" }, g);
+    const ring = svgEl("circle", { cx: px, cy: py, r: 7, fill: "var(--surface-1)", opacity: 0 }, g);
+    const dot = svgEl("circle", { cx: px, cy: py, r: 5, fill: `var(--series-${p.idx + 1})` }, g);
+    const activate = ev => {
+      ring.setAttribute("opacity", "1");
+      dot.setAttribute("r", "6");
+      showTooltip(ev.clientX, ev.clientY, p.rg + " · " + p.c, [
+        { color: `var(--series-${p.idx + 1})`, value: fmt$(p.revenue), name: "revenue" },
+        { value: fmt$(p.spend), name: "spend" },
+        { value: (p.margin * 100).toFixed(1) + "%", name: "margin" },
+      ]);
+    };
+    const deactivate = () => {
+      ring.setAttribute("opacity", "0");
+      dot.setAttribute("r", "5");
+      hideTooltip();
+    };
+    g.addEventListener("pointermove", activate);
+    g.addEventListener("pointerleave", deactivate);
+  }
+
+  // legend — color follows the entity (region), fixed slot order
+  const leg = document.getElementById("scatter-legend");
+  leg.textContent = "";
+  REGIONS.forEach((rg, idx) => {
+    const key = document.createElement("span");
+    key.className = "key";
+    const dot = document.createElement("span");
+    dot.className = "dot";
+    dot.style.background = `var(--series-${idx + 1})`;
+    key.appendChild(dot);
+    key.appendChild(document.createTextNode(rg));
+    leg.appendChild(key);
+  });
+}
+
+/* ---------- KPIs, table, render ---------- */
+
+function renderKpis(rows) {
+  const t = totals(rows);
+  const half = Math.floor((state.to - state.from + 1) / 2);
+  const firstHalf = rows.filter(r => r.monthIdx <= state.from + half - 1);
+  const secondHalf = rows.filter(r => r.monthIdx >= state.from + half);
+  const t1 = totals(firstHalf), t2 = totals(secondHalf);
+
+  const defs = [
+    ["kpi-revenue", "$" + Math.round(t.revenue).toLocaleString("en-US"), t2.revenue, t1.revenue, true],
+    ["kpi-orders", fmtInt(t.orders), t2.orders, t1.orders, true],
+    ["kpi-aov", fmt$(t.aov), t2.aov, t1.aov, true],
+    ["kpi-margin", (t.margin * 100).toFixed(1) + "%", t2.margin, t1.margin, true],
+  ];
+  for (const [id, value, cur, prev, upGood] of defs) {
+    document.getElementById(id).textContent = value;
+    const dEl = document.getElementById(id + "-delta");
+    dEl.className = "delta";
+    if (prev > 0 && secondHalf.length && firstHalf.length) {
+      const pct = ((cur - prev) / prev) * 100;
+      const good = upGood ? pct >= 0 : pct <= 0;
+      dEl.textContent = (pct >= 0 ? "▲ " : "▼ ") + Math.abs(pct).toFixed(1) + "% vs first half of range";
+      if (good) dEl.classList.add("up");
+    } else {
+      dEl.textContent = "";
+    }
+  }
+}
+
+function renderTable(rows) {
+  const tbody = document.querySelector("#data-table tbody");
+  tbody.textContent = "";
+  const sorted = rows.slice().sort((a, b) => a.monthIdx - b.monthIdx || a.region.localeCompare(b.region) || a.category.localeCompare(b.category));
+  for (const r of sorted) {
+    const tr = document.createElement("tr");
+    for (const cell of [monthLabel(r.monthIdx), r.region, r.category, fmt$(r.revenue), fmtInt(r.orders), fmt$(r.spend), fmt$(r.profit)]) {
+      const td = document.createElement("td");
+      td.textContent = cell;
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  }
+}
+
+function render() {
+  const rows = filteredRows();
+  renderKpis(rows);
+  renderLineChart(rows);
+  renderBarChart(rows);
+  renderDonut(rows);
+  renderScatter(rows);
+  renderTable(rows);
+}
+
+/* ---------- Controls ---------- */
+
+function populateControls() {
+  els.regionSel.add(new Option("All regions", "all"));
+  for (const rg of REGIONS) els.regionSel.add(new Option(rg, rg));
+  els.categorySel.add(new Option("All categories", "all"));
+  for (const c of CATEGORIES) els.categorySel.add(new Option(c, c));
+  for (let i = 0; i < 12; i++) {
+    els.fromSel.add(new Option(monthLabel(i), String(i)));
+    els.toSel.add(new Option(monthLabel(i), String(i)));
+  }
+  els.fromSel.value = "0";
+  els.toSel.value = "11";
+
+  els.regionSel.addEventListener("change", () => { state.region = els.regionSel.value; render(); });
+  els.categorySel.addEventListener("change", () => { state.category = els.categorySel.value; render(); });
+  const syncRange = changedFrom => {
+    let f = parseInt(els.fromSel.value, 10), t = parseInt(els.toSel.value, 10);
+    if (changedFrom && f > t) { t = f; els.toSel.value = String(t); }
+    if (!changedFrom && t < f) { f = t; els.fromSel.value = String(f); }
+    state.from = f; state.to = t;
+    render();
+  };
+  els.fromSel.addEventListener("change", () => syncRange(true));
+  els.toSel.addEventListener("change", () => syncRange(false));
+
+  document.getElementById("refresh").addEventListener("click", () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0; // new deterministic dataset each click
+    DATA = generateData(seed);
+    render();
+  });
+}
+
+DATA = generateData(seed);
+populateControls();
+render();
+</script>
+</body>
+</html>

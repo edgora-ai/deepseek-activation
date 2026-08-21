@@ -1,0 +1,57 @@
+{
+  "runId": "dsh-router-standard-blackhole",
+  "task": "blackhole",
+  "config": "dsh-router-standard",
+  "startedAt": "2026-08-20T17:57:27.640Z",
+  "rules": "dsh-router-standard",
+  "ruleState": "dsh-preset",
+  "settings": {
+    "original": "6bb1717de3dc65aa81569787e8c70eb98141d4038494aad50ecd09603816c214",
+    "patched": "864e77e2973d3d862d689472d6f0d53a25aeb0e90715b81fb7f2eccc7f2f550e"
+  },
+  "generation": {
+    "exitCode": 0,
+    "signal": null,
+    "timedOut": false,
+    "durationMs": 1317705,
+    "startedEpochMs": 1787248647643,
+    "stdout": "Screenshot captured (836KB PNG), errlog empty again, data-ready present. Now view the screenshot to verify the render visually:\n\nScreenshot captured, DOM clean, no errors. Now the visual check:\n",
+    "stderr": "$ node --import tsx/esm apps/cli/src/bin.ts --profile headless 'Create artifact.html as one self-contained HTML file with no external assets or libraries (all JavaScript and CSS inline). Do not modify any files outside artifact.html.\n\nBuild an interactive 3D black hole render with Three.js: an accretion disk of glowing particles, bloom postprocessing, a starfield, and an orbiting or draggable camera. The page must start animating immediately and show the scene on load. Write the file, verify it loads without errors, fix any failed requirement, and stop.'\n"
+  },
+  "durationMs": 1317705,
+  "finishedAt": "2026-08-20T18:19:25.351Z",
+  "exitCode": 0,
+  "signal": null,
+  "timedOut": false,
+  "usage": {
+    "status": "unavailable",
+    "reason": "dsh does not expose an implemented run-attribution source",
+    "candidateSessionIds": []
+  },
+  "artifact": null,
+  "evaluation": {
+    "methodVersion": 6,
+    "generated": false,
+    "artifactHash": null,
+    "bytes": 0,
+    "syntaxPass": false,
+    "syntaxFailures": [],
+    "runtimePass": false,
+    "runtimeErrors": [],
+    "browserFailure": "target artifact was not generated",
+    "contractPassed": 0,
+    "contractTotal": 0,
+    "contractChecks": [],
+    "interactionPass": false,
+    "interaction": null,
+    "visualSanity": false,
+    "screenshot": null,
+    "screenshotBytes": 0,
+    "externalResources": [],
+    "placeholderCount": 0,
+    "runtimeSnapshot": null,
+    "visualStats": null,
+    "fullPass": false
+  },
+  "vision": null
+}

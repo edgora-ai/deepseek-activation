@@ -1,0 +1,639 @@
+{
+  "generatedAt": "2026-08-20T12:38:20.089Z",
+  "auditGeneratedAt": "2026-08-20T12:37:38.639Z",
+  "note": "Each paired task has one historical artifact per variant; these comparisons are descriptive, not repeated controlled evidence.",
+  "comparisons": [
+    {
+      "client": "claude",
+      "baselineVariant": "no-rules",
+      "testedVariant": "current",
+      "pairedCases": 5,
+      "baselineFullPass": 2,
+      "testedFullPass": 3,
+      "baselineRuntimePass": 3,
+      "testedRuntimePass": 4,
+      "baselineMedianContract": 1,
+      "testedMedianContract": 1,
+      "improvedCases": [
+        "dashboard",
+        "race"
+      ],
+      "regressedCases": [
+        "helicopter"
+      ],
+      "tiedCases": [
+        "game",
+        "music"
+      ],
+      "pairs": [
+        {
+          "caseId": "helicopter",
+          "baseline": {
+            "artifact": "docs/results/helo/claude-no-rules-helicopter.html",
+            "syntaxPass": true,
+            "runtimePass": true,
+            "contractRatio": 0.8571428571428571,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": false
+          },
+          "tested": {
+            "artifact": "docs/results/helo/claude-deepseek-free-with-rules.html",
+            "syntaxPass": false,
+            "runtimePass": false,
+            "contractRatio": 0.7142857142857143,
+            "interactionPass": false,
+            "visualSanity": true,
+            "fullPass": false
+          },
+          "fullPassDelta": 0,
+          "contractDelta": -0.1428571428571428
+        },
+        {
+          "caseId": "dashboard",
+          "baseline": {
+            "artifact": "docs/results/n2/dash-claude-norules.html",
+            "syntaxPass": true,
+            "runtimePass": false,
+            "contractRatio": 0.42857142857142855,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": false
+          },
+          "tested": {
+            "artifact": "docs/results/n2/dash-claude-rules.html",
+            "syntaxPass": true,
+            "runtimePass": true,
+            "contractRatio": 0.8571428571428571,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": false
+          },
+          "fullPassDelta": 0,
+          "contractDelta": 0.42857142857142855
+        },
+        {
+          "caseId": "game",
+          "baseline": {
+            "artifact": "docs/results/n2/game-claude-norules.html",
+            "syntaxPass": true,
+            "runtimePass": true,
+            "contractRatio": 1,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": true
+          },
+          "tested": {
+            "artifact": "docs/results/n2/game-claude-rules.html",
+            "syntaxPass": true,
+            "runtimePass": true,
+            "contractRatio": 1,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": true
+          },
+          "fullPassDelta": 0,
+          "contractDelta": 0
+        },
+        {
+          "caseId": "music",
+          "baseline": {
+            "artifact": "docs/results/n2/music-claude-norules.html",
+            "syntaxPass": true,
+            "runtimePass": true,
+            "contractRatio": 1,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": true
+          },
+          "tested": {
+            "artifact": "docs/results/n2/music-claude-rules.html",
+            "syntaxPass": true,
+            "runtimePass": true,
+            "contractRatio": 1,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": true
+          },
+          "fullPassDelta": 0,
+          "contractDelta": 0
+        },
+        {
+          "caseId": "race",
+          "baseline": {
+            "artifact": "docs/results/race/claude-no-rules-race.html",
+            "syntaxPass": true,
+            "runtimePass": false,
+            "contractRatio": 1,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": false
+          },
+          "tested": {
+            "artifact": "docs/results/race/claude-with-rules-race.html",
+            "syntaxPass": true,
+            "runtimePass": true,
+            "contractRatio": 1,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": true
+          },
+          "fullPassDelta": 1,
+          "contractDelta": 0
+        }
+      ]
+    },
+    {
+      "client": "codex",
+      "baselineVariant": "no-rules",
+      "testedVariant": "current",
+      "pairedCases": 6,
+      "baselineFullPass": 4,
+      "testedFullPass": 3,
+      "baselineRuntimePass": 4,
+      "testedRuntimePass": 4,
+      "baselineMedianContract": 1,
+      "testedMedianContract": 0.9375,
+      "improvedCases": [
+        "dashboard",
+        "race"
+      ],
+      "regressedCases": [
+        "game",
+        "blackhole"
+      ],
+      "tiedCases": [
+        "helicopter",
+        "music"
+      ],
+      "pairs": [
+        {
+          "caseId": "helicopter",
+          "baseline": {
+            "artifact": "docs/results/helo/codex-no-rules-helicopter.html",
+            "syntaxPass": true,
+            "runtimePass": true,
+            "contractRatio": 1,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": true
+          },
+          "tested": {
+            "artifact": "docs/results/helo/codex-with-rules-helicopter.html",
+            "syntaxPass": true,
+            "runtimePass": true,
+            "contractRatio": 1,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": true
+          },
+          "fullPassDelta": 0,
+          "contractDelta": 0
+        },
+        {
+          "caseId": "dashboard",
+          "baseline": {
+            "artifact": "docs/results/n2/dash-codex-norules.html",
+            "syntaxPass": true,
+            "runtimePass": false,
+            "contractRatio": 0.42857142857142855,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": false
+          },
+          "tested": {
+            "artifact": "docs/results/n2/dash-codex-rules.html",
+            "syntaxPass": true,
+            "runtimePass": false,
+            "contractRatio": 0.7142857142857143,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": false
+          },
+          "fullPassDelta": 0,
+          "contractDelta": 0.28571428571428575
+        },
+        {
+          "caseId": "game",
+          "baseline": {
+            "artifact": "docs/results/n2/game-codex-norules.html",
+            "syntaxPass": true,
+            "runtimePass": true,
+            "contractRatio": 1,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": true
+          },
+          "tested": {
+            "artifact": "docs/results/n2/game-codex-rules.html",
+            "syntaxPass": true,
+            "runtimePass": false,
+            "contractRatio": 0.875,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": false
+          },
+          "fullPassDelta": -1,
+          "contractDelta": -0.125
+        },
+        {
+          "caseId": "music",
+          "baseline": {
+            "artifact": "docs/results/n2/music-codex-norules.html",
+            "syntaxPass": true,
+            "runtimePass": true,
+            "contractRatio": 1,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": true
+          },
+          "tested": {
+            "artifact": "docs/results/n2/music-codex-rules.html",
+            "syntaxPass": true,
+            "runtimePass": true,
+            "contractRatio": 1,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": true
+          },
+          "fullPassDelta": 0,
+          "contractDelta": 0
+        },
+        {
+          "caseId": "race",
+          "baseline": {
+            "artifact": "docs/results/race/codex-no-rules-race.html",
+            "syntaxPass": true,
+            "runtimePass": false,
+            "contractRatio": 1,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": false
+          },
+          "tested": {
+            "artifact": "docs/results/race/codex-with-rules-race.html",
+            "syntaxPass": true,
+            "runtimePass": true,
+            "contractRatio": 1,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": true
+          },
+          "fullPassDelta": 1,
+          "contractDelta": 0
+        },
+        {
+          "caseId": "blackhole",
+          "baseline": {
+            "artifact": "docs/results/round2/codex-no-rules-blackhole.html",
+            "syntaxPass": true,
+            "runtimePass": true,
+            "contractRatio": 1,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": true
+          },
+          "tested": {
+            "artifact": "docs/results/round2/codex-with-rules-blackhole.html",
+            "syntaxPass": true,
+            "runtimePass": true,
+            "contractRatio": 0.8333333333333334,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": false
+          },
+          "fullPassDelta": -1,
+          "contractDelta": -0.16666666666666663
+        }
+      ]
+    },
+    {
+      "client": "opencode",
+      "baselineVariant": "no-rules",
+      "testedVariant": "current",
+      "pairedCases": 6,
+      "baselineFullPass": 2,
+      "testedFullPass": 1,
+      "baselineRuntimePass": 4,
+      "testedRuntimePass": 4,
+      "baselineMedianContract": 0.9375,
+      "testedMedianContract": 0.8660714285714286,
+      "improvedCases": [
+        "race"
+      ],
+      "regressedCases": [
+        "helicopter",
+        "dashboard"
+      ],
+      "tiedCases": [
+        "game",
+        "music",
+        "blackhole"
+      ],
+      "pairs": [
+        {
+          "caseId": "helicopter",
+          "baseline": {
+            "artifact": "docs/results/helo/opencode-no-rules-helicopter.html",
+            "syntaxPass": true,
+            "runtimePass": true,
+            "contractRatio": 1,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": true
+          },
+          "tested": {
+            "artifact": "docs/results/helo/opencode-with-rules-helicopter.html",
+            "syntaxPass": true,
+            "runtimePass": true,
+            "contractRatio": 0.7142857142857143,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": false
+          },
+          "fullPassDelta": -1,
+          "contractDelta": -0.2857142857142857
+        },
+        {
+          "caseId": "dashboard",
+          "baseline": {
+            "artifact": "docs/results/n2/dash-opencode-norules.html",
+            "syntaxPass": true,
+            "runtimePass": true,
+            "contractRatio": 1,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": true
+          },
+          "tested": {
+            "artifact": "docs/results/n2/dash-oc-rules.html",
+            "syntaxPass": true,
+            "runtimePass": false,
+            "contractRatio": 0.8571428571428571,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": false
+          },
+          "fullPassDelta": -1,
+          "contractDelta": -0.1428571428571429
+        },
+        {
+          "caseId": "game",
+          "baseline": {
+            "artifact": "docs/results/n2/game-opencode-norules.html",
+            "syntaxPass": true,
+            "runtimePass": true,
+            "contractRatio": 0.875,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": false
+          },
+          "tested": {
+            "artifact": "docs/results/n2/game-oc-rules.html",
+            "syntaxPass": true,
+            "runtimePass": true,
+            "contractRatio": 0.875,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": false
+          },
+          "fullPassDelta": 0,
+          "contractDelta": 0
+        },
+        {
+          "caseId": "music",
+          "baseline": {
+            "artifact": "docs/results/n2/music-opencode-norules.html",
+            "syntaxPass": true,
+            "runtimePass": false,
+            "contractRatio": 1,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": false
+          },
+          "tested": {
+            "artifact": "docs/results/n2/music-oc-rules.html",
+            "syntaxPass": true,
+            "runtimePass": false,
+            "contractRatio": 1,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": false
+          },
+          "fullPassDelta": 0,
+          "contractDelta": 0
+        },
+        {
+          "caseId": "race",
+          "baseline": {
+            "artifact": "docs/results/race/opencode-no-rules-race.html",
+            "syntaxPass": true,
+            "runtimePass": false,
+            "contractRatio": 0.5714285714285714,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": false
+          },
+          "tested": {
+            "artifact": "docs/results/race/opencode-with-rules-race.html",
+            "syntaxPass": true,
+            "runtimePass": true,
+            "contractRatio": 1,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": true
+          },
+          "fullPassDelta": 1,
+          "contractDelta": 0.4285714285714286
+        },
+        {
+          "caseId": "blackhole",
+          "baseline": {
+            "artifact": "docs/results/round2/opencode-no-rules-blackhole.html",
+            "syntaxPass": true,
+            "runtimePass": true,
+            "contractRatio": 0.8333333333333334,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": false
+          },
+          "tested": {
+            "artifact": "docs/results/round2/opencode-with-rules-blackhole.html",
+            "syntaxPass": true,
+            "runtimePass": true,
+            "contractRatio": 0.8333333333333334,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": false
+          },
+          "fullPassDelta": 0,
+          "contractDelta": 0
+        }
+      ]
+    },
+    {
+      "client": "dsh",
+      "baselineVariant": "minimal",
+      "testedVariant": "router-standard",
+      "pairedCases": 6,
+      "baselineFullPass": 4,
+      "testedFullPass": 5,
+      "baselineRuntimePass": 5,
+      "testedRuntimePass": 5,
+      "baselineMedianContract": 1,
+      "testedMedianContract": 1,
+      "improvedCases": [
+        "helicopter",
+        "dashboard"
+      ],
+      "regressedCases": [
+        "blackhole"
+      ],
+      "tiedCases": [
+        "game",
+        "music",
+        "race"
+      ],
+      "pairs": [
+        {
+          "caseId": "helicopter",
+          "baseline": {
+            "artifact": "docs/results/helo/dsh-minimal-helicopter.html",
+            "syntaxPass": true,
+            "runtimePass": true,
+            "contractRatio": 0.8571428571428571,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": false
+          },
+          "tested": {
+            "artifact": "docs/results/helo/dsh-router-standard-helicopter.html",
+            "syntaxPass": true,
+            "runtimePass": true,
+            "contractRatio": 1,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": true
+          },
+          "fullPassDelta": 1,
+          "contractDelta": 0.1428571428571429
+        },
+        {
+          "caseId": "dashboard",
+          "baseline": {
+            "artifact": "docs/results/n2/dash-dsh-minimal.html",
+            "syntaxPass": true,
+            "runtimePass": false,
+            "contractRatio": 0.7142857142857143,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": false
+          },
+          "tested": {
+            "artifact": "docs/results/n2/dash-dsh-router-standard.html",
+            "syntaxPass": true,
+            "runtimePass": true,
+            "contractRatio": 1,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": true
+          },
+          "fullPassDelta": 1,
+          "contractDelta": 0.2857142857142857
+        },
+        {
+          "caseId": "game",
+          "baseline": {
+            "artifact": "docs/results/n2/game-dsh-minimal.html",
+            "syntaxPass": true,
+            "runtimePass": true,
+            "contractRatio": 1,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": true
+          },
+          "tested": {
+            "artifact": "docs/results/n2/game-dsh-router-standard.html",
+            "syntaxPass": true,
+            "runtimePass": true,
+            "contractRatio": 1,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": true
+          },
+          "fullPassDelta": 0,
+          "contractDelta": 0
+        },
+        {
+          "caseId": "music",
+          "baseline": {
+            "artifact": "docs/results/n2/music-dsh-minimal.html",
+            "syntaxPass": true,
+            "runtimePass": true,
+            "contractRatio": 1,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": true
+          },
+          "tested": {
+            "artifact": "docs/results/n2/music-dsh-router-standard.html",
+            "syntaxPass": true,
+            "runtimePass": true,
+            "contractRatio": 1,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": true
+          },
+          "fullPassDelta": 0,
+          "contractDelta": 0
+        },
+        {
+          "caseId": "race",
+          "baseline": {
+            "artifact": "docs/results/race/dsh-minimal-race.html",
+            "syntaxPass": true,
+            "runtimePass": true,
+            "contractRatio": 1,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": true
+          },
+          "tested": {
+            "artifact": "docs/results/race/dsh-router-standard-race.html",
+            "syntaxPass": true,
+            "runtimePass": true,
+            "contractRatio": 1,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": true
+          },
+          "fullPassDelta": 0,
+          "contractDelta": 0
+        },
+        {
+          "caseId": "blackhole",
+          "baseline": {
+            "artifact": "docs/results/round2/dsh-minimal-preset-blackhole.html",
+            "syntaxPass": true,
+            "runtimePass": true,
+            "contractRatio": 1,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": true
+          },
+          "tested": {
+            "artifact": "docs/results/round2/dsh-router-standard-blackhole.html",
+            "syntaxPass": true,
+            "runtimePass": false,
+            "contractRatio": 1,
+            "interactionPass": true,
+            "visualSanity": true,
+            "fullPass": false
+          },
+          "fullPassDelta": -1,
+          "contractDelta": 0
+        }
+      ]
+    }
+  ]
+}

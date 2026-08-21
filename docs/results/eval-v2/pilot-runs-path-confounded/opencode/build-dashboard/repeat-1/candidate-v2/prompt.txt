@@ -1,0 +1,12 @@
+Create /home/ubuntu/deepseek-activation/docs/results/eval-v2/runs/opencode/build-dashboard/repeat-1/candidate-v2/dashboard.html as one self-contained HTML file with no external assets or libraries. Do not modify files outside that path.
+
+Build a working sales analytics dashboard with these exact acceptance requirements:
+1. Generate a deterministic, non-empty sample dataset in the browser for at least 2 regions, 3 categories, and 6 monthly periods.
+2. Show exactly four populated KPI cards: revenue, orders, average order value, and profit or margin.
+3. Render four populated charts: line trend, category bars, regional share donut/pie, and spend-vs-revenue scatter. Use inline SVG or canvas.
+4. Provide region and category filters plus a period range control; changing them must update KPIs and charts.
+5. Provide a Refresh data button that generates a different dataset and updates every KPI and chart.
+6. Provide hover details/tooltips on chart marks.
+7. Load with no JavaScript errors and with meaningful data already visible.
+
+Write the file, open or execute an appropriate verification, fix any failed requirement, and stop once the acceptance requirements pass.

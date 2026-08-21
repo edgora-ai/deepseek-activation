@@ -1,0 +1,57 @@
+{
+  "runId": "dsh-minimal-blackhole",
+  "task": "blackhole",
+  "config": "dsh-minimal",
+  "startedAt": "2026-08-20T17:57:27.707Z",
+  "rules": "dsh-minimal",
+  "ruleState": "dsh-preset",
+  "settings": {
+    "original": "864e77e2973d3d862d689472d6f0d53a25aeb0e90715b81fb7f2eccc7f2f550e",
+    "patched": "6bb1717de3dc65aa81569787e8c70eb98141d4038494aad50ecd09603816c214"
+  },
+  "generation": {
+    "exitCode": 1,
+    "signal": null,
+    "timedOut": false,
+    "durationMs": 749793,
+    "startedEpochMs": 1787248647751,
+    "stdout": "Network works, Chromium is available, and there's already an `artifact.html` in the workspace — let me inspect it, and fetch the Three.js r147 UMD sources I'll inline (this is the last release line with UMD builds of the controls/postprocessing add-\n[ELIFECYCLE] Command failed with exit code 1.\n",
+    "stderr": "$ node --import tsx/esm apps/cli/src/bin.ts --profile headless 'Create artifact.html as one self-contained HTML file with no external assets or libraries (all JavaScript and CSS inline). Do not modify any files outside artifact.html.\n\nBuild an interactive 3D black hole render with Three.js: an accretion disk of glowing particles, bloom postprocessing, a starfield, and an orbiting or draggable camera. The page must start animating immediately and show the scene on load. Write the file, verify it loads without errors, fix any failed requirement, and stop.'\ndsh: INVALID_REQUEST: 400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Error from provider (Console): Upstream request failed: [invalid_request_error] The `reasoning_content` in the thinking mode must be passed back to the API.\"}}\n"
+  },
+  "durationMs": 749793,
+  "finishedAt": "2026-08-20T18:09:57.546Z",
+  "exitCode": 1,
+  "signal": null,
+  "timedOut": false,
+  "usage": {
+    "status": "unavailable",
+    "reason": "dsh does not expose an implemented run-attribution source",
+    "candidateSessionIds": []
+  },
+  "artifact": null,
+  "evaluation": {
+    "methodVersion": 6,
+    "generated": false,
+    "artifactHash": null,
+    "bytes": 0,
+    "syntaxPass": false,
+    "syntaxFailures": [],
+    "runtimePass": false,
+    "runtimeErrors": [],
+    "browserFailure": "target artifact was not generated",
+    "contractPassed": 0,
+    "contractTotal": 0,
+    "contractChecks": [],
+    "interactionPass": false,
+    "interaction": null,
+    "visualSanity": false,
+    "screenshot": null,
+    "screenshotBytes": 0,
+    "externalResources": [],
+    "placeholderCount": 0,
+    "runtimeSnapshot": null,
+    "visualStats": null,
+    "fullPass": false
+  },
+  "vision": null
+}

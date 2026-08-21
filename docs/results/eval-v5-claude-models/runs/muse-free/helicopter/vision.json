@@ -1,0 +1,7 @@
+{
+  "status": "ok",
+  "valid": true,
+  "summary": "A recognizable green 3D helicopter with fuselage, main rotor, landing skids, helipad terrain, and functional-looking HUD is clearly rendered without black screen or layout corruption.",
+  "model": "gpt-5.6-terra",
+  "durationMs": 3612
+}

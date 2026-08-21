@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "createdAt": "2026-08-20T14:02:13.078Z",
+  "evaluationMethodVersion": 3,
+  "model": "hroze-sp/deepseek-v4-flash",
+  "files": {
+    "scripts/eval.sh": "1a133e8d68249803a821c48494273b9ba1b567861948802e42d874612a804d31",
+    "eval/run-ab.mjs": "8bb69e3a1c2aa4cf7a410e42dbddc2253a33ac19aa649da23fc9c7fc2f5f4a96",
+    "eval/report.mjs": "ad9b742f79fd3dcc04325d5c8cfff503d6e88c996e0c24c1ca6a99658c774be2",
+    "eval/recheck-runs.mjs": "de41dcdb7bfedebb5e5327474ddb0efa7f93be340c75f68c1a5057c0f9dbe9e9",
+    "eval/lib/evaluate-ab.mjs": "f01dadd813b7e323e9ad98254d0c2d2f315d4387454606d888ce58d22b3f1959",
+    "eval/lib/cdp.mjs": "665e4b716d42a6bd74a58556127e2f70da4f7c01538825d2a0f53aea6456f3ef",
+    "eval/lib/static.mjs": "a7c0ab9042d9732f3cbc66e86052e7760f26035f6b7e18ce5531d3692b07f265",
+    "eval/cases/benchmark-dashboard.mjs": "8111ae7f9e00327262fa5ae8d93e22c55e653a49a4642d39db692fff51def8c8",
+    "eval/cases/build-dashboard.mjs": "c959026b693940d1e1414c8ad3faf1532904334290ac9b1a8d8dcb5371179a72",
+    "eval/cases/fix-dashboard.mjs": "538b37c53702b1299233efd77f9283e1ca4198e964877e54b74b932ea75baa4e",
+    "eval/fixtures/fix-dashboard-broken.html": "fbd60ec30bb13c6b6182201bf9275f47a4c871708d925c79e28b7fbbb7a06026",
+    "eval/rules/current/AGENTS.md": "94b1fb18e45afcb0892078e9924b1355e0601f557ae2fd51aa322105888c4213",
+    "eval/rules/candidate-v2/AGENTS.md": "2b571d81262ae7780b5314c407923b527b41e36c7d4ab9ac8cd9eb3af343e9d7"
+  },
+  "prompts": {
+    "build-dashboard": "6aa490f957bb8189c15b056a5995592519da363a3d76f3a95c63b46e32a496b8",
+    "fix-dashboard": "bc69b59c078bb8094af6f2c41d063f36f53d71cc4d49871430376ba33f348a49"
+  },
+  "fixtureHash": "fbd60ec30bb13c6b6182201bf9275f47a4c871708d925c79e28b7fbbb7a06026"
+}

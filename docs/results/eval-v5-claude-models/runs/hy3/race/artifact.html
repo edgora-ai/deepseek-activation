@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Martian Ring Road Grand Prix</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: #07060c;
+    color: #f3ece2;
+    font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+    overflow-x: hidden;
+  }
+  .wrap { max-width: 1060px; margin: 0 auto; padding: 14px 14px 28px; position: relative; }
+  h1 {
+    text-align: center; margin: 6px 0 2px;
+    font-size: clamp(20px, 3.4vw, 34px); letter-spacing: 1px;
+    background: linear-gradient(90deg, #ffd27a, #ff7a59, #ffd27a);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    text-shadow: 0 2px 14px rgba(255,120,80,0.25);
+  }
+  .sub { text-align: center; margin: 0 0 10px; font-size: 13px; color: #c9b6a6; letter-spacing: 0.5px; }
+  .stage {
+    position: relative; border-radius: 16px; overflow: hidden;
+    box-shadow: 0 18px 50px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(255,255,255,0.05);
+  }
+  svg { display: block; width: 100%; height: auto; }
+  .hud {
+    position: absolute; top: 12px; left: 12px;
+    background: rgba(12,8,16,0.55); backdrop-filter: blur(4px);
+    border: 1px solid rgba(255,200,150,0.25); border-radius: 12px;
+    padding: 8px 12px; font-size: 13px; line-height: 1.5; pointer-events: none;
+  }
+  .hud b { color: #ffd27a; }
+  .board {
+    position: absolute; top: 12px; right: 12px; width: 248px;
+    background: rgba(12,8,16,0.62); backdrop-filter: blur(5px);
+    border: 1px solid rgba(255,200,150,0.25); border-radius: 12px;
+    padding: 10px 12px 12px;
+  }
+  .board h2 { margin: 0 0 8px; font-size: 14px; color: #ffd27a; letter-spacing: 0.5px; text-align:center; }
+  .row {
+    display: grid; grid-template-columns: 22px 1fr auto; align-items: center;
+    gap: 8px; padding: 6px 6px; border-radius: 9px; margin-bottom: 4px;
+    background: rgba(255,255,255,0.03); transition: background .25s, transform .25s;
+  }
+  .row.lead { background: rgba(255,200,120,0.16); box-shadow: inset 0 0 0 1px rgba(255,200,120,0.4); }
+  .rank { font-weight: bold; font-size: 15px; color: #ffd27a; text-align: center; }
+  .nm { font-size: 13px; display: flex; align-items: center; gap: 6px; }
+  .nm .dot { width: 11px; height: 11px; border-radius: 50%; flex: 0 0 auto; }
+  .pct { font-size: 12px; color: #c9b6a6; font-variant-numeric: tabular-nums; text-align: right; }
+  .bar { grid-column: 1 / -1; height: 6px; border-radius: 4px; background: rgba(255,255,255,0.08); overflow: hidden; margin-top: 2px; }
+  .bar > i { display: block; height: 100%; border-radius: 4px; transition: width .12s linear; }
+  .controls { display: flex; gap: 10px; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
+  button {
+    font-family: inherit; font-size: 14px; cursor: pointer;
+    color: #1a0e08; background: linear-gradient(90deg,#ffd27a,#ff9a5a);
+    border: none; padding: 9px 20px; border-radius: 999px; font-weight: bold;
+    box-shadow: 0 6px 18px rgba(255,140,80,0.3); transition: transform .12s;
+  }
+  button:hover { transform: translateY(-1px); }
+  button:active { transform: translateY(1px); }
+  button.ghost { background: rgba(255,255,255,0.08); color: #f3ece2; box-shadow: none; border: 1px solid rgba(255,255,255,0.18); }
+  .banner {
+    position: absolute; left: 50%; top: 46%; transform: translate(-50%,-50%) scale(0.7);
+    background: rgba(10,6,14,0.85); border: 1px solid rgba(255,200,120,0.5);
+    border-radius: 16px; padding: 18px 30px; text-align: center;
+    font-size: clamp(18px,3vw,30px); font-weight: bold; color: #ffd27a;
+    opacity: 0; pointer-events: none; transition: opacity .4s, transform .4s;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+  }
+  .banner.show { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+  .banner span { display:block; font-size: 14px; color:#c9b6a6; font-weight: normal; margin-top:6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🚀 Martian Ring Road Grand Prix 🚀</h1>
+  <div class="sub">Rabbit on a bicycle · Turtle on a motorcycle · Eagle on a human-pedaled tricycle</div>
+  <div class="stage">
+    <svg id="scene" viewBox="0 0 1000 420" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Animated race on Mars"></svg>
+    <div class="hud">Lap: <b id="lap">1</b> · Time: <b id="clock">0.0s</b><br>Leader: <b id="leader">—</b></div>
+    <div class="board">
+      <h2>🏁 LIVE LEADERBOARD</h2>
+      <div id="rows"></div>
+    </div>
+    <div class="banner" id="banner"></div>
+  </div>
+  <div class="controls">
+    <button id="replay">↻ Replay Race</button>
+    <button id="pause" class="ghost">⏸ Pause</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var SVGNS = "http://www.w3.org/2000/svg";
+  var svg = document.getElementById("scene");
+
+  // ---- Geometry of the Martian ring road (closed loop) ----
+  var VB_W = 1000, VB_H = 420;
+  var CX = 500, CY = 222;           // loop center
+  var RX = 400, RY = 152;           // loop radii
+  var FINISH_T = 0.0;               // parameter where start/finish line sits (right side of loop)
+  var LAPS_TOTAL = 2;               // 2 laps
+
+  function ptOnLoop(t) {
+    var a = -Math.PI / 2 + t * 2 * Math.PI; // start at top
+    return { x: CX + RX * Math.cos(a), y: CY + RY * Math.sin(a) };
+  }
+  function tanOnLoop(t) {
+    var a = -Math.PI / 2 + t * 2 * Math.PI;
+    return { x: -RX * Math.sin(a), y: RY * Math.cos(a) };
+  }
+  function angleOnLoop(t) {
+    var d = tanOnLoop(t);
+    return Math.atan2(d.y, d.x) * 180 / Math.PI;
+  }
+  // distance (in parameter units) from a -> b going forward
+  function distFwd(a, b) {
+    var d = (b - a) % 1; if (d < 0) d += 1; return d;
+  }
+  // total progress s in [0, LAPS_TOTAL] from (lap,frac)
+  function progOf(lap, frac) { return lap + frac; }
+
+  // ---- Defs: gradients, filters, reusable bits ----
+  var defs = document.createElementNS(SVGNS, "defs");
+  defs.innerHTML =
+    '<radialGradient id="sky" cx="50%" cy="12%" r="120%">' +
+      '<stop offset="0%" stop-color="#3a2436"/>' +
+      '<stop offset="42%" stop-color="#241326"/>' +
+      '<stop offset="100%" stop-color="#0c0710"/>' +
+    '</radialGradient>' +
+    '<radialGradient id="sun" cx="50%" cy="50%" r="50%">' +
+      '<stop offset="0%" stop-color="#fff4d6"/>' +
+      '<stop offset="55%" stop-color="#ffd27a"/>' +
+      '<stop offset="100%" stop-color="rgba(255,180,90,0)"/>' +
+    '</radialGradient>' +
+    '<radialGradient id="mars" cx="50%" cy="42%" r="75%">' +
+      '<stop offset="0%" stop-color="#d9623b"/>' +
+      '<stop offset="45%" stop-color="#b9462a"/>' +
+      '<stop offset="100%" stop-color="#7e2c1c"/>' +
+    '</radialGradient>' +
+    '<linearGradient id="road" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0%" stop-color="#5b3a30"/>' +
+      '<stop offset="50%" stop-color="#4a2c25"/>' +
+      '<stop offset="100%" stop-color="#3a221d"/>' +
+    '</linearGradient>' +
+    '<linearGradient id="roadIn" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0%" stop-color="#cdbf9e"/>' +
+      '<stop offset="100%" stop-color="#a98f6a"/>' +
+    '</linearGradient>' +
+    '<filter id="soft" x="-30%" y="-30%" width="160%" height="160%">' +
+      '<feGaussianBlur stdDeviation="2.2"/>' +
+    '</filter>' +
+    '<filter id="glow" x="-80%" y="-80%" width="260%" height="260%">' +
+      '<feGaussianBlur stdDeviation="4" result="b"/>' +
+      '<feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>' +
+    '</filter>';
+  svg.appendChild(defs);
+
+  // ---- Background ----
+  var bg = document.createElementNS(SVGNS, "g");
+  bg.innerHTML =
+    '<rect x="0" y="0" width="1000" height="420" fill="url(#sky)"/>' +
+    '<circle cx="828" cy="78" r="62" fill="url(#sun)"/>' +
+    '<circle cx="828" cy="78" r="22" fill="#fff1cf"/>' +
+    // distant mountains
+    '<path d="M0 250 L70 196 L140 240 L210 188 L300 244 L380 200 L470 246 L560 198 L660 246 L760 206 L860 250 L940 214 L1000 250 L1000 420 L0 420 Z" fill="#3a1f2a" opacity="0.55"/>' +
+    '<path d="M0 286 L90 246 L190 286 L300 250 L420 290 L540 252 L660 292 L780 254 L900 294 L1000 262 L1000 420 L0 420 Z" fill="#2c1620" opacity="0.7"/>';
+  svg.appendChild(bg);
+
+  // stars
+  var stars = document.createElementNS(SVGNS, "g");
+  var starSeed = [13,47,91,140,200,260,330,410,500,560,640,720,800,880,950,38,300,620,860,170];
+  for (var s = 0; s < starSeed.length; s++) {
+    var sy = 18 + (s * 53) % 150;
+    var c = document.createElementNS(SVGNS, "circle");
+    c.setAttribute("cx", starSeed[s]); c.setAttribute("cy", sy);
+    c.setAttribute("r", (s % 3 === 0) ? 1.5 : 1);
+    c.setAttribute("fill", "#fff3df"); c.setAttribute("opacity", 0.7);
+    stars.appendChild(c);
+  }
+  svg.appendChild(stars);
+
+  // twin moons of Mars (Phobos & Deimos)
+  var moons = document.createElementNS(SVGNS, "g");
+  moons.innerHTML =
+    '<circle cx="120" cy="60" r="9" fill="#c9b6a6"/>' +
+    '<circle cx="118" cy="57" r="3" fill="#9c897c"/>' +
+    '<circle cx="205" cy="108" r="5" fill="#b3a195"/>';
+  svg.appendChild(moons);
+
+  // ---- The ring road (outer ring = road surface; inner = infield) ----
+  var roadG = document.createElementNS(SVGNS, "g");
+  // road as a ring (two ellipses -> use even-odd via path with two arcs)
+  function ellipsePath(rx, ry) {
+    // full ellipse path centered at CX,CY
+    return "M" + (CX - rx) + "," + CY +
+      " a" + rx + "," + ry + " 0 1,0 " + (2*rx) + ",0" +
+      " a" + rx + "," + ry + " 0 1,0 " + (-2*rx) + ",0 Z";
+  }
+  var roadOuter = ellipsePath(RX + 46, RY + 46);
+  var roadInner = ellipsePath(RX - 46, RY - 46);
+  var road = document.createElementNS(SVGNS, "path");
+  road.setAttribute("d", roadOuter + " " + roadInner);
+  road.setAttribute("fill", "url(#road)");
+  road.setAttribute("fill-rule", "evenodd");
+  roadG.appendChild(road);
+
+  // inner infield fill
+  var infield = document.createElementNS(SVGNS, "path");
+  infield.setAttribute("d", roadInner);
+  infield.setAttribute("fill", "url(#mars)");
+  roadG.insertBefore(infield, road);
+
+  // dashed centerline
+  var center = document.createElementNS(SVGNS, "path");
+  center.setAttribute("d", ellipsePath(RX, RY));
+  center.setAttribute("fill", "none");
+  center.setAttribute("stroke", "#e8d3a8");
+  center.setAttribute("stroke-width", "2.5");
+  center.setAttribute("stroke-dasharray", "10 12");
+  center.setAttribute("opacity", "0.5");
+  roadG.appendChild(center);
+
+  // start/finish line drawn at FINISH_T (right side of the ellipse? top by our param). We place it at top.
+  var fl = ptOnLoop(FINISH_T);
+  var tang = tanOnLoop(FINISH_T);
+  var nrm = { x: -tang.y, y: tang.x };
+  var nlen = Math.hypot(nrm.x, nrm.y) || 1;
+  nrm.x /= nlen; nrm.y /= nlen;
+  // checker band across the road width at finish line
+  var finG = document.createElementNS(SVGNS, "g");
+  var halfW = 46;
+  for (var k = -halfW; k < halfW; k += 12) {
+    var p1 = { x: fl.x + nrm.x * k, y: fl.y + nrm.y * k };
+    var p2 = { x: fl.x + nrm.x * (k + 12), y: fl.y + nrm.y * (k + 12) };
+    var p1o = { x: p1.x + tang.x * 9, y: p1.y + tang.y * 9 };
+    var p2o = { x: p2.x + tang.x * 9, y: p2.y + tang.y * 9 };
+    // two rows of checker
+    var cells = [[p1, p2, p2o, p1o, (Math.floor((k+460)/12)%2===0)]];
+    for (var r = 0; r < 2; r++) {
+      var off = (r - 0.5) * 9;
+      var a0 = { x: p1.x + tang.x*off, y: p1.y + tang.y*off };
+      var a1 = { x: p2.x + tang.x*off, y: p2.y + tang.y*off };
+      var a2 = { x: p2.x + tang.x*(off+9), y: p2.y + tang.y*(off+9) };
+      var a3 = { x: p1.x + tang.x*(off+9), y: p1.y + tang.y*(off+9) };
+      var checker = document.createElementNS(SVGNS, "path");
+      checker.setAttribute("d", "M" + a0.x + "," + a0.y + " L" + a1.x + "," + a1.y + " L" + a2.x + "," + a2.y + " L" + a3.x + "," + a3.y + " Z");
+      var black = ((Math.floor((k+halfW)/12) + r) % 2 === 0);
+      checker.setAttribute("fill", black ? "#1c1410" : "#f3ece2");
+      checker.setAttribute("opacity", "0.92");
+      finG.appendChild(checker);
+    }
+  }
+  var flabel = document.createElementNS(SVGNS, "text");
+  flabel.setAttribute("x", fl.x + nrm.x * (halfW + 12));
+  flabel.setAttribute("y", fl.y + nrm.y * (halfW + 12) + 4);
+  flabel.setAttribute("fill", "#ffd27a"); flabel.setAttribute("font-size", "13"); flabel.setAttribute("text-anchor", "middle");
+  flabel.setAttribute("font-weight", "bold");
+  flabel.textContent = "START / FINISH";
+  finG.appendChild(flabel);
+  roadG.appendChild(finG);
+
+  // tracks (ruts) for character wheels
+  var trackG = document.createElementNS(SVGNS, "g");
+  svg.appendChild(roadG);
+  svg.appendChild(trackG);
+
+  //finish glow ring (subtle progress indicator)
+  var progRing = document.createElementNS(SVGNS, "path");
+  progRing.setAttribute("d", ellipsePath(RX, RY));
+  progRing.setAttribute("fill", "none");
+  progRing.setAttribute("stroke", "rgba(255,210,122,0.0)");
+  progRing.setAttribute("stroke-width", "3");
+  svg.appendChild(progRing);
+
+  // ---- Helpers to build vehicle groups ----
+  function el(tag, attrs) {
+    var e = document.createElementNS(SVGNS, tag);
+    for (var key in attrs) e.setAttribute(key, attrs[key]);
+    return e;
+  }
+
+  // ===================== RABBIT ON BICYCLE =====================
+  function buildRabbit() {
+    var g = el("g", {});
+    // ---- bicycle ----
+    var bike = el("g", { id: "bikeR" });
+    bike.innerHTML =
+      '<circle cx="-22" cy="0" r="16" fill="none" stroke="#2c2c34" stroke-width="4"/>' +
+      '<circle cx="22" cy="0" r="16" fill="none" stroke="#2c2c34" stroke-width="4"/>' +
+      '<circle cx="-22" cy="0" r="16" fill="none" stroke="#9aa0aa" stroke-width="1.2"/>' +
+      '<circle cx="22" cy="0" r="16" fill="none" stroke="#9aa0aa" stroke-width="1.2"/>' +
+      '<line x1="-22" y1="0" x2="22" y2="0" stroke="#3a3a44" stroke-width="4"/>' +
+      '<line x1="-22" y1="0" x2="2" y2="-20" stroke="#3a3a44" stroke-width="4"/>' +
+      '<line x1="22" y1="0" x2="2" y2="-20" stroke="#3a3a44" stroke-width="4"/>' +
+      '<line x1="2" y1="-20" x2="6" y2="-30" stroke="#3a3a44" stroke-width="4"/>' +   // seat post
+      '<line x1="22" y1="0" x2="26" y2="-28" stroke="#3a3a44" stroke-width="4"/>' +   // fork to handle
+      '<circle cx="6" cy="-31" r="5" fill="#d33" />' +                                  // seat
+      '<path d="M26 -30 q10 -2 12 4" stroke="#3a3a44" stroke-width="4" fill="none"/>' + // handlebar
+      '<circle cx="-22" cy="0" r="3" fill="#444"/>' +
+      '<circle cx="22" cy="0" r="3" fill="#444"/>' +
+      '<circle cx="18" cy="-30" r="4" fill="#222"/>';
+    g.appendChild(bike);
+    // pedal/spoke groups (spun by animation)
+    var wheelF = el("g", {}), wheelB = el("g", {});
+    function spokes(grp, cx) {
+      for (var i = 0; i < 6; i++) {
+        var ang = i * Math.PI / 3;
+        var l = el("line", { x1: cx, y1: 0, x2: cx + 15 * Math.cos(ang), y2: 15 * Math.sin(ang), stroke: "#cfd4dc", "stroke-width": "1.4" });
+        grp.appendChild(l);
+      }
+    }
+    spokes(wheelF, 22); spokes(wheelB, -22);
+    bike.appendChild(wheelB); bike.appendChild(wheelF);
+
+    // ---- rabbit rider ----
+    var rider = el("g", {});
+    rider.innerHTML =
+      '<g id="rRab">' +
+      // ears
+      '<path d="M-2 -54 q-6 -22 -2 -34 q5 12 6 34 Z" fill="#f3ece2" stroke="#d8cfc0" stroke-width="1"/>' +
+      '<path d="M-2 -54 q-6 -22 -2 -34 q5 12 6 34 Z" fill="none"/>' +
+      '<path d="M5 -54 q4 -24 9 -34 q1 14 -3 34 Z" fill="#f3ece2" stroke="#d8cfc0" stroke-width="1"/>' +
+      '<path d="M0 -56 q-3 -16 0 -26 q3 12 2 26 Z" fill="#ffc7d2"/>' +
+      '<path d="M6 -56 q3 -16 6 -26 q-1 12 -3 26 Z" fill="#ffc7d2"/>' +
+      // head
+      '<circle cx="2" cy="-44" r="13" fill="#f3ece2" stroke="#d8cfc0" stroke-width="1"/>' +
+      '<ellipse cx="-3" cy="-46" rx="3.2" ry="4" fill="#2c2c34"/>' +     // eye
+      '<circle cx="-4" cy="-47.5" r="1" fill="#fff"/>' +
+      '<ellipse cx="8" cy="-46" rx="3.2" ry="4" fill="#2c2c34"/>' +
+      '<circle cx="7" cy="-47.5" r="1" fill="#fff"/>' +
+      '<path d="M2 -40 q4 3 7 0" stroke="#caa" stroke-width="1.6" fill="none"/>' + // nose/mouth
+      '<ellipse cx="-8" cy="-40" rx="3.5" ry="2.6" fill="#ffc7d2" opacity="0.8"/>' + // cheek
+      // body
+      '<path d="M-6 -32 q14 -8 18 2 q4 16 -6 22 q-14 4 -18 -8 q-3 -12 6 -16 Z" fill="#f3ece2" stroke="#d8cfc0" stroke-width="1"/>' +
+      '<path d="M2 -30 q8 2 8 12" stroke="#e3d8c8" stroke-width="1" fill="none"/>' +
+      // arm to handlebar
+      '<path d="M12 -30 q12 -2 14 -2" stroke="#f3ece2" stroke-width="6" stroke-linecap="round"/>' +
+      // leg to pedal
+      '<path id="legR" d="M-2 -14 q10 8 22 2" stroke="#f3ece2" stroke-width="7" stroke-linecap="round" fill="none"/>' +
+      '<circle cx="20" cy="-12" r="4" fill="#d33"/>' +   // foot near pedal
+      // tail
+      '<circle cx="-12" cy="-22" r="7" fill="#fff"/>' +
+      '</g>';
+    g.appendChild(rider);
+    return { g: g, wheels: [wheelB, wheelF], leg: rider.querySelector("#legR"), rider: rider };
+  }
+
+  // ===================== TURTLE ON MOTORCYCLE =====================
+  function buildTurtle() {
+    var g = el("g", {});
+    var bike = el("g", {});
+    bike.innerHTML =
+      '<circle cx="-26" cy="0" r="18" fill="none" stroke="#1c1c22" stroke-width="5"/>' +
+      '<circle cx="26" cy="0" r="18" fill="none" stroke="#1c1c22" stroke-width="5"/>' +
+      '<circle cx="-26" cy="0" r="18" fill="none" stroke="#6a6a72" stroke-width="1.3"/>' +
+      '<circle cx="26" cy="0" r="18" fill="none" stroke="#6a6a72" stroke-width="1.3"/>' +
+      // frame
+      '<path d="M-26 0 L0 -6 L26 0" stroke="#b23a2a" stroke-width="5" fill="none"/>' +
+      '<path d="M0 -6 L-6 -22" stroke="#b23a2a" stroke-width="5" fill="none"/>' +
+      // fuel tank / seat
+      '<path d="M-12 -18 q14 -6 26 0 q-2 8 -14 8 q-10 0 -12 -8 Z" fill="#c23a2a" stroke="#7e2418" stroke-width="1.5"/>' +
+      // handlebar + headlight
+      '<path d="M26 0 L30 -22" stroke="#3a3a44" stroke-width="4"/>' +
+      '<path d="M30 -24 q8 0 10 4" stroke="#3a3a44" stroke-width="4" fill="none"/>' +
+      '<circle cx="41" cy="-18" r="5" fill="#ffe79a" stroke="#caa34a" stroke-width="1.5"/>' +
+      // exhaust pipe
+      '<path d="M-14 -10 q-14 2 -18 8" stroke="#9aa0aa" stroke-width="4" fill="none" stroke-linecap="round"/>' +
+      '<circle cx="-26" cy="0" r="3.5" fill="#444"/>' +
+      '<circle cx="26" cy="0" r="3.5" fill="#444"/>';
+    g.appendChild(bike);
+    var wheelF = el("g", {}), wheelB = el("g", {});
+    function spokes(grp, cx) {
+      for (var i = 0; i < 5; i++) {
+        var ang = i * 2 * Math.PI / 5;
+        grp.appendChild(el("line", { x1: cx, y1: 0, x2: cx + 16 * Math.cos(ang), y2: 16 * Math.sin(ang), stroke: "#cfd4dc", "stroke-width": "1.6" }));
+      }
+    }
+    spokes(wheelF, 26); spokes(wheelB, -26);
+    bike.appendChild(wheelB); bike.appendChild(wheelF);
+
+    // ---- turtle rider ----
+    var rider = el("g", {});
+    rider.innerHTML =
+      '<g id="rTur">' +
+      // shell (on back)
+      '<path d="M-22 -30 q22 -16 44 0 q-4 18 -22 20 q-18 -2 -22 -20 Z" fill="#3f7d3a" stroke="#274d24" stroke-width="2"/>' +
+      '<path d="M-22 -30 q22 -16 44 0" fill="none" stroke="#5aa14f" stroke-width="2"/>' +
+      '<path d="M-12 -30 l0 18 M0 -32 l0 20 M12 -30 l0 18" stroke="#274d24" stroke-width="1.5"/>' +
+      '<path d="M-22 -18 q22 12 44 0" stroke="#274d24" stroke-width="1.5" fill="none"/>' +
+      // head
+      '<ellipse cx="20" cy="-34" rx="11" ry="9" fill="#6fae5f" stroke="#3f7d3a" stroke-width="1.5"/>' +
+      '<ellipse cx="17" cy="-36" rx="2.6" ry="3.2" fill="#1c1c22"/>' +
+      '<ellipse cx="24" cy="-36" rx="2.6" ry="3.2" fill="#1c1c22"/>' +
+      '<path d="M16 -30 q5 3 10 0" stroke="#274d24" stroke-width="1.4" fill="none"/>' +
+      // little arms gripping handlebar
+      '<path d="M14 -28 q12 -2 16 -4" stroke="#6fae5f" stroke-width="5" stroke-linecap="round"/>' +
+      // legs to footpegs
+      '<path id="legT" d="M-4 -14 q12 6 22 0" stroke="#6fae5f" stroke-width="6" stroke-linecap="round" fill="none"/>' +
+      '<ellipse cx="22" cy="-12" rx="4" ry="3" fill="#3f7d3a"/>' +
+      '</g>';
+    g.appendChild(rider);
+    return { g: g, wheels: [wheelB, wheelF], leg: rider.querySelector("#legT"), rider: rider };
+  }
+
+  // ===================== EAGLE ON HUMAN-PEDALED TRICYCLE =====================
+  function buildEagle() {
+    var g = el("g", {});
+    var tri = el("g", {});
+    tri.innerHTML =
+      // big front wheel (human pedals it)
+      '<circle cx="22" cy="2" r="22" fill="none" stroke="#2c2c34" stroke-width="5"/>' +
+      '<circle cx="22" cy="2" r="22" fill="none" stroke="#9aa0aa" stroke-width="1.3"/>' +
+      // two rear wheels
+      '<circle cx="-26" cy="6" r="13" fill="none" stroke="#2c2c34" stroke-width="4"/>' +
+      '<circle cx="-26" cy="6" r="13" fill="none" stroke="#9aa0aa" stroke-width="1.1"/>' +
+      // frame
+      '<path d="M22 2 L-26 6 M22 2 L-2 -16 M-2 -16 L-26 6" stroke="#c23a2a" stroke-width="5" fill="none"/>' +
+      // seat
+      '<path d="M-8 -16 q10 -4 18 0 q-2 6 -9 6 q-7 0 -9 -6 Z" fill="#3a3a44"/>' +
+      // handlebar
+      '<path d="M22 2 L26 -20 M26 -22 q10 -1 12 4" stroke="#3a3a44" stroke-width="4" fill="none"/>' +
+      // pedal crank on front wheel
+      '<circle cx="22" cy="2" r="4" fill="#444"/>' +
+      '<line id="crankE" x1="22" y1="2" x2="22" y2="20" stroke="#666" stroke-width="3"/>' +
+      '<circle cx="22" cy="22" r="3.5" fill="#d33"/>';
+    g.appendChild(tri);
+    // spokes
+    var wF = el("g", {}), wR = el("g", {});
+    function spokes(grp, cx, cy, R, n) {
+      for (var i = 0; i < n; i++) {
+        var ang = i * 2 * Math.PI / n;
+        grp.appendChild(el("line", { x1: cx, y1: cy, x2: cx + R * Math.cos(ang), y2: cy + R * Math.sin(ang), stroke: "#cfd4dc", "stroke-width": "1.4" }));
+      }
+    }
+    spokes(wF, 22, 2, 21, 6); spokes(wR, -26, 6, 12, 5);
+    tri.appendChild(wR); tri.appendChild(wF);
+
+    // ---- eagle rider ----
+    var rider = el("g", {});
+    rider.innerHTML =
+      '<g id="rEag">' +
+      // wings (spread, flap)
+      '<path id="wingL" d="M-4 -22 q-30 -16 -54 -2 q22 4 30 12 q14 -2 24 -10 Z" fill="#7a4a22" stroke="#5a3416" stroke-width="1.5"/>' +
+      '<path id="wingR" d="M-4 -22 q30 -16 54 -2 q-22 4 -30 12 q-14 -2 -24 -10 Z" fill="#8a5526" stroke="#5a3416" stroke-width="1.5"/>' +
+      '<path d="M-40 -16 q-8 0 -14 4 M40 -16 q8 0 14 4" stroke="#caa" stroke-width="0"/>' +
+      // tail
+      '<path d="M-2 -10 q-4 16 -2 26 q6 -2 8 -10 q-2 -10 -6 -16 Z" fill="#7a4a22" stroke="#5a3416" stroke-width="1.2"/>' +
+      // body
+      '<path d="M-6 -30 q12 -6 14 4 q2 16 -8 22 q-12 4 -16 -8 q-3 -12 10 -18 Z" fill="#9a6230" stroke="#5a3416" stroke-width="1.5"/>' +
+      '<path d="M-2 -20 q4 10 2 18" stroke="#fff" stroke-width="3" fill="none" opacity="0.7"/>' +  // feathered belly
+      // head
+      '<circle cx="6" cy="-34" r="11" fill="#f2f0ea" stroke="#c9c2b2" stroke-width="1"/>' +
+      '<circle cx="3" cy="-35" r="6.5" fill="#ffb02e" stroke="#d98a14" stroke-width="1"/>' +        // beak base
+      '<path d="M-2 -34 l-9 3 l9 4 Z" fill="#ffb02e" stroke="#d98a14" stroke-width="1"/>' +          // hooked beak
+      '<circle cx="7" cy="-37" r="2.6" fill="#1c1c22"/>' +                                          // eye
+      '<circle cx="8" cy="-38" r="0.9" fill="#fff"/>' +
+      '<path d="M14 -32 q6 -2 10 -6" stroke="#f2f0ea" stroke-width="4" stroke-linecap="round"/>' +  // arm to handle
+      '<path id="legE" d="M-2 -10 q10 8 20 4" stroke="#f2f0ea" stroke-width="6" stroke-linecap="round" fill="none"/>' +
+      '<ellipse cx="20" cy="-8" rx="3.5" ry="3" fill="#ffb02e"/>' +
+      '</g>';
+    g.appendChild(rider);
+    return { g: g, wheels: [wR, wF], leg: rider.querySelector("#legE"), rider: rider, crank: tri.querySelector("#crankE"), wings: [rider.querySelector("#wingL"), rider.querySelector("#wingR")] };
+  }
+
+  var R = buildRabbit(), T = buildTurtle(), E = buildEagle();
+  // layering: turtle behind, rabbit mid, eagle front-ish (eagle sits higher so fine)
+  svg.appendChild(T.g); svg.appendChild(R.g); svg.appendChild(E.g);
+
+  // ---- Racers state ----
+  var racers = [
+    { name: "Rabbit", color: "#ffd27a", veh: R, lap: 0, frac: 0, speed: 0, base: 0.135, wob: 0.05, phase: 0.0, finished: false, finishTime: 0 },
+    { name: "Turtle", color: "#6fae5f", veh: T, lap: 0, frac: 0, speed: 0, base: 0.115, wob: 0.04, phase: 2.1, finished: false, finishTime: 0 },
+    { name: "Eagle", color: "#ffb02e", veh: E, lap: 0, frac: 0, speed: 0, base: 0.095, wob: 0.06, phase: 4.2, finished: false, finishTime: 0 }
+  ];
+
+  // ---- Leaderboard DOM ----
+  var rowsEl = document.getElementById("rows");
+  var rowRefs = [];
+  racers.forEach(function (r, i) {
+    var row = document.createElement("div");
+    row.className = "row";
+    row.innerHTML =
+      '<div class="rank">' + (i + 1) + '</div>' +
+      '<div class="nm"><span class="dot" style="background:' + r.color + '"></span>' + r.name + '</div>' +
+      '<div class="pct">0%</div>' +
+      '<div class="bar"><i style="background:' + r.color + '"></i></div>';
+    rowsEl.appendChild(row);
+    rowRefs.push({ row: row, rank: row.querySelector(".rank"), pct: row.querySelector(".pct"), bar: row.querySelector(".bar > i") });
+  });
+
+  // ---- Simulation ----
+  var RACE_LEN = LAPS_TOTAL;          // in lap units
+  var simTime = 0;
+  var running = true;
+  var lastTs = null;
+  var banner = document.getElementById("banner");
+  var clockEl = document.getElementById("clock");
+  var lapEl = document.getElementById("lap");
+  var leaderEl = document.getElementById("leader");
+  var finishOrder = [];
+
+  function reset() {
+    racers.forEach(function (r) { r.lap = 0; r.frac = 0; r.speed = 0; r.finished = false; r.finishTime = 0; });
+    simTime = 0; lastTs = null; running = true; finishOrder = [];
+    banner.classList.remove("show");
+    document.getElementById("pause").textContent = "⏸ Pause";
+    placeAll();
+    updateBoard();
+  }
+
+  function placeRacer(r) {
+    var t = (r.lap + r.frac) % 1;
+    var p = ptOnLoop(t);
+    var ang = angleOnLoop(t);
+    r.veh.g.setAttribute("transform", "translate(" + p.x + "," + p.y + ") rotate(" + ang + ")");
+    // gentle bob
+    var bob = Math.sin(simTime * 6 + r.phase) * 1.6;
+    r.veh.g.setAttribute("transform", "translate(" + p.x + "," + (p.y + bob) + ") rotate(" + ang + ")");
+  }
+
+  function placeAll() { racers.forEach(placeRacer); }
+
+  function updateBoard() {
+    var sorted = racers.slice().sort(function (a, b) {
+      var pa = progOf(a.lap, a.finished ? 1 : a.frac), pb = progOf(b.lap, b.finished ? 1 : b.frac);
+      return pb - pa;
+    });
+    sorted.forEach(function (r, idx) {
+      var ref = rowRefs[racers.indexOf(r)];
+      var prog = progOf(r.lap, r.finished ? 1 : r.frac);
+      var pct = Math.max(0, Math.min(100, (prog / RACE_LEN) * 100));
+      ref.rank.textContent = (idx + 1);
+      ref.pct.textContent = pct.toFixed(0) + "%" + (r.finished ? " 🏁" : "");
+      ref.bar.style.width = pct + "%";
+      ref.row.classList.toggle("lead", idx === 0);
+      // reorder DOM so rank 1 is always visually on top
+      rowsEl.appendChild(ref.row);
+    });
+    leaderEl.textContent = sorted[0].name;
+    lapEl.textContent = Math.min(LAPS_TOTAL, Math.floor(progOf(racers[0].lap, racers[0].frac)) + 1);
+  }
+
+  function step(dt) {
+    simTime += dt;
+    var anyMoving = false;
+    racers.forEach(function (r) {
+      if (r.finished) return;
+      anyMoving = true;
+      // speed: base + wobble, with a little randomness via phase
+      r.speed = r.base + r.wob * Math.sin(simTime * 1.7 + r.phase);
+      if (r.speed < 0.012) r.speed = 0.012;
+      var before = progOf(r.lap, r.frac);
+      var after = before + r.speed * dt;
+      // detect lap completion
+      while (after >= r.lap + 1) {
+        r.lap += 1;
+        after -= 1;
+        if (r.lap >= LAPS_TOTAL) {
+          r.finished = true; r.finishTime = simTime; after = 0;
+          finishOrder.push(r);
+          break;
+        }
+      }
+      r.frac = after;
+      // wheel spin proportional to speed
+      r.veh.wheels.forEach(function (w) { w._spin = (w._spin || 0) + r.speed * dt * 900; w.setAttribute("transform", "rotate(" + w._spin + ")"); });
+      // leg pedal motion
+      if (r.veh.leg) {
+        var lp = Math.sin(simTime * 10 + r.phase) * 3;
+        r.veh.leg.setAttribute("transform", "translate(0," + lp + ")");
+      }
+      // eagle crank + wings
+      if (r.veh.crank) {
+        var cs = (r.veh.crank._s || 0) + r.speed * dt * 700;
+        r.veh.crank._s = cs;
+        r.veh.crank.setAttribute("transform", "rotate(" + cs + " 22 2)");
+      }
+      if (r.veh.wings) {
+        var fl = Math.sin(simTime * 7 + r.phase) * 6;
+        r.veh.wings[0].setAttribute("transform", "rotate(" + (-fl) + " -4 -22)");
+        r.veh.wings[1].setAttribute("transform", "rotate(" + (fl) + " -4 -22)");
+      }
+      placeRacer(r);
+    });
+
+    updateBoard();
+    clockEl.textContent = simTime.toFixed(1) + "s";
+
+    // finish banner
+    if (finishOrder.length > 0 && !banner.classList.contains("show")) {
+      var winner = finishOrder[0];
+      var ord = finishOrder.map(function (r) { return r.name; }).join(" → ");
+      banner.innerHTML = "🏆 " + winner.name + " wins! 🏆<span>Finish order: " + ord + "</span>";
+      banner.classList.add("show");
+    }
+  }
+
+  function frame(ts) {
+    if (lastTs === null) lastTs = ts;
+    var dt = (ts - lastTs) / 1000;
+    lastTs = ts;
+    if (dt > 0.1) dt = 0.1; // clamp after tab switch
+    if (running) step(dt);
+    requestAnimationFrame(frame);
+  }
+
+  // ---- Controls ----
+  document.getElementById("replay").addEventListener("click", reset);
+  document.getElementById("pause").addEventListener("click", function () {
+    running = !running;
+    this.textContent = running ? "⏸ Pause" : "▶ Resume";
+    lastTs = null;
+  });
+
+  // start immediately
+  reset();
+  requestAnimationFrame(frame);
+
+  // expose a tiny hook for headless verification
+  window.__race = { racers: racers, getSimTime: function () { return simTime; }, isRunning: function () { return running; } };
+})();
+</script>
+</body>
+</html>

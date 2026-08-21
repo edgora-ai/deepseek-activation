@@ -1,0 +1,57 @@
+{
+  "runId": "dsh-router-standard-game",
+  "task": "game",
+  "config": "dsh-router-standard",
+  "startedAt": "2026-08-20T18:48:01.012Z",
+  "rules": "dsh-router-standard",
+  "ruleState": "dsh-preset",
+  "settings": {
+    "original": "864e77e2973d3d862d689472d6f0d53a25aeb0e90715b81fb7f2eccc7f2f550e",
+    "patched": "864e77e2973d3d862d689472d6f0d53a25aeb0e90715b81fb7f2eccc7f2f550e"
+  },
+  "generation": {
+    "exitCode": 0,
+    "signal": null,
+    "timedOut": false,
+    "durationMs": 364849,
+    "startedEpochMs": 1787251681018,
+    "stdout": "Done. **artifact.html** (`/home/ubuntu/code/deepseek-harness/artifact.html`) is now a single self-contained space shooter — all CSS and JS inline, no external assets, no network requests, no outside files touched. (The pre-existing file held an unrelated artifact from earlier; it was fully replaced.)\n\n**What's in the game**\n- **Start screen** with title, instructions, blinking \"PRESS SPACE TO START\", and saved best score.\n- **Player ship** on a canvas, moved with **Arrow keys or WASD**, shoots with **Space** (hold for auto-fire); tilts into turns, stays on-screen. Touch fallback: press-and-drag steers and fires.\n- **Enemies**: three types — drifting grunts (1 HP), fast diagonal speeders (1 HP), and armored tanks (3 HP, HP bar) — spawn at a rate that scales with level, move down the screen, and fire homing shots.\n- **Collision handling**: bullets vs. enemies (sparks + kill), enemies and enemy shots vs. player (3 lives, invulnerability blink, screen shake), all with **particle explosions**, retro synth sound effects (WebAudio, generated inline), starfield, score/level/lives HUD, P to pause, and a game-over screen with restart and persistent best score.\n\n**Verification performed (all passed, no fixes needed)**\n1. **Syntax**: extracted inline script and compiled it — valid; grepped the file — zero external references (`http`, `src=`, `href=`, `url(`).\n2. **Runtime smoke (Node vm with DOM/canvas stubs)**: executed the real script and simulated a full session — start screen renders on load → Space starts → enemies spawn and draw → fire/movement keys work → collisions trigger explosions and life loss → GAME OVER reached → Space restarts a new game. No exceptions across hundreds of simulated frames.\n3. **Real browser (headless Chromium)**: loaded via `file://` — exit 0, canvas resized by the page's own JS on load, and **zero console messages / zero uncaught errors** under 6s of virtual-time gameplay (the only log lines were Chromium environment noise: AppArmor/DBus/Vulkan, unrelated to the page).\n4. **Repo hygiene**: `git status` confirms only artifact.html was changed (untracked), and the file ends with exactly one trailing newline.\n\nOpen artifact.html in any browser and press Space to play.\n",
+    "stderr": "$ node --import tsx/esm apps/cli/src/bin.ts --profile headless 'Create artifact.html as one self-contained HTML file with no external assets or libraries (all JavaScript and CSS inline). Do not modify any files outside artifact.html.\n\nBuild a playable space shooter game on a canvas: player ship that moves with arrow keys or WASD and shoots with Space, enemy ships that spawn and move, collision handling with explosions, a score display, and a start screen. The game must render and be controllable immediately. Write the file, verify it loads without errors, fix any failed requirement, and stop.'\n"
+  },
+  "durationMs": 364849,
+  "finishedAt": "2026-08-20T18:54:05.868Z",
+  "exitCode": 0,
+  "signal": null,
+  "timedOut": false,
+  "usage": {
+    "status": "unavailable",
+    "reason": "dsh does not expose an implemented run-attribution source",
+    "candidateSessionIds": []
+  },
+  "artifact": null,
+  "evaluation": {
+    "methodVersion": 6,
+    "generated": false,
+    "artifactHash": null,
+    "bytes": 0,
+    "syntaxPass": false,
+    "syntaxFailures": [],
+    "runtimePass": false,
+    "runtimeErrors": [],
+    "browserFailure": "target artifact was not generated",
+    "contractPassed": 0,
+    "contractTotal": 0,
+    "contractChecks": [],
+    "interactionPass": false,
+    "interaction": null,
+    "visualSanity": false,
+    "screenshot": null,
+    "screenshotBytes": 0,
+    "externalResources": [],
+    "placeholderCount": 0,
+    "runtimeSnapshot": null,
+    "visualStats": null,
+    "fullPass": false
+  },
+  "vision": null
+}

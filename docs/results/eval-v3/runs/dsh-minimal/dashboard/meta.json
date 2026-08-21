@@ -1,0 +1,57 @@
+{
+  "runId": "dsh-minimal-dashboard",
+  "task": "dashboard",
+  "config": "dsh-minimal",
+  "startedAt": "2026-08-20T19:26:13.679Z",
+  "rules": "dsh-minimal",
+  "ruleState": "dsh-preset",
+  "settings": {
+    "original": "6bb1717de3dc65aa81569787e8c70eb98141d4038494aad50ecd09603816c214",
+    "patched": "6bb1717de3dc65aa81569787e8c70eb98141d4038494aad50ecd09603816c214"
+  },
+  "generation": {
+    "exitCode": 0,
+    "signal": null,
+    "timedOut": false,
+    "durationMs": 757761,
+    "startedEpochMs": 1787253973690,
+    "stdout": "Done. `artifact.html` (at `/home/ubuntu/code/deepseek-harness/artifact.html`) is a self-contained sales analytics dashboard — one HTML file, inline CSS/JS, no external assets. No other files were touched (the pre-existing file at that path was an unrelated prior artifact and was replaced per the task scope).\n\n**How each acceptance requirement is met** (all verified on load in headless Chromium via Playwright, zero page/console errors):\n\n1. **Deterministic dataset in the browser** — mulberry32-seeded generator producing 108 rows (3 regions × 3 categories × 12 monthly periods Jan–Dec 2024); same seed → identical dataset (`Dataset #20240101 · 108 of 108 records` shown on load).\n2. **Exactly four populated KPI cards** — Revenue `$10,074,356`, Orders `88,267`, Avg Order Value `$114.14`, Profit `$3,070,957` (with margin % note).\n3. **Four populated charts, inline SVG** — line trend (revenue + profit, 24 dots/2 polylines), category bars (3 bars), regional share donut (3 arcs + legend + center total), spend-vs-revenue scatter (108 points, size = orders, per-region colors).\n4. **Filters update everything** — region/category pill toggles + period From/To month selects; verified each change re-aggregates KPIs and re-renders all four charts (e.g., removing Europe dropped revenue to `$7,007,990` and the donut to 2 segments; narrowing period reduced line/scatter marks accordingly).\n5. **Refresh data** — button advances the seed (`Dataset #20240101` → `#20248020`), regenerates a different dataset, and refreshes every KPI and chart (revenue changed `$5,417,973` → `$5,741,612`), keeping the active filters.\n6. **Hover tooltips on chart marks** — verified `mousemove` on line dots, bars, donut slices, and scatter points shows a positioned tooltip with title + value rows (e.g., bar: `Electronics · Revenue $2,340,309 · Orders 20,383 · Share 40.8%`) and hides on `mouseleave`.\n7. **Clean load with data visible** — no `pageerror`/console errors (only fix needed during verification was calling `Intl.NumberFormat` instances as functions; wrapped them in `.format()` helpers), and all KPIs/charts are populated immediately on load.\n\nVerification was run against the real file in headless Chromium (Playwright via the pnpm store), with scripts piped through stdin so no scratch files were created.\n",
+    "stderr": "$ node --import tsx/esm apps/cli/src/bin.ts --profile headless 'Create artifact.html as one self-contained HTML file with no external assets or libraries. Do not modify files outside that path.\n\nBuild a working sales analytics dashboard with these exact acceptance requirements:\n1. Generate a deterministic, non-empty sample dataset in the browser for at least 2 regions, 3 categories, and 6 monthly periods.\n2. Show exactly four populated KPI cards: revenue, orders, average order value, and profit or margin.\n3. Render four populated charts: line trend, category bars, regional share donut/pie, and spend-vs-revenue scatter. Use inline SVG or canvas.\n4. Provide region and category filters plus a period range control; changing them must update KPIs and charts.\n5. Provide a Refresh data button that generates a different dataset and updates every KPI and chart.\n6. Provide hover details/tooltips on chart marks.\n7. Load with no JavaScript errors and with meaningful data already visible.\n\nWrite the file, open or execute an appropriate verification, fix any failed requirement, and stop once the acceptance requirements pass.'\n"
+  },
+  "durationMs": 757761,
+  "finishedAt": "2026-08-20T19:38:51.457Z",
+  "exitCode": 0,
+  "signal": null,
+  "timedOut": false,
+  "usage": {
+    "status": "unavailable",
+    "reason": "dsh does not expose an implemented run-attribution source",
+    "candidateSessionIds": []
+  },
+  "artifact": null,
+  "evaluation": {
+    "methodVersion": 6,
+    "generated": false,
+    "artifactHash": null,
+    "bytes": 0,
+    "syntaxPass": false,
+    "syntaxFailures": [],
+    "runtimePass": false,
+    "runtimeErrors": [],
+    "browserFailure": "target artifact was not generated",
+    "contractPassed": 0,
+    "contractTotal": 0,
+    "contractChecks": [],
+    "interactionPass": false,
+    "interaction": null,
+    "visualSanity": false,
+    "screenshot": null,
+    "screenshotBytes": 0,
+    "externalResources": [],
+    "placeholderCount": 0,
+    "runtimeSnapshot": null,
+    "visualStats": null,
+    "fullPass": false
+  },
+  "vision": null
+}

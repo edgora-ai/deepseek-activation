@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sales Analytics Dashboard</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #f3f4f6;
+    color: #111827;
+  }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 24px 20px 40px; }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 12px; margin-bottom: 20px;
+  }
+  header h1 { font-size: 24px; font-weight: 800; letter-spacing: -0.02em; }
+  header .seed { font-size: 12px; color: #6b7280; margin-top: 2px; }
+  .btn {
+    background: #2563eb; color: #fff; border: 0; border-radius: 10px;
+    padding: 11px 20px; font-size: 14px; font-weight: 600; cursor: pointer;
+    box-shadow: 0 1px 3px rgba(37,99,235,.4); transition: background .15s, transform .05s;
+  }
+  .btn:hover { background: #1d4ed8; }
+  .btn:active { transform: translateY(1px); }
+
+  .controls {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 14px;
+    padding: 16px 18px; margin-bottom: 20px;
+    display: flex; flex-wrap: wrap; gap: 22px; align-items: center;
+    box-shadow: 0 1px 2px rgba(0,0,0,.04);
+  }
+  .ctl { display: flex; flex-direction: column; gap: 7px; }
+  .ctl label.lbl { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #6b7280; }
+  .chips { display: flex; flex-wrap: wrap; gap: 7px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+    background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 999px;
+    padding: 6px 13px; font-size: 13px; font-weight: 600; color: #374151;
+    transition: background .12s, border-color .12s;
+    user-select: none;
+  }
+  .chip:hover { border-color: #bfdbfe; background: #eff6ff; }
+  .chip input { accent-color: #2563eb; margin: 0; width: 13px; height: 13px; cursor: pointer; }
+  .chip input:not(:checked) ~ span { opacity: .55; }
+  select {
+    appearance: none; border: 1px solid #d1d5db; border-radius: 9px;
+    padding: 8px 30px 8px 12px; font-size: 13px; font-weight: 600; color: #111827;
+    background: #fff url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center;
+    cursor: pointer;
+  }
+  select:focus { outline: 2px solid #bfdbfe; border-color: #3b82f6; }
+  .range-ctl { display: flex; align-items: center; gap: 8px; }
+  .range-ctl .sep { color: #9ca3af; font-weight: 600; }
+
+  .kpis {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px;
+  }
+  .kpi {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 18px 20px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.04); position: relative; overflow: hidden;
+  }
+  .kpi::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; }
+  .kpi.k-blue::before  { background: #2563eb; }
+  .kpi.k-green::before { background: #16a34a; }
+  .kpi.k-violet::before{ background: #7c3aed; }
+  .kpi.k-amber::before { background: #f59e0b; }
+  .kpi .label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: #6b7280; margin-bottom: 8px; }
+  .kpi .value { font-size: 27px; font-weight: 800; letter-spacing: -0.02em; }
+  .kpi .sub { font-size: 12px; color: #6b7280; margin-top: 6px; }
+  .kpi .sub .pos { color: #16a34a; font-weight: 700; }
+  .kpi .sub .neg { color: #dc2626; font-weight: 700; }
+
+  .charts {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  }
+  .card {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 16px 18px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.04);
+  }
+  .card h2 { font-size: 14px; font-weight: 700; color: #111827; margin-bottom: 6px; }
+  .card .desc { font-size: 12px; color: #6b7280; margin-bottom: 8px; }
+  .card svg { width: 100%; height: auto; display: block; }
+  .axis { font-size: 11px; fill: #6b7280; }
+  .val { font-size: 11px; fill: #374151; font-weight: 600; }
+
+  #tip {
+    position: fixed; display: none; z-index: 50; pointer-events: none;
+    background: rgba(17,24,39,.95); color: #f9fafb; border-radius: 8px;
+    padding: 9px 12px; font-size: 12px; line-height: 1.5; max-width: 240px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.25);
+  }
+  #tip b { color: #fff; }
+  #tip div div { margin-top: 2px; }
+
+  footer { margin-top: 24px; font-size: 12px; color: #9ca3af; text-align: center; }
+
+  @media (max-width: 980px) {
+    .kpis { grid-template-columns: repeat(2, 1fr); }
+    .charts { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 560px) {
+    .kpis { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Sales Analytics Dashboard</h1>
+      <div class="seed" id="seed-label">Seed: <span id="seed-value"></span></div>
+    </div>
+    <button class="btn" id="refresh" type="button">&#8635; Refresh data</button>
+  </header>
+
+  <div class="controls">
+    <div class="ctl">
+      <label class="lbl">Regions</label>
+      <div class="chips" id="region-filter"></div>
+    </div>
+    <div class="ctl">
+      <label class="lbl">Categories</label>
+      <div class="chips" id="category-filter"></div>
+    </div>
+    <div class="ctl">
+      <label class="lbl">Period</label>
+      <div class="range-ctl">
+        <select id="start-month" aria-label="Start period"></select>
+        <span class="sep">&ndash;</span>
+        <select id="end-month" aria-label="End period"></select>
+      </div>
+    </div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi k-blue">
+      <div class="label">Revenue</div>
+      <div class="value" id="kpi-revenue">$0</div>
+      <div class="sub" id="kpi-revenue-sub"></div>
+    </div>
+    <div class="kpi k-violet">
+      <div class="label">Orders</div>
+      <div class="value" id="kpi-orders">0</div>
+      <div class="sub" id="kpi-orders-sub"></div>
+    </div>
+    <div class="kpi k-amber">
+      <div class="label">Avg Order Value</div>
+      <div class="value" id="kpi-aov">$0.00</div>
+      <div class="sub" id="kpi-aov-sub"></div>
+    </div>
+    <div class="kpi k-green">
+      <div class="label">Profit</div>
+      <div class="value" id="kpi-profit">$0</div>
+      <div class="sub" id="kpi-profit-sub"></div>
+    </div>
+  </div>
+
+  <div class="charts">
+    <div class="card">
+      <h2>Revenue &amp; Profit Trend</h2>
+      <div class="desc">Monthly revenue (area) and profit (dashed line)</div>
+      <div id="chart-trend"></div>
+    </div>
+    <div class="card">
+      <h2>Revenue by Category</h2>
+      <div class="desc">Total revenue per product category</div>
+      <div id="chart-category"></div>
+    </div>
+    <div class="card">
+      <h2>Revenue Share by Region</h2>
+      <div class="desc">Share of total revenue contributed by each region</div>
+      <div id="chart-donut"></div>
+    </div>
+    <div class="card">
+      <h2>Spend vs Revenue</h2>
+      <div class="desc">Each point is a region&ndash;category&ndash;month; dashed line is breakeven</div>
+      <div id="chart-scatter"></div>
+    </div>
+  </div>
+
+  <footer>Deterministic in-browser dataset &middot; seed shown in header &middot; no external assets</footer>
+</div>
+
+<div id="tip"></div>
+
+<script>
+"use strict";
+
+var REGIONS = ["North", "South", "East", "West"];
+var CATEGORIES = ["Electronics", "Furniture", "Apparel"];
+var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+var CATEGORY_PRICE = { Electronics: 420, Furniture: 310, Apparel: 68 };
+var CATEGORY_COLOR = { Electronics: "#6366f1", Furniture: "#f59e0b", Apparel: "#ec4899" };
+var REGION_COLOR = { North: "#2563eb", South: "#10b981", East: "#f59e0b", West: "#ef4444" };
+
+var state = {
+  seed: 20260820,
+  regions: new Set(REGIONS),
+  categories: new Set(CATEGORIES),
+  mStart: 0,
+  mEnd: 11
+};
+
+var dataset = [];
+
+function mulberry32(a) {
+  return function () {
+    a |= 0;
+    a = (a + 0x6D2B79F5) | 0;
+    var t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function generateDataset(seed) {
+  var rand = mulberry32(seed);
+  var regionFactor = {};
+  REGIONS.forEach(function (r) { regionFactor[r] = 0.85 + rand() * 0.4; });
+  var catFactor = {};
+  CATEGORIES.forEach(function (c) { catFactor[c] = 0.8 + rand() * 0.5; });
+  var orderSize = {};
+  CATEGORIES.forEach(function (c) { orderSize[c] = 1.6 + rand() * 2.4; });
+  var season = [1.05, 0.95, 1.0, 1.1, 1.15, 1.05, 0.9, 0.95, 1.1, 1.2, 1.35, 1.6];
+  var records = [];
+  for (var m = 0; m < 12; m++) {
+    for (var ri = 0; ri < REGIONS.length; ri++) {
+      var r = REGIONS[ri];
+      for (var ci = 0; ci < CATEGORIES.length; ci++) {
+        var c = CATEGORIES[ci];
+        var base = CATEGORY_PRICE[c] * regionFactor[r] * catFactor[c];
+        var units = Math.round(90 + rand() * 560 + season[m] * 60);
+        var revenue = Math.round(units * base * season[m] * (0.95 + rand() * 0.15));
+        var orders = Math.max(1, Math.round(units / orderSize[c]));
+        var spend = Math.round(revenue * (0.55 + rand() * 0.3));
+        records.push({ month: m, region: r, category: c, revenue: revenue, orders: orders, spend: spend, profit: revenue - spend });
+      }
+    }
+  }
+  return records;
+}
+
+function filterRecords(recs, st) {
+  return recs.filter(function (rec) {
+    return st.regions.has(rec.region) &&
+      st.categories.has(rec.category) &&
+      rec.month >= st.mStart && rec.month <= st.mEnd;
+  });
+}
+
+function niceMax(v) {
+  if (v <= 0) return 1;
+  var pow = Math.pow(10, Math.floor(Math.log(v) / Math.LN10));
+  var n = v / pow;
+  var f = n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10;
+  return f * pow;
+}
+
+function fmtMoney(n) {
+  if (n >= 1e6) return "$" + (n / 1e6).toFixed(2) + "M";
+  if (n >= 1e3) return "$" + (n / 1e3).toFixed(1) + "K";
+  return "$" + Math.round(n);
+}
+function fmt(n) { return Math.round(n).toLocaleString("en-US"); }
+
+function emptySvg(W, H, msg) {
+  return '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Empty chart">' +
+    '<text x="' + (W / 2) + '" y="' + (H / 2) + '" text-anchor="middle" fill="#9ca3af" font-size="14">' + msg + "</text></svg>";
+}
+
+function arcPath(cx, cy, rO, rI, a0, a1) {
+  function xy(r, a) { return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; }
+  var large = (a1 - a0) > Math.PI ? 1 : 0;
+  var p0 = xy(rO, a0), p1 = xy(rO, a1), p2 = xy(rI, a1), p3 = xy(rI, a0);
+  return "M" + p0[0] + " " + p0[1] +
+    " A" + rO + " " + rO + " 0 " + large + " 1 " + p1[0] + " " + p1[1] +
+    " L" + p2[0] + " " + p2[1] +
+    " A" + rI + " " + rI + " 0 " + large + " 0 " + p3[0] + " " + p3[1] + " Z";
+}
+
+function setText(id, txt) { document.getElementById(id).textContent = txt; }
+
+function showTip(e, html) {
+  var tip = document.getElementById("tip");
+  tip.innerHTML = html;
+  tip.style.display = "block";
+  var pad = 14;
+  var x = e.clientX + pad, y = e.clientY + pad;
+  var rect = tip.getBoundingClientRect();
+  if (x + rect.width > window.innerWidth - 8) x = e.clientX - rect.width - pad;
+  if (y + rect.height > window.innerHeight - 8) y = e.clientY - rect.height - pad;
+  tip.style.left = x + "px";
+  tip.style.top = y + "px";
+}
+function hideTip() { document.getElementById("tip").style.display = "none"; }
+
+function bindTips(svg) {
+  svg.addEventListener("mousemove", function (e) {
+    var target = e.target;
+    var m = target.closest ? target.closest("[data-tip]") : null;
+    if (m) {
+      showTip(e, m.getAttribute("data-tip"));
+      m.setAttribute("data-hover", "1");
+    } else {
+      hideTip();
+    }
+  });
+  svg.addEventListener("mouseleave", hideTip);
+}
+
+function renderKPIs(filtered) {
+  var rev = 0, ord = 0, prof = 0;
+  filtered.forEach(function (rec) { rev += rec.revenue; ord += rec.orders; prof += rec.profit; });
+  var aov = ord > 0 ? rev / ord : 0;
+  var margin = rev > 0 ? (prof / rev) * 100 : 0;
+  setText("kpi-revenue", fmtMoney(rev));
+  setText("kpi-orders", fmt(ord));
+  setText("kpi-aov", "$" + aov.toFixed(2));
+  setText("kpi-profit", fmtMoney(prof));
+  setText("kpi-revenue-sub", "Total for selected filters");
+  setText("kpi-orders-sub", "Across " + filtered.length + " segment" + (filtered.length === 1 ? "" : "s"));
+  setText("kpi-aov-sub", "Revenue \u00f7 orders");
+  var mEl = document.getElementById("kpi-profit-sub");
+  mEl.innerHTML = "Margin <span class=\"" + (margin >= 0 ? "pos" : "neg") + "\">" + (margin >= 0 ? "+" : "") + margin.toFixed(1) + "%</span>";
+}
+
+function renderTrend(filtered) {
+  var wrap = document.getElementById("chart-trend");
+  var W = 620, H = 360, ml = 66, mr = 20, mt = 20, mb = 34;
+  var iw = W - ml - mr, ih = H - mt - mb;
+  var agg = {}, maxV = 0;
+  filtered.forEach(function (rec) {
+    agg[rec.month] = agg[rec.month] || { rev: 0, prof: 0, ord: 0 };
+    agg[rec.month].rev += rec.revenue;
+    agg[rec.month].prof += rec.profit;
+    agg[rec.month].ord += rec.orders;
+  });
+  var months = Object.keys(agg).map(Number).sort(function (a, b) { return a - b; });
+  months.forEach(function (m) { if (agg[m].rev > maxV) maxV = agg[m].rev; if (agg[m].prof > maxV) maxV = agg[m].prof; });
+  if (months.length === 0 || maxV === 0) {
+    wrap.innerHTML = emptySvg(W, H, "No data for the selected filters");
+    bindTips(wrap.querySelector("svg"));
+    return;
+  }
+  var top = niceMax(maxV);
+  var span = Math.max(1, months.length - 1);
+  function xOf(m) { return ml + months.indexOf(m) * (iw / span); }
+  function yOf(v) { return mt + ih - (v / top) * ih; }
+  var parts = [];
+  for (var i = 0; i <= 4; i++) {
+    var v = top * i / 4, y = yOf(v);
+    parts.push('<line x1="' + ml + '" y1="' + y + '" x2="' + (W - mr) + '" y2="' + y + '" stroke="#e5e7eb"/>');
+    parts.push('<text x="' + (ml - 8) + '" y="' + (y + 4) + '" text-anchor="end" class="axis">' + fmtMoney(v) + "</text>");
+  }
+  months.forEach(function (m) {
+    parts.push('<text x="' + xOf(m) + '" y="' + (H - mb + 18) + '" text-anchor="middle" class="axis">' + MONTHS[m] + "</text>");
+  });
+  var revPts = months.map(function (m) { return xOf(m) + "," + yOf(agg[m].rev); }).join(" ");
+  var area = "M" + xOf(months[0]) + "," + yOf(0) + " L" + revPts.replace(/ /g, " L") + " L" + xOf(months[months.length - 1]) + "," + yOf(0) + " Z";
+  parts.push('<path d="' + area + '" fill="rgba(37,99,235,0.12)"/>');
+  parts.push('<polyline points="' + revPts + '" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linejoin="round"/>');
+  parts.push('<polyline points="' + months.map(function (m) { return xOf(m) + "," + yOf(agg[m].prof); }).join(" ") +
+    '" fill="none" stroke="#16a34a" stroke-width="2" stroke-dasharray="5 4" stroke-linejoin="round"/>');
+  var dots = [], tips = [];
+  months.forEach(function (m) {
+    var i = dots.length;
+    dots.push('<circle cx="' + xOf(m) + '" cy="' + yOf(agg[m].rev) + '" r="4" fill="#2563eb" data-idx="' + i + '"/>');
+    tips.push('<div><b>' + MONTHS[m] + " 2025</b><br>Revenue: <b>" + fmtMoney(agg[m].rev) + "</b><br>Orders: " + fmt(agg[m].ord) + "<br>Profit: " + fmtMoney(agg[m].prof) + "</div>");
+    dots.push('<circle cx="' + xOf(m) + '" cy="' + yOf(agg[m].prof) + '" r="3.5" fill="#16a34a" stroke="#fff" stroke-width="1" data-idx="' + (i + 1) + '"/>');
+    tips.push('<div><b>' + MONTHS[m] + " 2025</b><br>Profit: <b>" + fmtMoney(agg[m].prof) + "</b></div>");
+  });
+  wrap.innerHTML = '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Revenue and profit trend">' + parts.join("") + dots.join("") + "</svg>";
+  var svg = wrap.querySelector("svg");
+  svg.querySelectorAll("[data-idx]").forEach(function (el) { el.setAttribute("data-tip", tips[+el.getAttribute("data-idx")]); });
+  bindTips(svg);
+}
+
+function renderCategory(filtered) {
+  var wrap = document.getElementById("chart-category");
+  var W = 620, H = 360, ml = 72, mr = 20, mt = 20, mb = 44;
+  var iw = W - ml - mr, ih = H - mt - mb;
+  var agg = {}, maxV = 0;
+  CATEGORIES.forEach(function (c) { agg[c] = { rev: 0, ord: 0 }; });
+  filtered.forEach(function (rec) { agg[rec.category].rev += rec.revenue; agg[rec.category].ord += rec.orders; });
+  CATEGORIES.forEach(function (c) { if (agg[c].rev > maxV) maxV = agg[c].rev; });
+  var cats = CATEGORIES.filter(function (c) { return agg[c].rev > 0; });
+  if (cats.length === 0 || maxV === 0) {
+    wrap.innerHTML = emptySvg(W, H, "No data for the selected filters");
+    bindTips(wrap.querySelector("svg"));
+    return;
+  }
+  var top = niceMax(maxV);
+  var slot = iw / cats.length, bw = Math.min(64, slot * 0.55);
+  var parts = [];
+  for (var i = 0; i <= 4; i++) {
+    var v = top * i / 4, y = mt + ih - (v / top) * ih;
+    parts.push('<line x1="' + ml + '" y1="' + y + '" x2="' + (W - mr) + '" y2="' + y + '" stroke="#e5e7eb"/>');
+    parts.push('<text x="' + (ml - 8) + '" y="' + (y + 4) + '" text-anchor="end" class="axis">' + fmtMoney(v) + "</text>");
+  }
+  var tips = [];
+  cats.forEach(function (c, ci) {
+    var x = ml + slot * ci + (slot - bw) / 2;
+    var h = (agg[c].rev / top) * ih, y = mt + ih - h;
+    var idx = tips.length;
+    parts.push('<rect x="' + x + '" y="' + y + '" width="' + bw + '" height="' + Math.max(1, h) + '" rx="5" fill="' + CATEGORY_COLOR[c] + '" data-idx="' + idx + '"/>');
+    parts.push('<text x="' + (x + bw / 2) + '" y="' + (y - 8) + '" text-anchor="middle" class="val">' + fmtMoney(agg[c].rev) + "</text>");
+    parts.push('<text x="' + (ml + slot * ci + slot / 2) + '" y="' + (H - mb + 18) + '" text-anchor="middle" class="axis">' + c + "</text>");
+    tips.push('<div><b>' + c + "</b><br>Revenue: <b>" + fmtMoney(agg[c].rev) + "</b><br>Orders: " + fmt(agg[c].ord) + "</div>");
+  });
+  wrap.innerHTML = '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Revenue by category">' + parts.join("") + "</svg>";
+  var svg = wrap.querySelector("svg");
+  svg.querySelectorAll("[data-idx]").forEach(function (el) { el.setAttribute("data-tip", tips[+el.getAttribute("data-idx")]); });
+  bindTips(svg);
+}
+
+function renderDonut(filtered) {
+  var wrap = document.getElementById("chart-donut");
+  var W = 620, H = 360;
+  var cx = 170, cy = H / 2, R = 118, Rin = 62;
+  var agg = {}, tot = 0;
+  filtered.forEach(function (rec) { agg[rec.region] = (agg[rec.region] || 0) + rec.revenue; tot += rec.revenue; });
+  var regs = REGIONS.filter(function (r) { return agg[r]; });
+  if (regs.length === 0 || tot === 0) {
+    wrap.innerHTML = emptySvg(W, H, "No data for the selected filters");
+    bindTips(wrap.querySelector("svg"));
+    return;
+  }
+  var parts = [], tips = [];
+  var a0 = -Math.PI / 2;
+  regs.forEach(function (r) {
+    var frac = agg[r] / tot, a1 = a0 + frac * 2 * Math.PI;
+    var idx = tips.length;
+    parts.push('<path d="' + arcPath(cx, cy, R, Rin, a0, a1) + '" fill="' + REGION_COLOR[r] + '" stroke="#fff" stroke-width="2" data-idx="' + idx + '"/>');
+    var mid = (a0 + a1) / 2;
+    parts.push('<text x="' + (cx + Math.cos(mid) * (R + Rin) / 2) + '" y="' + (cy + Math.sin(mid) * (R + Rin) / 2 + 4) +
+      '" text-anchor="middle" fill="#fff" font-size="12" font-weight="bold">' + Math.round(frac * 100) + "%</text>");
+    tips.push('<div><b>' + r + "</b><br>Revenue: <b>" + fmtMoney(agg[r]) + "</b><br>Share: " + (frac * 100).toFixed(1) + "%</div>");
+    a0 = a1;
+  });
+  parts.push('<text x="' + cx + '" y="' + (cy - 4) + '" text-anchor="middle" font-size="12" fill="#6b7280">Total revenue</text>');
+  parts.push('<text x="' + cx + '" y="' + (cy + 18) + '" text-anchor="middle" font-size="17" font-weight="700" fill="#111827">' + fmtMoney(tot) + "</text>");
+  var ly = 104;
+  regs.forEach(function (r) {
+    var frac = agg[r] / tot;
+    parts.push('<rect x="' + (cx + R + 44) + '" y="' + (ly - 9) + '" width="12" height="12" rx="2" fill="' + REGION_COLOR[r] + '"/>');
+    parts.push('<text x="' + (cx + R + 62) + '" y="' + ly + '" class="axis">' + r + " &middot; " + (frac * 100).toFixed(1) + "%</text>");
+    ly += 22;
+  });
+  wrap.innerHTML = '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Revenue share by region">' + parts.join("") + "</svg>";
+  var svg = wrap.querySelector("svg");
+  svg.querySelectorAll("[data-idx]").forEach(function (el) { el.setAttribute("data-tip", tips[+el.getAttribute("data-idx")]); });
+  bindTips(svg);
+}
+
+function renderScatter(filtered) {
+  var wrap = document.getElementById("chart-scatter");
+  var W = 620, H = 360, ml = 72, mr = 26, mt = 26, mb = 42;
+  var iw = W - ml - mr, ih = H - mt - mb;
+  if (filtered.length === 0) {
+    wrap.innerHTML = emptySvg(W, H, "No data for the selected filters");
+    bindTips(wrap.querySelector("svg"));
+    return;
+  }
+  var maxS = 0, maxR = 0;
+  filtered.forEach(function (rec) { if (rec.spend > maxS) maxS = rec.spend; if (rec.revenue > maxR) maxR = rec.revenue; });
+  var xTop = niceMax(maxS), yTop = niceMax(maxR);
+  function xOf(v) { return ml + (v / xTop) * iw; }
+  function yOf(v) { return mt + ih - (v / yTop) * ih; }
+  var parts = [];
+  for (var i = 0; i <= 4; i++) {
+    var vx = xTop * i / 4, vy = yTop * i / 4;
+    parts.push('<line x1="' + ml + '" y1="' + yOf(vy) + '" x2="' + (W - mr) + '" y2="' + yOf(vy) + '" stroke="#e5e7eb"/>');
+    parts.push('<text x="' + (ml - 8) + '" y="' + (yOf(vy) + 4) + '" text-anchor="end" class="axis">' + fmtMoney(vy) + "</text>");
+    parts.push('<text x="' + xOf(vx) + '" y="' + (H - mb + 16) + '" text-anchor="middle" class="axis">' + fmtMoney(vx) + "</text>");
+  }
+  var diagEnd = Math.min(xTop, yTop);
+  parts.push('<line x1="' + xOf(0) + '" y1="' + yOf(0) + '" x2="' + xOf(diagEnd) + '" y2="' + yOf(diagEnd) + '" stroke="#d1d5db" stroke-dasharray="5 5"/>');
+  parts.push('<text x="' + (ml + iw / 2) + '" y="' + (H - 10) + '" text-anchor="middle" class="axis">Spend</text>');
+  parts.push('<text x="16" y="' + (mt + ih / 2) + '" text-anchor="middle" class="axis" transform="rotate(-90 16 ' + (mt + ih / 2) + ')">Revenue</text>');
+  var tips = [], pts = [];
+  filtered.forEach(function (rec) {
+    var idx = tips.length;
+    pts.push('<circle cx="' + xOf(rec.spend) + '" cy="' + yOf(rec.revenue) + '" r="4.5" fill="' + CATEGORY_COLOR[rec.category] +
+      '" opacity="0.85" stroke="#fff" stroke-width="1" data-idx="' + idx + '"/>');
+    var margin = rec.revenue ? (rec.profit / rec.revenue) * 100 : 0;
+    tips.push('<div><b>' + rec.region + " &middot; " + rec.category + '</b><br>' + MONTHS[rec.month] +
+      " 2025<br>Revenue: <b>" + fmtMoney(rec.revenue) + "</b><br>Spend: " + fmtMoney(rec.spend) +
+      "<br>Profit: " + fmtMoney(rec.profit) + " (" + margin.toFixed(1) + "%)</div>");
+  });
+  var lx = W - mr - 170, ly = mt + 16;
+  CATEGORIES.forEach(function (c) {
+    var has = filtered.some(function (rec) { return rec.category === c; });
+    if (!has) return;
+    parts.push('<rect x="' + lx + '" y="' + (ly - 9) + '" width="11" height="11" rx="2" fill="' + CATEGORY_COLOR[c] + '"/>');
+    parts.push('<text x="' + (lx + 15) + '" y="' + ly + '" class="axis">' + c + "</text>");
+    ly += 18;
+  });
+  wrap.innerHTML = '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Spend vs revenue scatter">' + parts.join("") + pts.join("") + "</svg>";
+  var svg = wrap.querySelector("svg");
+  svg.querySelectorAll("[data-idx]").forEach(function (el) { el.setAttribute("data-tip", tips[+el.getAttribute("data-idx")]); });
+  bindTips(svg);
+}
+
+function render() {
+  var filtered = filterRecords(dataset, state);
+  setText("seed-value", String(state.seed));
+  renderKPIs(filtered);
+  renderTrend(filtered);
+  renderCategory(filtered);
+  renderDonut(filtered);
+  renderScatter(filtered);
+}
+
+function buildFilters() {
+  var regBox = document.getElementById("region-filter");
+  REGIONS.forEach(function (r) {
+    var lb = document.createElement("label");
+    lb.className = "chip";
+    var cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.value = r;
+    cb.checked = true;
+    cb.addEventListener("change", onFilterChange);
+    var span = document.createElement("span");
+    span.textContent = r;
+    lb.appendChild(cb);
+    lb.appendChild(span);
+    regBox.appendChild(lb);
+  });
+  var catBox = document.getElementById("category-filter");
+  CATEGORIES.forEach(function (c) {
+    var lb = document.createElement("label");
+    lb.className = "chip";
+    var cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.value = c;
+    cb.checked = true;
+    cb.addEventListener("change", onFilterChange);
+    var span = document.createElement("span");
+    span.textContent = c;
+    lb.appendChild(cb);
+    lb.appendChild(span);
+    catBox.appendChild(lb);
+  });
+  var sSel = document.getElementById("start-month");
+  var eSel = document.getElementById("end-month");
+  MONTHS.forEach(function (m, i) {
+    var o1 = document.createElement("option");
+    o1.value = String(i);
+    o1.textContent = m + " 2025";
+    sSel.appendChild(o1);
+    var o2 = o1.cloneNode(true);
+    eSel.appendChild(o2);
+  });
+  sSel.value = "0";
+  eSel.value = "11";
+  sSel.addEventListener("change", function () {
+    if (+sSel.value > +eSel.value) eSel.value = sSel.value;
+    onFilterChange();
+  });
+  eSel.addEventListener("change", function () {
+    if (+eSel.value < +sSel.value) sSel.value = eSel.value;
+    onFilterChange();
+  });
+  document.getElementById("refresh").addEventListener("click", function () {
+    state.seed = (state.seed + 7919) >>> 0;
+    dataset = generateDataset(state.seed);
+    render();
+  });
+}
+
+function onFilterChange() {
+  state.regions.clear();
+  document.querySelectorAll("#region-filter input:checked").forEach(function (el) { state.regions.add(el.value); });
+  state.categories.clear();
+  document.querySelectorAll("#category-filter input:checked").forEach(function (el) { state.categories.add(el.value); });
+  state.mStart = +document.getElementById("start-month").value;
+  state.mEnd = +document.getElementById("end-month").value;
+  render();
+}
+
+buildFilters();
+dataset = generateDataset(state.seed);
+render();
+</script>
+</body>
+</html>

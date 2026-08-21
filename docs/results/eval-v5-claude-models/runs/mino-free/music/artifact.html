@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Music Visualizer</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a0a;color:#eee;font-family:system-ui,sans-serif;display:flex;flex-direction:column;height:100vh;overflow:hidden}
+#controls{display:flex;flex-wrap:wrap;gap:8px;padding:10px 14px;background:#111;border-bottom:1px solid #222;align-items:center}
+button{background:#1e1e2e;color:#e0e0e0;border:1px solid #444;border-radius:5px;padding:6px 12px;cursor:pointer;font-size:13px}
+button:hover{background:#2a2a40;border-color:#666}
+button.active{background:#4a3a6e;border-color:#8855cc}
+input[type=file]{font-size:12px;color:#aaa}
+label{font-size:12px;color:#aaa}
+canvas{flex:1;display:block}
+#info{position:fixed;bottom:8px;right:12px;font-size:11px;color:#555;pointer-events:none}
+</style>
+</head>
+<body>
+<div id="controls">
+  <button id="btnBars" class="active">Bars</button>
+  <button id="btnRings">Rings</button>
+  <button id="btnParticles">Particles</button>
+  <label>File: <input type="file" id="fileInput" accept="audio/*"></label>
+  <button id="btnMic">Mic</button>
+  <button id="btnPlayPause" disabled>▶ Play</button>
+  <input id="volumeSlider" type="range" min="0" max="1" step="0.01" value="0.7" title="Volume">
+</div>
+<canvas id="canvas"></canvas>
+<div id="info">Drop audio file or use controls above</div>
+
+<script>
+(function(){
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const btnBars = document.getElementById('btnBars');
+  const btnRings = document.getElementById('btnRings');
+  const btnParticles = document.getElementById('btnParticles');
+  const fileInput = document.getElementById('fileInput');
+  const btnMic = document.getElementById('btnMic');
+  const btnPlayPause = document.getElementById('btnPlayPause');
+  const volumeSlider = document.getElementById('volumeSlider');
+  const info = document.getElementById('info');
+
+  let audioCtx, analyser, source, gainNode;
+  let micStream = null;
+  let audioEl = null;
+  let mode = 'bars';
+  const MODES = { bars: btnBars, rings: btnRings, particles: btnParticles };
+  const FFT_SIZE = 256; // 128 frequency bins
+  let freqData, timeData;
+  let particles = [];
+  let hue = 0;
+
+  function resize(){
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight - document.getElementById('controls').offsetHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // Idle animation timer so canvas draws immediately before any audio
+  let idleT = 0;
+
+  function initAudioCtx(){
+    if(!audioCtx){
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = FFT_SIZE;
+      analyser.smoothingTimeConstant = 0.82;
+      freqData = new Uint8Array(analyser.frequencyBinCount);
+      timeData = new Uint8Array(analyser.fftSize);
+      gainNode = audioCtx.createGain();
+      gainNode.gain.value = parseFloat(volumeSlider.value);
+      gainNode.connect(audioCtx.destination);
+    }
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+  }
+
+  function connectSource(node){
+    initAudioCtx();
+    source = node;
+    source.connect(analyser);
+    analyser.connect(gainNode);
+  }
+
+  // Mode switching
+  function setMode(m){
+    mode = m;
+    Object.entries(MODES).forEach(([k,btn])=>{ btn.classList.toggle('active', k===m); });
+  }
+  btnBars.onclick = ()=>setMode('bars');
+  btnRings.onclick = ()=>setMode('rings');
+  btnParticles.onclick = ()=>setMode('particles');
+
+  volumeSlider.oninput = ()=>{ if(gainNode) gainNode.gain.value = parseFloat(volumeSlider.value); };
+
+  // File input
+  fileInput.onchange = ()=>{
+    const file = fileInput.files[0];
+    if(!file) return;
+    stopMic();
+    if(audioEl){ audioEl.pause(); }
+    audioEl = new Audio(URL.createObjectURL(file));
+    audioEl.crossOrigin = 'anonymous';
+    audioEl.addEventListener('canplay', function onCanPlay(){
+      audioEl.removeEventListener('canplay', onCanPlay);
+      initAudioCtx();
+      if(source){
+        try{ source.disconnect(); }catch(e){}
+      }
+      connectSource(audioCtx.createMediaElementSource(audioEl));
+      btnPlayPause.disabled = false;
+      btnPlayPause.textContent = '⏸ Pause';
+      audioEl.play();
+      info.textContent = file.name;
+    }, {once:true});
+  };
+
+  // Drag & drop
+  document.body.addEventListener('dragover', e=>{ e.preventDefault(); });
+  document.body.addEventListener('drop', e=>{
+    e.preventDefault();
+    if(e.dataTransfer.files.length){
+      fileInput.files = e.dataTransfer.files;
+      fileInput.dispatchEvent(new Event('change'));
+    }
+  });
+
+  // Play/Pause
+  btnPlayPause.onclick = ()=>{
+    if(!audioEl) return;
+    initAudioCtx();
+    if(audioEl.paused){
+      audioEl.play();
+      btnPlayPause.textContent = '⏸ Pause';
+    } else {
+      audioEl.pause();
+      btnPlayPause.textContent = '▶ Play';
+    }
+  };
+
+  // Mic
+  btnMic.onclick = async ()=>{
+    if(micStream){ stopMic(); return; }
+    try{
+      initAudioCtx();
+      if(audioEl){ audioEl.pause(); btnPlayPause.textContent = '▶ Play'; }
+      if(source){ try{ source.disconnect(); }catch(e){} }
+      micStream = await navigator.mediaDevices.getUserMedia({audio:true});
+      connectSource(audioCtx.createMediaStreamSource(micStream));
+      btnMic.classList.add('active');
+      btnMic.textContent = '⏹ Mic Off';
+      info.textContent = 'Microphone active';
+    }catch(e){
+      info.textContent = 'Mic access denied';
+    }
+  };
+
+  function stopMic(){
+    if(micStream){
+      micStream.getTracks().forEach(t=>t.stop());
+      micStream = null;
+      btnMic.classList.remove('active');
+      btnMic.textContent = 'Mic';
+    }
+  }
+
+  // Particles
+  class Particle{
+    constructor(x,y,angle,speed,hue){
+      this.x=x; this.y=y; this.angle=angle; this.speed=speed; this.hue=hue;
+      this.life=1; this.decay=0.005+Math.random()*0.01; this.size=2+Math.random()*4;
+    }
+    update(){
+      this.x+=Math.cos(this.angle)*this.speed;
+      this.y+=Math.sin(this.angle)*this.speed;
+      this.life-=this.decay;
+      this.speed*=0.98;
+    }
+    draw(ctx){
+      if(this.life<=0) return;
+      ctx.globalAlpha=this.life;
+      ctx.fillStyle=`hsl(${this.hue},80%,60%)`;
+      ctx.beginPath();
+      ctx.arc(this.x,this.y,this.size,0,Math.PI*2);
+      ctx.fill();
+    }
+  }
+
+  // Render
+  function render(){
+    requestAnimationFrame(render);
+    const W=canvas.width, H=canvas.height;
+    ctx.fillStyle='rgba(10,10,10,0.18)';
+    ctx.fillRect(0,0,W,H);
+
+    const hasAudio = analyser !== undefined;
+    if(hasAudio){
+      analyser.getByteFrequencyData(freqData);
+      analyser.getByteTimeDomainData(timeData);
+    }
+
+    hue = (hue + 0.3) % 360;
+
+    if(mode==='bars') drawBars(W,H,hasAudio);
+    else if(mode==='rings') drawRings(W,H,hasAudio);
+    else drawParticleVis(W,H,hasAudio);
+  }
+
+  function drawBars(W,H,hasAudio){
+    const binCount = hasAudio ? freqData.length : 0;
+    const barW = binCount > 0 ? (W / binCount) * 1.5 : 16;
+    const idleBarCount = hasAudio ? 0 : 40;
+    const count = hasAudio ? binCount : idleBarCount;
+
+    for(let i=0;i<count;i++){
+      let v;
+      if(hasAudio){
+        v = freqData[i] / 255;
+      } else {
+        idleT += 0.02;
+        v = 0.2 + 0.15 * Math.sin(idleT + i * 0.3) + 0.1 * Math.cos(idleT * 1.7 + i * 0.5);
+        v = Math.max(0, Math.min(1, v));
+      }
+      const barH = v * H * 0.85;
+      const x = i * (W / count);
+      const h = hue + i * 2;
+      ctx.fillStyle = `hsl(${h % 360},75%,55%)`;
+      ctx.fillRect(x, H - barH, (W / count) - 2, barH);
+      // mirror
+      ctx.globalAlpha = 0.25;
+      ctx.fillStyle = `hsl(${h % 360},75%,35%)`;
+      ctx.fillRect(x, 0, (W / count) - 2, barH * 0.3);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  function drawRings(W,H,hasAudio){
+    const cx=W/2, cy=H/2;
+    const binCount = hasAudio ? freqData.length : 64;
+    const maxR = Math.min(W,H)*0.42;
+    const minR = maxR * 0.35;
+
+    ctx.lineWidth = 2;
+    for(let ring=0; ring<3; ring++){
+      const baseR = minR + (maxR - minR) * (ring / 3);
+      ctx.beginPath();
+      for(let i=0; i<binCount; i++){
+        const angle = (i / binCount) * Math.PI * 2 - Math.PI/2;
+        let v;
+        if(hasAudio){
+          v = freqData[i % freqData.length] / 255;
+        } else {
+          idleT += 0.005;
+          v = 0.3 + 0.2 * Math.sin(idleT * (1+ring*0.5) + i * 0.2);
+        }
+        const r = baseR + v * maxR * 0.35;
+        const x = cx + Math.cos(angle + ring*0.3) * r;
+        const y = cy + Math.sin(angle + ring*0.3) * r;
+        if(i===0) ctx.moveTo(x,y);
+        else ctx.lineTo(x,y);
+      }
+      ctx.closePath();
+      ctx.strokeStyle = `hsl(${(hue + ring*60) % 360},70%,55%)`;
+      ctx.globalAlpha = 0.6 + ring * 0.15;
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+
+    // center dot
+    let avgV = 0;
+    if(hasAudio){
+      for(let i=0;i<freqData.length;i++) avgV += freqData[i];
+      avgV = (avgV / freqData.length) / 255;
+    } else {
+      avgV = 0.4;
+    }
+    ctx.beginPath();
+    ctx.arc(cx, cy, 8 + avgV * 30, 0, Math.PI*2);
+    ctx.fillStyle = `hsl(${hue},90%,65%)`;
+    ctx.globalAlpha = 0.8;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  function drawParticleVis(W,H,hasAudio){
+    let avgV = 0;
+    if(hasAudio){
+      for(let i=0;i<freqData.length;i++) avgV += freqData[i];
+      avgV /= freqData.length * 255;
+    } else {
+      idleT += 0.03;
+      avgV = 0.3 + 0.1 * Math.sin(idleT);
+    }
+
+    // Spawn particles
+    const spawnCount = Math.floor(avgV * 8) + 1;
+    for(let i=0;i<spawnCount;i++){
+      const angle = Math.random()*Math.PI*2;
+      const speed = 1 + avgV * 4 + Math.random()*2;
+      particles.push(new Particle(W/2, H/2, angle, speed, hue + Math.random()*40));
+    }
+
+    // Update and draw
+    for(let i=particles.length-1; i>=0; i--){
+      particles[i].update();
+      particles[i].draw(ctx);
+      if(particles[i].life<=0) particles.splice(i,1);
+    }
+    ctx.globalAlpha=1;
+
+    // Cap
+    if(particles.length > 800) particles.splice(0, particles.length - 800);
+
+    // Center glow
+    const grad = ctx.createRadialGradient(W/2,H/2,0,W/2,H/2, 40+avgV*80);
+    grad.addColorStop(0, `hsla(${hue},90%,70%,0.5)`);
+    grad.addColorStop(1, 'transparent');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0,0,W,H);
+  }
+
+  // Start rendering immediately
+  render();
+})();
+</script>
+</body>
+</html>
