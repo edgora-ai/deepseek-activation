@@ -1,0 +1,7 @@
+{
+  "status": "ok",
+  "valid": false,
+  "summary": "画面虽有星场与控制面板，但主体区域严重过曝成大片白屏，未真实清晰展现黑洞及吸积盘。",
+  "model": "gpt-5.6-terra",
+  "durationMs": 3819
+}

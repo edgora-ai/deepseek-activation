@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HY3 Music Visualizer</title>
+<style>
+  :root{
+    --bg:#05060a;
+    --panel:rgba(15,18,30,0.72);
+    --accent:#36e0c8;
+    --accent2:#ff5da2;
+    --text:#e8ecf4;
+    --muted:#8b93a7;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;height:100%;background:var(--bg);color:var(--text);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden;
+  }
+  #canvas{position:fixed;inset:0;width:100%;height:100%;display:block;}
+  #panel{
+    position:fixed;left:50%;bottom:22px;transform:translateX(-50%);
+    display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center;
+    padding:12px 16px;border-radius:16px;background:var(--panel);
+    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+    border:1px solid rgba(255,255,255,0.08);
+    box-shadow:0 8px 40px rgba(0,0,0,0.5);max-width:94vw;z-index:10;
+  }
+  .btn{
+    appearance:none;border:1px solid rgba(255,255,255,0.12);
+    background:rgba(255,255,255,0.04);color:var(--text);
+    padding:9px 14px;border-radius:10px;font-size:13px;cursor:pointer;
+    transition:background .18s,border-color .18s,transform .1s;user-select:none;white-space:nowrap;
+  }
+  .btn:hover{background:rgba(255,255,255,0.1);}
+  .btn:active{transform:scale(0.96);}
+  .btn.active{border-color:var(--accent);background:rgba(54,224,200,0.16);color:var(--accent);}
+  .btn.primary{border-color:var(--accent2);background:rgba(255,93,162,0.14);color:var(--accent2);}
+  #fileLabel{display:inline-flex;}
+  #file{display:none;}
+  .sep{width:1px;height:26px;background:rgba(255,255,255,0.1);margin:0 2px;}
+  #title{position:fixed;top:18px;left:18px;font-size:13px;color:var(--muted);z-index:10;letter-spacing:.04em;}
+  #title b{color:var(--text);}
+  #status{position:fixed;top:18px;right:18px;font-size:12px;color:var(--muted);z-index:10;text-align:right;max-width:50vw;}
+  input[type=range]{width:90px;accent-color:var(--accent);cursor:pointer;}
+  .lbl{color:var(--muted);font-size:12px;}
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<div id="title">HY3 <b>Music Visualizer</b></div>
+<div id="status">idle — pick a file or use the mic</div>
+
+<div id="panel">
+  <label id="fileLabel" class="btn primary"><input id="file" type="file" accept="audio/*">Open file</label>
+  <button id="mic" class="btn">🎤 Mic</button>
+  <div class="sep"></div>
+  <button id="play" class="btn">▶ Play</button>
+  <button id="stop" class="btn">■ Stop</button>
+  <div class="sep"></div>
+  <span class="lbl">Volume</span>
+  <input id="vol" type="range" min="0" max="1" step="0.01" value="0.9">
+  <div class="sep"></div>
+  <button id="mBars" class="btn mode active" data-mode="bars">Bars</button>
+  <button id="mRings" class="btn mode" data-mode="rings">Rings</button>
+  <button id="mParticles" class="btn mode" data-mode="particles">Particles</button>
+</div>
+
+<audio id="audio" crossorigin="anonymous"></audio>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- Canvas setup ----------
+  var canvas = document.getElementById('canvas');
+  var ctx = canvas.getContext('2d');
+  var statusEl = document.getElementById('status');
+  var audioEl = document.getElementById('audio');
+  var fileInput = document.getElementById('file');
+  var micBtn = document.getElementById('mic');
+  var playBtn = document.getElementById('play');
+  var stopBtn = document.getElementById('stop');
+  var volEl = document.getElementById('vol');
+  var modeBtns = Array.prototype.slice.call(document.querySelectorAll('.mode'));
+
+  var W = 0, H = 0, DPR = 1;
+  function resize(){
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = Math.floor(W * DPR);
+    canvas.height = Math.floor(H * DPR);
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // ---------- Audio graph ----------
+  var audioCtx = null, analyser = null, gainNode = null;
+  var mediaSource = null, micSource = null, micStream = null;
+  var mediaSourceCreated = false;
+  var NUM_BINS = 128;                 // analyser.frequencyBinCount will be >= 60
+  var freq = new Uint8Array(NUM_BINS);
+  var smooth = new Float32Array(NUM_BINS);
+
+  var mode = 'bars';
+  var playing = false;
+  var usingMic = false;
+
+  function ensureContext(){
+    if(!audioCtx){
+      var AC = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AC();
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;                 // -> 128 frequency bins
+      analyser.smoothingTimeConstant = 0.82;
+      gainNode = audioCtx.createGain();
+      gainNode.gain.value = parseFloat(volEl.value);
+      freq = new Uint8Array(analyser.frequencyBinCount);
+      smooth = new Float32Array(analyser.frequencyBinCount);
+    }
+    if(audioCtx.state === 'suspended'){ audioCtx.resume(); }
+  }
+
+  function connectOutput(){
+    if(!analyser || !gainNode) return;
+    try { analyser.disconnect(); } catch(e){}
+    analyser.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+  }
+  function disconnectOutput(){
+    if(!analyser || !gainNode) return;
+    try { analyser.disconnect(gainNode); } catch(e){}
+  }
+  function disconnectMic(){
+    if(micSource){ try { micSource.disconnect(); } catch(e){} micSource = null; }
+    if(micStream){ micStream.getTracks().forEach(function(t){ t.stop(); }); micStream = null; }
+  }
+
+  // ---------- Data acquisition ----------
+  function avgEnergy(){
+    var s = 0;
+    for(var i=0;i<smooth.length;i++){ s += smooth[i]; }
+    return s / (smooth.length * 255);
+  }
+
+  function updateData(t){
+    if(analyser && (playing || usingMic)){
+      analyser.getByteFrequencyData(freq);
+      for(var i=0;i<freq.length;i++){
+        smooth[i] += (freq[i] - smooth[i]) * 0.35;   // extra JS smoothing
+      }
+    } else {
+      // Synthetic idle motion so the canvas animates immediately on load.
+      for(var j=0;j<smooth.length;j++){
+        var v = (Math.sin(t * 0.0015 + j * 0.18) * 0.5 + 0.5) * 42 * (1 - (j / smooth.length) * 0.55);
+        smooth[j] += (v - smooth[j]) * 0.10;
+      }
+    }
+  }
+
+  // ---------- Visual modes ----------
+  function drawBars(t){
+    var n = smooth.length;
+    var gap = 2;
+    var bw = (W - gap * (n - 1)) / n;
+    for(var i=0;i<n;i++){
+      var v = smooth[i] / 255;
+      var h = v * H * 0.78 + 2;
+      var x = i * (bw + gap);
+      var y = H - h;
+      var hue = 180 + (i / n) * 150;
+      ctx.fillStyle = 'hsl(' + hue + ',75%,' + (40 + v * 28) + '%)';
+      ctx.fillRect(x, y, bw, h);
+      ctx.fillStyle = 'hsla(' + hue + ',75%,62%,0.10)';
+      ctx.fillRect(x, H, bw, -Math.min(h * 0.35, H * 0.28));
+    }
+  }
+
+  function drawRings(t){
+    var cx = W / 2, cy = H / 2;
+    var n = smooth.length;
+    var baseR = Math.min(W, H) * 0.16;
+    var energy = avgEnergy();
+    for(var i=0;i<n;i++){
+      var ang = (i / n) * Math.PI * 2 + t * 0.0004;
+      var v = smooth[i] / 255;
+      var len = 12 + v * Math.min(W, H) * 0.34;
+      var x1 = cx + Math.cos(ang) * baseR;
+      var y1 = cy + Math.sin(ang) * baseR;
+      var x2 = cx + Math.cos(ang) * (baseR + len);
+      var y2 = cy + Math.sin(ang) * (baseR + len);
+      var hue = (i / n) * 360 + t * 0.02;
+      ctx.strokeStyle = 'hsl(' + hue + ',80%,' + (45 + v * 30) + '%)';
+      ctx.lineWidth = Math.max(2, (Math.PI * 2 * baseR / n) * 0.6);
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+    }
+    var coreR = baseR * 0.55 + energy * baseR * 0.45;
+    var g = ctx.createRadialGradient(cx, cy, 0, cx, cy, coreR);
+    g.addColorStop(0, 'hsla(185,90%,72%,' + (0.45 + energy * 0.5) + ')');
+    g.addColorStop(1, 'hsla(300,90%,40%,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(cx, cy, coreR, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  var particles = [];
+  function initParticles(){
+    particles.length = 0;
+    for(var i=0;i<150;i++){
+      particles.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        vx: (Math.random() - 0.5) * 0.6,
+        vy: (Math.random() - 0.5) * 0.6,
+        r: Math.random() * 2 + 1,
+        hue: Math.random() * 360
+      });
+    }
+  }
+  initParticles();
+
+  function drawParticles(t){
+    var n = smooth.length;
+    var energy = avgEnergy();
+    for(var i=0;i<particles.length;i++){
+      var p = particles[i];
+      var idx = Math.floor((p.x / W) * n);
+      if(idx < 0) idx = 0; if(idx >= n) idx = n - 1;
+      var v = smooth[idx] / 255;
+      p.vx += (Math.random() - 0.5) * v * 0.8;
+      p.vy += (Math.random() - 0.5) * v * 0.8;
+      p.vx *= 0.95; p.vy *= 0.95;
+      p.x += p.vx + (Math.random() - 0.5) * energy * 1.5;
+      p.y += p.vy + (Math.random() - 0.5) * energy * 1.5;
+      if(p.x < 0) p.x = W; if(p.x > W) p.x = 0;
+      if(p.y < 0) p.y = H; if(p.y > H) p.y = 0;
+      var size = p.r + v * 7 + energy * 2;
+      p.hue = (p.hue + 0.6 + v * 4) % 360;
+      ctx.fillStyle = 'hsla(' + p.hue + ',85%,' + (55 + v * 25) + '%,' + (0.55 + v * 0.4) + ')';
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // ---------- Render loop (always running) ----------
+  var startTime = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+  function frame(now){
+    var t = now - startTime;
+    updateData(t);
+    if(mode === 'bars'){
+      ctx.fillStyle = 'rgba(5,6,10,1)';
+      ctx.fillRect(0, 0, W, H);
+      drawBars(t);
+    } else if(mode === 'rings'){
+      ctx.fillStyle = 'rgba(5,6,10,0.30)';
+      ctx.fillRect(0, 0, W, H);
+      drawRings(t);
+    } else {
+      ctx.fillStyle = 'rgba(5,6,10,0.22)';
+      ctx.fillRect(0, 0, W, H);
+      drawParticles(t);
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  // ---------- UI helpers ----------
+  function status(s){ statusEl.textContent = s; }
+  function setPlayBtn(){ playBtn.textContent = audioEl.paused ? '▶ Play' : '⏸ Pause'; }
+
+  // ---------- Controls ----------
+  fileInput.addEventListener('change', function(e){
+    var f = e.target.files && e.target.files[0];
+    if(!f) return;
+    ensureContext();
+    if(usingMic){ disconnectMic(); usingMic = false; micBtn.classList.remove('active'); }
+    audioEl.src = URL.createObjectURL(f);
+    audioEl.load();
+    if(!mediaSourceCreated){
+      mediaSource = audioCtx.createMediaElementSource(audioEl);
+      mediaSource.connect(analyser);
+      mediaSourceCreated = true;
+    }
+    connectOutput();
+    status('file loaded — press play');
+    audioEl.play().then(function(){
+      playing = true; setPlayBtn(); status('playing: ' + f.name);
+    }).catch(function(){ status('press play to start'); });
+  });
+
+  function startPlayback(){
+    ensureContext();
+    if(usingMic){ disconnectMic(); usingMic = false; micBtn.classList.remove('active'); }
+    if(audioEl.src){
+      audioEl.play().then(function(){
+        playing = true; setPlayBtn(); connectOutput(); status('playing');
+      }).catch(function(){ status('play failed'); });
+    } else {
+      status('open a file first');
+    }
+  }
+
+  playBtn.addEventListener('click', function(){
+    if(audioEl.paused){ startPlayback(); }
+    else { audioEl.pause(); playing = false; setPlayBtn(); status('paused'); }
+  });
+
+  stopBtn.addEventListener('click', function(){
+    audioEl.pause();
+    try { audioEl.currentTime = 0; } catch(e){}
+    playing = false; setPlayBtn(); status('stopped');
+  });
+
+  audioEl.addEventListener('ended', function(){
+    playing = false; setPlayBtn(); status('ended');
+  });
+  audioEl.addEventListener('play', setPlayBtn);
+  audioEl.addEventListener('pause', setPlayBtn);
+
+  micBtn.addEventListener('click', function(){
+    ensureContext();
+    if(usingMic){
+      disconnectMic(); usingMic = false; micBtn.classList.remove('active');
+      status('mic off');
+      return;
+    }
+    if(navigator.mediaDevices && navigator.mediaDevices.getUserMedia){
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream){
+        micStream = stream;
+        micSource = audioCtx.createMediaStreamSource(stream);
+        micSource.connect(analyser);
+        disconnectOutput();           // prevent speaker feedback
+        usingMic = true;
+        playing = false; audioEl.pause();
+        micBtn.classList.add('active');
+        status('mic live');
+      }).catch(function(){ status('mic permission denied'); });
+    } else {
+      status('mic not supported here');
+    }
+  });
+
+  volEl.addEventListener('input', function(){
+    if(gainNode){ gainNode.gain.value = parseFloat(volEl.value); }
+  });
+
+  modeBtns.forEach(function(b){
+    b.addEventListener('click', function(){
+      mode = b.getAttribute('data-mode');
+      modeBtns.forEach(function(x){ x.classList.toggle('active', x === b); });
+      if(mode === 'particles'){ initParticles(); }
+      ctx.fillStyle = 'rgba(5,6,10,1)';
+      ctx.fillRect(0, 0, W, H);
+    });
+  });
+
+  setPlayBtn();
+})();
+</script>
+</body>
+</html>

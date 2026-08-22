@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mino Free — Music Visualizer</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: #0a0a12;
+    color: #e0e0e0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-x: hidden;
+  }
+
+  header {
+    width: 100%;
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: #12121e;
+    border-bottom: 1px solid #222;
+    flex-wrap: wrap;
+  }
+
+  header h1 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #b388ff;
+    white-space: nowrap;
+  }
+
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  button, label {
+    background: #1e1e30;
+    border: 1px solid #333;
+    color: #ccc;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+    user-select: none;
+  }
+
+  button:hover, label:hover {
+    background: #2a2a44;
+    border-color: #666;
+    color: #fff;
+  }
+
+  button.active {
+    background: #4a2d7a;
+    border-color: #b388ff;
+    color: #e0d0ff;
+  }
+
+  button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  #fileInput { display: none; }
+
+  .transport {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+  }
+
+  #volumeSlider {
+    width: 80px;
+    accent-color: #b388ff;
+  }
+
+  canvas {
+    display: block;
+    width: 100%;
+    flex: 1;
+    min-height: 400px;
+    background: #08080f;
+  }
+
+  .info {
+    font-size: 0.75rem;
+    color: #555;
+    padding: 8px 0;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎵 Mino Free</h1>
+
+  <div class="controls">
+    <label for="fileInput">📂 Load File</label>
+    <input type="file" id="fileInput" accept="audio/*">
+    <button id="micBtn">🎤 Mic</button>
+  </div>
+
+  <div class="controls" id="modeButtons">
+    <button class="mode-btn active" data-mode="bars">Bars</button>
+    <button class="mode-btn" data-mode="rings">Rings</button>
+    <button class="mode-btn" data-mode="particles">Particles</button>
+    <button class="mode-btn" data-mode="waveform">Waveform</button>
+  </div>
+
+  <div class="transport">
+    <button id="playBtn" disabled>▶ Play</button>
+    <button id="stopBtn" disabled>⏹ Stop</button>
+    <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.7">
+  </div>
+</header>
+
+<canvas id="canvas"></canvas>
+<div class="info">Load an audio file or enable the microphone to start visualizing.</div>
+
+<script>
+(() => {
+  // ── Canvas setup ──
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+
+  function resizeCanvas() {
+    canvas.width = canvas.clientWidth * window.devicePixelRatio;
+    canvas.height = canvas.clientHeight * window.devicePixelRatio;
+  }
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+
+  // ── Audio context & nodes ──
+  const FFT_SIZE = 512;           // produces 256 frequency bins ≥ 60
+  let audioCtx = null;
+  let analyser = null;
+  let sourceNode = null;
+  let gainNode = null;
+  let audioElement = null;
+  let micStream = null;
+  let micSource = null;
+
+  function ensureAudioContext() {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = FFT_SIZE;
+      analyser.smoothingTimeConstant = 0.82;
+      gainNode = audioCtx.createGain();
+      gainNode.gain.value = parseFloat(document.getElementById('volumeSlider').value);
+      gainNode.connect(analyser);
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  }
+
+  // ── Elements ──
+  const playBtn = document.getElementById('playBtn');
+  const stopBtn = document.getElementById('stopBtn');
+  const micBtn = document.getElementById('micBtn');
+  const fileInput = document.getElementById('fileInput');
+  const volumeSlider = document.getElementById('volumeSlider');
+  const modeButtons = document.querySelectorAll('.mode-btn');
+
+  // ── State ──
+  let currentMode = 'bars';
+  let isPlaying = false;
+  let sourceType = 'none'; // 'file' | 'mic' | 'none'
+  let particles = [];
+  let ringPhase = 0;
+  let idleTime = 0;
+
+  // ── Idle demo data (when nothing is playing, show ambient animation) ──
+  function getIdleFrequencyData(count) {
+    idleTime += 0.03;
+    const data = new Uint8Array(count);
+    for (let i = 0; i < count; i++) {
+      const wave = Math.sin(idleTime * 1.2 + i * 0.15) * 30 + 40;
+      const pulse = Math.sin(idleTime * 0.7 + i * 0.08) * 15;
+      data[i] = Math.max(0, Math.min(255, Math.floor(wave + pulse)));
+    }
+    return data;
+  }
+
+  function getIdleWaveform(length) {
+    idleTime += 0.03;
+    const data = new Uint8Array(length);
+    for (let i = 0; i < length; i++) {
+      const t = i / length;
+      data[i] = 128 + Math.floor(Math.sin(idleTime * 2 + t * 6) * 30 + Math.sin(idleTime * 3.7 + t * 12) * 15);
+    }
+    return data;
+  }
+
+  function getFrequencyData() {
+    if (!analyser) return getIdleFrequencyData(128);
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    analyser.getByteFrequencyData(data);
+    // Check if there is real energy
+    let sum = 0;
+    for (let i = 0; i < data.length; i++) sum += data[i];
+    if (sum < 50) return getIdleFrequencyData(data.length);
+    return data;
+  }
+
+  function getWaveformData() {
+    if (!analyser) return getIdleWaveform(1024);
+    const data = new Uint8Array(analyser.fftSize);
+    analyser.getByteTimeDomainData(data);
+    let sum = 0;
+    for (let i = 0; i < data.length; i++) sum += Math.abs(data[i] - 128);
+    if (sum < 30) return getIdleWaveform(data.length);
+    return data;
+  }
+
+  // ── Mode switching ──
+  modeButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      modeButtons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentMode = btn.dataset.mode;
+      if (currentMode === 'particles') initParticles();
+    });
+  });
+
+  // ── File input ──
+  fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    cleanup();
+    ensureAudioContext();
+
+    audioElement = new Audio();
+    audioElement.crossOrigin = 'anonymous';
+    audioElement.src = URL.createObjectURL(file);
+    audioElement.loop = true;
+
+    sourceNode = audioCtx.createMediaElementSource(audioElement);
+    sourceNode.connect(gainNode);
+
+    sourceType = 'file';
+    playBtn.disabled = false;
+    stopBtn.disabled = false;
+    playBtn.textContent = '▶ Play';
+    audioElement.addEventListener('canplay', () => {
+      // auto-play on load
+      audioElement.play();
+      isPlaying = true;
+      playBtn.textContent = '⏸ Pause';
+    }, { once: true });
+  });
+
+  // ── Microphone ──
+  micBtn.addEventListener('click', async () => {
+    if (sourceType === 'mic') {
+      cleanup();
+      micBtn.classList.remove('active');
+      playBtn.disabled = true;
+      stopBtn.disabled = true;
+      sourceType = 'none';
+      return;
+    }
+    try {
+      cleanup();
+      ensureAudioContext();
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micSource = audioCtx.createMediaStreamSource(micStream);
+      micSource.connect(analyser);
+      sourceType = 'mic';
+      micBtn.classList.add('active');
+      playBtn.disabled = true;
+      stopBtn.disabled = true;
+    } catch (err) {
+      console.error('Mic access denied:', err);
+    }
+  });
+
+  // ── Transport ──
+  playBtn.addEventListener('click', () => {
+    if (!audioElement) return;
+    if (isPlaying) {
+      audioElement.pause();
+      isPlaying = false;
+      playBtn.textContent = '▶ Play';
+    } else {
+      audioElement.play();
+      isPlaying = true;
+      playBtn.textContent = '⏸ Pause';
+    }
+  });
+
+  stopBtn.addEventListener('click', () => {
+    if (!audioElement) return;
+    audioElement.pause();
+    audioElement.currentTime = 0;
+    isPlaying = false;
+    playBtn.textContent = '▶ Play';
+  });
+
+  volumeSlider.addEventListener('input', (e) => {
+    if (gainNode) gainNode.gain.value = parseFloat(e.target.value);
+  });
+
+  function cleanup() {
+    if (audioElement) {
+      audioElement.pause();
+      audioElement.src = '';
+      audioElement = null;
+    }
+    if (sourceNode) { sourceNode.disconnect(); sourceNode = null; }
+    if (micSource) { micSource.disconnect(); micSource = null; }
+    if (micStream) {
+      micStream.getTracks().forEach(t => t.stop());
+      micStream = null;
+    }
+    isPlaying = false;
+    sourceType = 'none';
+    micBtn.classList.remove('active');
+  }
+
+  // ── Particle system ──
+  function initParticles() {
+    particles = [];
+    const W = canvas.width;
+    const H = canvas.height;
+    for (let i = 0; i < 200; i++) {
+      particles.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        vx: (Math.random() - 0.5) * 1.5,
+        vy: (Math.random() - 0.5) * 1.5,
+        size: Math.random() * 3 + 1,
+        hue: Math.random() * 60 + 240,
+        life: Math.random()
+      });
+    }
+  }
+  initParticles();
+
+  // ── Drawing: Bars ──
+  function drawBars(freqData) {
+    const W = canvas.width;
+    const H = canvas.height;
+    const binCount = Math.min(freqData.length, 128);
+    const barWidth = (W / binCount) * 0.85;
+    const gap = (W / binCount) * 0.15;
+
+    for (let i = 0; i < binCount; i++) {
+      const val = freqData[i] / 255;
+      const barH = val * H * 0.85;
+      const x = i * (barWidth + gap) + gap / 2;
+      const hue = 260 + (i / binCount) * 60;
+      const lightness = 40 + val * 25;
+
+      // Glow
+      ctx.shadowBlur = val * 20;
+      ctx.shadowColor = `hsl(${hue}, 70%, 60%)`;
+
+      // Gradient
+      const grad = ctx.createLinearGradient(x, H, x, H - barH);
+      grad.addColorStop(0, `hsla(${hue}, 60%, ${lightness - 15}%, 0.9)`);
+      grad.addColorStop(1, `hsla(${hue + 20}, 80%, ${lightness + 10}%, 1)`);
+      ctx.fillStyle = grad;
+
+      ctx.beginPath();
+      ctx.roundRect(x, H - barH, barWidth, barH, [barWidth * 0.3, barWidth * 0.3, 0, 0]);
+      ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+  }
+
+  // ── Drawing: Rings ──
+  function drawRings(freqData) {
+    const W = canvas.width;
+    const H = canvas.height;
+    const cx = W / 2;
+    const cy = H / 2;
+    const maxRadius = Math.min(W, H) * 0.42;
+    const binCount = Math.min(freqData.length, 128);
+    ringPhase += 0.008;
+
+    // Multiple concentric rings
+    for (let ring = 0; ring < 3; ring++) {
+      const baseRadius = maxRadius * (0.35 + ring * 0.25);
+      const hueOffset = ring * 40;
+
+      ctx.beginPath();
+      for (let i = 0; i <= binCount; i++) {
+        const angle = (i / binCount) * Math.PI * 2 + ringPhase + ring * 0.5;
+        const idx = i % binCount;
+        const val = freqData[idx] / 255;
+        const r = baseRadius + val * maxRadius * 0.25 * (1 + Math.sin(ringPhase * 3 + idx * 0.1) * 0.1);
+        const x = cx + Math.cos(angle) * r;
+        const y = cy + Math.sin(angle) * r;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+
+      const hue = 260 + hueOffset;
+      ctx.strokeStyle = `hsla(${hue}, 70%, 60%, 0.8)`;
+      ctx.lineWidth = 2.5 - ring * 0.5;
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = `hsl(${hue}, 80%, 65%)`;
+      ctx.stroke();
+    }
+
+    // Center glow
+    const avgVal = freqData.reduce((a, b) => a + b, 0) / freqData.length / 255;
+    const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxRadius * 0.3);
+    glow.addColorStop(0, `hsla(280, 80%, 60%, ${avgVal * 0.3})`);
+    glow.addColorStop(1, 'hsla(280, 80%, 60%, 0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.shadowBlur = 0;
+  }
+
+  // ── Drawing: Particles ──
+  function drawParticles(freqData) {
+    const W = canvas.width;
+    const H = canvas.height;
+    const avgVal = freqData.reduce((a, b) => a + b, 0) / freqData.length / 255;
+    const cx = W / 2;
+    const cy = H / 2;
+
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      const binIdx = Math.floor((i / particles.length) * Math.min(freqData.length, 128));
+      const val = freqData[binIdx] / 255;
+
+      // Attract toward center on beat, scatter otherwise
+      const dx = cx - p.x;
+      const dy = cy - p.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const force = val * 0.03;
+
+      if (val > 0.5) {
+        p.vx += (dx / dist) * force * 2;
+        p.vy += (dy / dist) * force * 2;
+      } else {
+        p.vx += (Math.random() - 0.5) * 0.3;
+        p.vy += (Math.random() - 0.5) * 0.3;
+      }
+
+      // Damping
+      p.vx *= 0.97;
+      p.vy *= 0.97;
+
+      p.x += p.vx;
+      p.y += p.vy;
+
+      // Wrap
+      if (p.x < 0) p.x += W;
+      if (p.x > W) p.x -= W;
+      if (p.y < 0) p.y += H;
+      if (p.y > H) p.y -= H;
+
+      // Draw
+      const size = p.size * (1 + val * 3);
+      const hue = 240 + val * 80;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, size, 0, Math.PI * 2);
+      ctx.fillStyle = `hsla(${hue}, 70%, ${50 + val * 20}%, ${0.5 + val * 0.5})`;
+      ctx.shadowBlur = val * 15;
+      ctx.shadowColor = `hsl(${hue}, 80%, 60%)`;
+      ctx.fill();
+    }
+
+    // Connect nearby particles with faint lines (sampled for perf)
+    ctx.shadowBlur = 0;
+    ctx.lineWidth = 0.5;
+    for (let i = 0; i < particles.length; i += 4) {
+      for (let j = i + 4; j < particles.length; j += 4) {
+        const dx = particles[i].x - particles[j].x;
+        const dy = particles[i].y - particles[j].y;
+        const d = dx * dx + dy * dy;
+        if (d < 15000) {
+          const alpha = (1 - d / 15000) * 0.15;
+          ctx.strokeStyle = `hsla(280, 60%, 70%, ${alpha})`;
+          ctx.beginPath();
+          ctx.moveTo(particles[i].x, particles[i].y);
+          ctx.lineTo(particles[j].x, particles[j].y);
+          ctx.stroke();
+        }
+      }
+    }
+  }
+
+  // ── Drawing: Waveform ──
+  function drawWaveform(waveData) {
+    const W = canvas.width;
+    const H = canvas.height;
+    const cy = H / 2;
+    const sliceWidth = W / waveData.length;
+
+    // Background glow
+    const avgVal = waveData.reduce((a, b) => a + Math.abs(b - 128), 0) / waveData.length / 128;
+
+    ctx.lineWidth = 3;
+    ctx.shadowBlur = avgVal * 20;
+    ctx.shadowColor = 'hsl(280, 80%, 65%)';
+
+    const grad = ctx.createLinearGradient(0, 0, W, 0);
+    grad.addColorStop(0, 'hsl(260, 80%, 65%)');
+    grad.addColorStop(0.5, 'hsl(300, 70%, 70%)');
+    grad.addColorStop(1, 'hsl(220, 80%, 65%)');
+    ctx.strokeStyle = grad;
+
+    ctx.beginPath();
+    for (let i = 0; i < waveData.length; i++) {
+      const v = waveData[i] / 128.0;
+      const y = cy + (v - 1) * H * 0.4;
+      if (i === 0) ctx.moveTo(0, y);
+      else ctx.lineTo(i * sliceWidth, y);
+    }
+    ctx.stroke();
+
+    // Mirror fill
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 0.1;
+    ctx.lineTo(W, cy);
+    ctx.lineTo(0, cy);
+    ctx.closePath();
+    ctx.fillStyle = 'hsl(280, 60%, 50%)';
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  // ── Animation loop ──
+  let lastTime = 0;
+  function animate(timestamp) {
+    const dt = timestamp - lastTime;
+    lastTime = timestamp;
+
+    // Clear with fade trail
+    ctx.fillStyle = 'rgba(8, 8, 15, 0.18)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const freqData = getFrequencyData();
+    const waveData = getWaveformData();
+
+    switch (currentMode) {
+      case 'bars':
+        drawBars(freqData);
+        break;
+      case 'rings':
+        drawRings(freqData);
+        break;
+      case 'particles':
+        drawParticles(freqData);
+        break;
+      case 'waveform':
+        drawWaveform(waveData);
+        break;
+    }
+
+    requestAnimationFrame(animate);
+  }
+
+  // Start rendering immediately — canvas will show idle animation
+  requestAnimationFrame(animate);
+})();
+</script>
+</body>
+</html>

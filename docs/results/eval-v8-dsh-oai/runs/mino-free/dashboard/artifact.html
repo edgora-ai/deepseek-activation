@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sales Analytics Dashboard</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:system-ui,-apple-system,sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh;padding:16px}
+  h1{font-size:1.4rem;font-weight:700;margin-bottom:12px;color:#f8fafc}
+  .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px}
+  .controls label{font-size:.8rem;color:#94a3b8}
+  .controls select,.controls input[type=number]{background:#1e293b;border:1px solid #334155;color:#e2e8f0;padding:5px 8px;border-radius:6px;font-size:.82rem}
+  .controls select{min-width:120px}
+  .controls input[type=number]{width:72px}
+  .btn{background:#3b82f6;color:#fff;border:none;padding:7px 16px;border-radius:6px;font-size:.82rem;cursor:pointer;font-weight:600}
+  .btn:hover{background:#2563eb}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px}
+  .kpi{background:#1e293b;border-radius:10px;padding:16px;text-align:center;border:1px solid #334155}
+  .kpi .label{font-size:.75rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px}
+  .kpi .value{font-size:1.6rem;font-weight:700;margin-top:4px;color:#38bdf8}
+  .kpi .sub{font-size:.72rem;color:#64748b;margin-top:2px}
+  .charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px}
+  .chart-box{background:#1e293b;border-radius:10px;padding:14px;border:1px solid #334155;position:relative}
+  .chart-box h3{font-size:.85rem;font-weight:600;margin-bottom:8px;color:#cbd5e1}
+  canvas{width:100%!important;height:auto!important;cursor:crosshair}
+  #tooltip{position:fixed;background:#1e293b;border:1px solid #475569;border-radius:6px;padding:7px 10px;font-size:.75rem;pointer-events:none;display:none;z-index:999;color:#e2e8f0;max-width:220px;box-shadow:0 4px 12px rgba(0,0,0,.5)}
+  #tooltip .tt-label{font-weight:700;color:#38bdf8;margin-bottom:2px}
+</style>
+</head>
+<body>
+<h1>📊 Sales Analytics Dashboard</h1>
+<div class="controls">
+  <div>
+    <label>Region</label><br>
+    <select id="regionFilter"><option value="all">All Regions</option></select>
+  </div>
+  <div>
+    <label>Category</label><br>
+    <select id="categoryFilter"><option value="all">All Categories</option></select>
+  </div>
+  <div>
+    <label>From (month index 1–N)</label><br>
+    <input type="number" id="periodFrom" min="1" value="1">
+  </div>
+  <div>
+    <label>To (month index 1–N)</label><br>
+    <input type="number" id="periodTo" min="1" value="6">
+  </div>
+  <div style="align-self:flex-end">
+    <button class="btn" id="refreshBtn">⟳ Refresh Data</button>
+  </div>
+</div>
+<div class="kpis" id="kpis"></div>
+<div class="charts">
+  <div class="chart-box"><h3>Monthly Revenue Trend</h3><canvas id="lineChart" width="600" height="320"></canvas></div>
+  <div class="chart-box"><h3>Revenue by Category</h3><canvas id="barChart" width="600" height="320"></canvas></div>
+  <div class="chart-box"><h3>Regional Revenue Share</h3><canvas id="donutChart" width="600" height="320"></canvas></div>
+  <div class="chart-box"><h3>Spend vs Revenue (Orders)</h3><canvas id="scatterChart" width="600" height="320"></canvas></div>
+</div>
+<div id="tooltip"><div class="tt-label"></div><div class="tt-body"></div></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ── Deterministic PRNG ── */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t^=t+Math.imul(t^t>>>7,61|t);return((t^t>>>14)>>>0)/4294967296}}
+var rand=mulberry32(42);
+function randInt(lo,hi){return Math.floor(rand()*(hi-lo+1))+lo}
+function randFloat(lo,hi){return +(lo+rand()*(hi-lo)).toFixed(2)}
+
+/* ── Data generation ── */
+var REGIONS=["North","South","East","West"];
+var CATEGORIES=["Electronics","Clothing","Food","Home"];
+var MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+var seed;
+
+function generateData(s){
+  rand=mulberry32(s);
+  var rows=[];
+  for(var r=0;r<REGIONS.length;r++){
+    for(var c=0;c<CATEGORIES.length;c++){
+      for(var m=0;m<12;m++){
+        var revenue=+randFloat(800,5000);
+        var cost=+(revenue*randFloat(.4,.75)).toFixed(2);
+        var orders=randInt(10,120);
+        rows.push({region:REGIONS[r],category:CATEGORIES[c],month:m+1,monthLabel:MONTHS[m],revenue:revenue,cost:cost,orders:orders});
+      }
+    }
+  }
+  return rows;
+}
+
+var allData=generateData(42);
+seed=42;
+
+/* ── DOM refs ── */
+var regionFilter=document.getElementById("regionFilter");
+var categoryFilter=document.getElementById("categoryFilter");
+var periodFrom=document.getElementById("periodFrom");
+var periodTo=document.getElementById("periodTo");
+var refreshBtn=document.getElementById("refreshBtn");
+var tooltipEl=document.getElementById("tooltip");
+var ttLabel=tooltipEl.querySelector(".tt-label");
+var ttBody=tooltipEl.querySelector(".tt-body");
+
+/* populate filter options */
+REGIONS.forEach(function(r){var o=document.createElement("option");o.value=r;o.textContent=r;regionFilter.appendChild(o)});
+CATEGORIES.forEach(function(c){var o=document.createElement("option");o.value=c;o.textContent=c;categoryFilter.appendChild(o)});
+periodTo.value=Math.max.apply(null,allData.map(function(d){return d.month}).filter(function(v,i,a){return a.indexOf(v)===i}));
+
+/* ── Filtering ── */
+function getData(){
+  var rf=regionFilter.value, cf=categoryFilter.value, pf=parseInt(periodFrom.value)||1, pt=parseInt(periodTo.value)||12;
+  if(pf>pt){var t=pf;pf=pt;pt=t;periodFrom.value=pf;periodTo.value=pt;}
+  return allData.filter(function(d){
+    return (rf==="all"||d.region===rf)&&(cf==="all"||d.category===cf)&&d.month>=pf&&d.month<=pt;
+  });
+}
+
+/* ── KPI rendering ── */
+function renderKPIs(data){
+  var kpiDiv=document.getElementById("kpis");
+  kpiDiv.innerHTML="";
+  var totalRev=0,totalCost=0,totalOrders=0;
+  data.forEach(function(d){totalRev+=d.revenue;totalCost+=d.cost;totalOrders+=d.orders});
+  var aov=totalOrders?+(totalRev/totalOrders).toFixed(2):0;
+  var margin=totalRev?+(totalRev-totalCost).toFixed(2):0;
+  var marginPct=totalRev?+((margin/totalRev)*100).toFixed(1):0;
+  var cards=[
+    {label:"Total Revenue",value:"$"+totalRev.toLocaleString(undefined,{minimumFractionDigits:2}),sub:"across filtered records"},
+    {label:"Total Orders",value:totalOrders.toLocaleString(),sub:data.length+" record(s)"},
+    {label:"Avg Order Value",value:"$"+aov.toLocaleString(undefined,{minimumFractionDigits:2}),sub:"revenue / orders"},
+    {label:"Net Margin",value:"$"+margin.toLocaleString(undefined,{minimumFractionDigits:2}),sub:marginPct+"% margin"}
+  ];
+  cards.forEach(function(c){
+    var div=document.createElement("div");div.className="kpi";
+    div.innerHTML='<div class="label">'+c.label+'</div><div class="value">'+c.value+'</div><div class="sub">'+c.sub+'</div>';
+    kpiDiv.appendChild(div);
+  });
+}
+
+/* ── Tooltip helpers ── */
+var activeCanvas=null;
+function showTooltip(e,html){
+  tooltipEl.style.display="block";
+  ttLabel.innerHTML=html.label;
+  ttBody.innerHTML=html.body;
+  var x=e.clientX+12,y=e.clientY-10;
+  if(x+220>window.innerWidth)x=e.clientX-230;
+  if(y+80>window.innerHeight)y=e.clientY-90;
+  tooltipEl.style.left=x+"px";
+  tooltipEl.style.top=y+"px";
+}
+function hideTooltip(){tooltipEl.style.display="none"}
+
+/* ── Chart: Line trend ── */
+var lineHitAreas=[];
+function drawLine(data){
+  var cv=document.getElementById("lineChart"),ctx=cv.getContext("2d");
+  var W=cv.width,H=cv.height;
+  ctx.clearRect(0,0,W,H);
+  /* aggregate by month */
+  var map={};data.forEach(function(d){if(!map[d.month])map[d.month]=0;map[d.month]+=d.revenue});
+  var months=Object.keys(map).map(Number).sort(function(a,b){return a-b});
+  if(!months.length)return;
+  var vals=months.map(function(m){return map[m]});
+  var maxV=Math.max.apply(null,vals)*1.1;
+  var padL=60,padR=20,padT=20,padB=36;
+  var cw=W-padL-padR, ch=H-padT-padB;
+  /* grid */
+  ctx.strokeStyle="#334155";ctx.lineWidth=1;
+  for(var g=0;g<=4;g++){
+    var gy=padT+ch-ch*(g/4);
+    ctx.beginPath();ctx.moveTo(padL,gy);ctx.lineTo(W-padR,gy);ctx.stroke();
+    ctx.fillStyle="#64748b";ctx.font="11px system-ui";ctx.textAlign="right";
+    ctx.fillText("$"+(maxV*g/4).toFixed(0),padL-6,gy+4);
+  }
+  /* x labels */
+  ctx.textAlign="center";
+  months.forEach(function(m,i){
+    var x=padL+cw*(i/(months.length-1||1));
+    ctx.fillStyle="#64748b";ctx.fillText(MONTHS[m-1],x,H-padB+16);
+  });
+  /* line */
+  lineHitAreas=[];
+  ctx.beginPath();ctx.strokeStyle="#38bdf8";ctx.lineWidth=2.5;
+  months.forEach(function(m,i){
+    var x=padL+cw*(i/(months.length-1||1));
+    var y=padT+ch-ch*(map[m]/maxV);
+    if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+  /* dots */
+  months.forEach(function(m,i){
+    var x=padL+cw*(i/(months.length-1||1));
+    var y=padT+ch-ch*(map[m]/maxV);
+    ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);ctx.fillStyle="#38bdf8";ctx.fill();
+    ctx.strokeStyle="#1e293b";ctx.lineWidth=1.5;ctx.stroke();
+    lineHitAreas.push({x:x,y:y,r:8,tip:{label:MONTHS[m-1],body:"Revenue: $"+map[m].toFixed(2)}});
+  });
+  /* area fill */
+  ctx.globalAlpha=0.12;ctx.beginPath();
+  months.forEach(function(m,i){
+    var x=padL+cw*(i/(months.length-1||1));
+    var y=padT+ch-ch*(map[m]/maxV);
+    if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+  });
+  ctx.lineTo(padL+cw,padT+ch);ctx.lineTo(padL,padT+ch);ctx.closePath();ctx.fillStyle="#38bdf8";ctx.fill();
+  ctx.globalAlpha=1;
+}
+
+/* ── Chart: Category bars ── */
+var barHitAreas=[];
+function drawBar(data){
+  var cv=document.getElementById("barChart"),ctx=cv.getContext("2d");
+  var W=cv.width,H=cv.height;
+  ctx.clearRect(0,0,W,H);
+  var map={};data.forEach(function(d){if(!map[d.category])map[d.category]=0;map[d.category]+=d.revenue});
+  var cats=Object.keys(map);
+  if(!cats.length)return;
+  var vals=cats.map(function(c){return map[c]});
+  var maxV=Math.max.apply(null,vals)*1.15;
+  var padL=60,padR=20,padT=20,padB=36;
+  var cw=W-padL-padR,ch=H-padT-padB;
+  var bw=Math.min(60,cw/cats.length*.6);
+  var gap=(cw-bw*cats.length)/(cats.length+1);
+  var colors=["#38bdf8","#a78bfa","#f472b6","#34d399","#fbbf24","#fb923c"];
+  /* grid */
+  for(var g=0;g<=4;g++){
+    var gy=padT+ch-ch*(g/4);
+    ctx.beginPath();ctx.strokeStyle="#334155";ctx.lineWidth=1;ctx.moveTo(padL,gy);ctx.lineTo(W-padR,gy);ctx.stroke();
+    ctx.fillStyle="#64748b";ctx.font="11px system-ui";ctx.textAlign="right";
+    ctx.fillText("$"+(maxV*g/4).toFixed(0),padL-6,gy+4);
+  }
+  barHitAreas=[];
+  cats.forEach(function(cat,i){
+    var x=padL+gap+(bw+gap)*i;
+    var bh=ch*(map[cat]/maxV);
+    var y=padT+ch-bh;
+    var col=colors[i%colors.length];
+    /* bar */
+    ctx.beginPath();
+    ctx.moveTo(x+3,padT+ch);ctx.lineTo(x+3,y+3);ctx.quadraticCurveTo(x+3,y,x+6,y);
+    ctx.lineTo(x+bw-6,y);ctx.quadraticCurveTo(x+bw-3,y,x+bw-3,y+3);
+    ctx.lineTo(x+bw-3,padT+ch);ctx.closePath();
+    ctx.fillStyle=col;ctx.fill();
+    /* label */
+    ctx.fillStyle="#94a3b8";ctx.font="11px system-ui";ctx.textAlign="center";
+    ctx.fillText(cat,x+bw/2,H-padB+16);
+    barHitAreas.push({x:x,y:y,w:bw,h:bh,tip:{label:cat,body:"Revenue: $"+map[cat].toFixed(2)}});
+  });
+}
+
+/* ── Chart: Donut ── */
+var donutHitAreas=[];
+function drawDonut(data){
+  var cv=document.getElementById("donutChart"),ctx=cv.getContext("2d");
+  var W=cv.width,H=cv.height;
+  ctx.clearRect(0,0,W,H);
+  var map={};data.forEach(function(d){if(!map[d.region])map[d.region]=0;map[d.region]+=d.revenue});
+  var regs=Object.keys(map);
+  if(!regs.length)return;
+  var total=regs.reduce(function(s,r){return s+map[r]},0);
+  var cx=W/2-40,cy=H/2,R=Math.min(W,H)/2-30,ri=R*.55;
+  var colors=["#38bdf8","#a78bfa","#34d399","#fbbf24","#fb923c","#f472b6"];
+  var angle=-Math.PI/2;
+  donutHitAreas=[];
+  regs.forEach(function(reg,i){
+    var sweep=(map[reg]/total)*Math.PI*2;
+    ctx.beginPath();ctx.moveTo(cx+ri*Math.cos(angle),cy+ri*Math.sin(angle));
+    ctx.arc(cx,cy,R,angle,angle+sweep);
+    ctx.arc(cx,cy,ri,angle+sweep,angle,true);
+    ctx.closePath();ctx.fillStyle=colors[i%colors.length];ctx.fill();
+    /* label line */
+    var mid=angle+sweep/2;
+    var lx=cx+R*.78*Math.cos(mid),ly=cy+R*.78*Math.sin(mid);
+    var pct=(map[reg]/total*100).toFixed(1)+"%";
+    ctx.fillStyle="#e2e8f0";ctx.font="bold 11px system-ui";ctx.textAlign=Math.cos(mid)>0?"left":"right";
+    ctx.fillText(reg,pct.length*0+lx+(Math.cos(mid)>0?8:-8),ly);
+    /* hit area - arc segment */
+    donutHitAreas.push({cx:cx,cy:cy,ri:ri,ro:R,a1:angle,a2:angle+sweep,tip:{label:reg,body:"Revenue: $"+map[reg].toFixed(2)+" ("+pct+")"}});
+    angle+=sweep;
+  });
+  /* center text */
+  ctx.fillStyle="#f8fafc";ctx.font="bold 16px system-ui";ctx.textAlign="center";
+  ctx.fillText("$"+total.toFixed(0),cx,cy+5);
+  ctx.fillStyle="#94a3b8";ctx.font="11px system-ui";
+  ctx.fillText("Total Revenue",cx,cy+20);
+  /* legend */
+  regs.forEach(function(reg,i){
+    var lx=W-100,ly=30+i*20;
+    ctx.fillStyle=colors[i%colors.length];
+    ctx.beginPath();ctx.arc(lx,ly,5,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle="#cbd5e1";ctx.font="11px system-ui";ctx.textAlign="left";
+    ctx.fillText(reg,lx+10,ly+4);
+  });
+}
+
+/* ── Chart: Scatter ── */
+var scatterHitAreas=[];
+function drawScatter(data){
+  var cv=document.getElementById("scatterChart"),ctx=cv.getContext("2d");
+  var W=cv.width,H=cv.height;
+  ctx.clearRect(0,0,W,H);
+  var padL=60,padR=20,padT=20,padB=36;
+  var cw=W-padL-padR,ch=H-padT-padB;
+  /* aggregate by category */
+  var map={};data.forEach(function(d){
+    if(!map[d.category])map[d.category]={spend:0,revenue:0,orders:0};
+    map[d.category].spend+=d.cost;map[d.category].revenue+=d.revenue;map[d.category].orders+=d.orders;
+  });
+  var cats=Object.keys(map);
+  if(!cats.length)return;
+  var maxSpend=Math.max.apply(null,cats.map(function(c){return map[c].spend}))*1.15;
+  var maxRev=Math.max.apply(null,cats.map(function(c){return map[c].revenue}))*1.15;
+  /* grid */
+  for(var g=0;g<=4;g++){
+    var gy=padT+ch-ch*(g/4);
+    ctx.beginPath();ctx.strokeStyle="#334155";ctx.lineWidth=1;ctx.moveTo(padL,gy);ctx.lineTo(W-padR,gy);ctx.stroke();
+    ctx.fillStyle="#64748b";ctx.font="11px system-ui";ctx.textAlign="right";
+    ctx.fillText("$"+(maxRev*g/4).toFixed(0),padL-6,gy+4);
+    var gx=padL+cw*(g/4);
+    ctx.beginPath();ctx.moveTo(gx,padT);ctx.lineTo(gx,H-padB);ctx.stroke();
+    ctx.textAlign="center";ctx.fillText("$"+(maxSpend*g/4).toFixed(0),gx,H-padB+16);
+  }
+  /* axis labels */
+  ctx.fillStyle="#94a3b8";ctx.font="12px system-ui";ctx.textAlign="center";
+  ctx.fillText("Spend (cost)",W/2,H-4);
+  ctx.save();ctx.translate(14,H/2);ctx.rotate(-Math.PI/2);ctx.fillText("Revenue",0,0);ctx.restore();
+  /* 45-degree ref line */
+  ctx.beginPath();ctx.strokeStyle="#475569";ctx.lineWidth=1;ctx.setLineDash([4,4]);
+  ctx.moveTo(padL,padT+ch);ctx.lineTo(padL+Math.min(cw,ch),padT+ch-Math.min(cw,ch));ctx.stroke();ctx.setLineDash([]);
+  /* dots */
+  var colors=["#38bdf8","#a78bfa","#34d399","#fbbf24","#fb923c","#f472b6"];
+  scatterHitAreas=[];
+  cats.forEach(function(cat,i){
+    var obj=map[cat];
+    var x=padL+cw*(obj.spend/maxSpend);
+    var y=padT+ch-ch*(obj.revenue/maxRev);
+    var radius=Math.max(8,Math.min(22,Math.sqrt(obj.orders)*1.5));
+    ctx.beginPath();ctx.arc(x,y,radius,0,Math.PI*2);
+    ctx.fillStyle=colors[i%colors.length];ctx.globalAlpha=0.65;ctx.fill();
+    ctx.globalAlpha=1;ctx.strokeStyle=colors[i%colors.length];ctx.lineWidth=2;ctx.stroke();
+    /* label */
+    ctx.fillStyle="#e2e8f0";ctx.font="10px system-ui";ctx.textAlign="center";
+    ctx.fillText(cat,x,y-radius-6);
+    scatterHitAreas.push({x:x,y:y,r:radius,tip:{label:cat,body:"Spend: $"+obj.spend.toFixed(2)+"<br>Revenue: $"+obj.revenue.toFixed(2)+"<br>Orders: "+obj.orders}});
+  });
+}
+
+/* ── Tooltip hover for all canvases ── */
+function attachHover(canvasId,getAreas){
+  var cv=document.getElementById(canvasId);
+  cv.addEventListener("mousemove",function(e){
+    var areas=getAreas();
+    var rect=cv.getBoundingClientRect();
+    var sx=cv.width/rect.width, sy=cv.height/rect.height;
+    var mx=(e.clientX-rect.left)*sx, my=(e.clientY-rect.top)*sy;
+    var hit=null;
+    for(var i=0;i<areas.length;i++){
+      var a=areas[i];
+      if(a.r!==undefined){
+        if(Math.hypot(mx-a.x,my-a.y)<a.r){hit=a;break;}
+      } else if(a.w!==undefined){
+        if(mx>=a.x&&mx<=a.x+a.w&&my>=a.y&&my<=a.y+a.h){hit=a;break;}
+      } else if(a.a1!==undefined){
+        var dist=Math.hypot(mx-a.cx,my-a.cy);
+        if(dist>=a.ri&&dist<=a.ro){
+          var ang=Math.atan2(my-a.cy,mx-a.cx);
+          if(ang<-Math.PI/2)ang+=Math.PI*2;
+          if(ang>=a.a1&&ang<=a.a2){hit=a;break;}
+        }
+      }
+    }
+    if(hit)showTooltip(e,hit.tip);else hideTooltip();
+  });
+  cv.addEventListener("mouseleave",hideTooltip);
+}
+attachHover("lineChart",function(){return lineHitAreas});
+attachHover("barChart",function(){return barHitAreas});
+attachHover("donutChart",function(){return donutHitAreas});
+attachHover("scatterChart",function(){return scatterHitAreas});
+
+/* ── Full render ── */
+function render(){
+  var data=getData();
+  renderKPIs(data);
+  drawLine(data);
+  drawBar(data);
+  drawDonut(data);
+  drawScatter(data);
+}
+
+/* ── Events ── */
+regionFilter.addEventListener("change",render);
+categoryFilter.addEventListener("change",render);
+periodFrom.addEventListener("change",render);
+periodTo.addEventListener("change",render);
+refreshBtn.addEventListener("click",function(){
+  seed+=1;
+  allData=generateData(seed);
+  render();
+});
+
+/* initial render */
+render();
+})();
+</script>
+</body>
+</html>

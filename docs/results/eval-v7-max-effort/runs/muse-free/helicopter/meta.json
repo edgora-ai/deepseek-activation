@@ -1,0 +1,50 @@
+{
+  "generation": {
+    "exitCode": 143,
+    "signal": null,
+    "timedOut": false,
+    "durationMs": 1800734,
+    "stdout": "",
+    "stderr": "[claude-code:unrecognized_model] {\"model\":\"deepseek-free\",\"query_source\":\"generate_session_title\"}\n[claude-code:unrecognized_model] {\"model\":\"muse-free\",\"query_source\":\"sdk\"}\n"
+  },
+  "startedAt": "2026-08-21T16:23:41.475Z",
+  "finishedAt": "2026-08-21T16:53:42.211Z",
+  "durationMs": 1800734,
+  "exitCode": 143,
+  "signal": null,
+  "timedOut": false,
+  "model": "muse-free",
+  "task": "helicopter",
+  "runId": "muse-free-helicopter",
+  "effort": "max",
+  "artifact": null,
+  "evaluation": {
+    "methodVersion": 6,
+    "generated": false,
+    "artifactHash": null,
+    "bytes": 0,
+    "syntaxPass": false,
+    "syntaxFailures": [],
+    "runtimePass": false,
+    "runtimeErrors": [],
+    "browserFailure": "target artifact was not generated",
+    "contractPassed": 0,
+    "contractTotal": 0,
+    "contractChecks": [],
+    "interactionPass": false,
+    "interaction": null,
+    "visualSanity": false,
+    "screenshot": null,
+    "screenshotBytes": 0,
+    "externalResources": [],
+    "placeholderCount": 0,
+    "runtimeSnapshot": null,
+    "visualStats": null,
+    "fullPass": false
+  },
+  "vision": null,
+  "usage": {
+    "status": "unavailable",
+    "reason": "claude does not expose an implemented run-attribution source"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "status": "ok",
+  "valid": false,
+  "summary": "虽有赛道、终点和角色载具，但画面底部角色与车辆明显严重重叠、翻倒，布局破损感强。",
+  "model": "gpt-5.6-terra",
+  "durationMs": 4361
+}

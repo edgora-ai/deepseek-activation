@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mars Ring Road Race</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #1a0a00; font-family: 'Segoe UI', Tahoma, sans-serif; }
+  #app { position: relative; width: 100%; height: 100%; }
+  svg { display: block; width: 100%; height: 100%; }
+  #leaderboard {
+    position: absolute; top: 14px; right: 18px;
+    background: rgba(40, 10, 0, 0.88); border: 2px solid #d4742a;
+    border-radius: 12px; padding: 14px 18px; color: #ffe8cc;
+    font-size: 15px; min-width: 210px; z-index: 10;
+    box-shadow: 0 0 18px rgba(212,116,42,0.5);
+  }
+  #leaderboard h2 { font-size: 17px; color: #ffaa44; margin-bottom: 8px; text-align: center; letter-spacing: 1px; }
+  .lb-row { display: flex; align-items: center; padding: 4px 0; gap: 8px; }
+  .lb-pos { font-weight: bold; min-width: 22px; font-size: 18px; }
+  .lb-name { flex: 1; }
+  .lb-dist { font-size: 13px; color: #ccaa88; }
+  .lb-emoji { font-size: 18px; }
+  #title {
+    position: absolute; top: 14px; left: 18px;
+    background: rgba(40, 10, 0, 0.88); border: 2px solid #d4742a;
+    border-radius: 12px; padding: 10px 16px; color: #ffcc66;
+    font-size: 20px; font-weight: bold; z-index: 10;
+    text-shadow: 0 0 8px rgba(255,170,50,0.6);
+  }
+  #title small { display: block; font-size: 12px; color: #ccaa88; font-weight: normal; margin-top: 2px; }
+  #countdown {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    font-size: 90px; font-weight: bold; color: #ffcc44; z-index: 20;
+    text-shadow: 0 0 30px rgba(255,180,40,0.9); pointer-events: none;
+    opacity: 0; transition: opacity 0.3s;
+  }
+  #countdown.show { opacity: 1; }
+  #winner-banner {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    background: rgba(30, 5, 0, 0.92); border: 3px solid #ffaa44;
+    border-radius: 18px; padding: 24px 36px; z-index: 25; text-align: center;
+    display: none;
+  }
+  #winner-banner h1 { color: #ffcc44; font-size: 32px; margin-bottom: 8px; }
+  #winner-banner p { color: #ffe8cc; font-size: 18px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="title">🏁 Mars Ring Road Race <small>Olympus Mons Circuit — 800m</small></div>
+  <div id="leaderboard"><h2>⚡ LEADERBOARD</h2><div id="lb-rows"></div></div>
+  <div id="countdown"></div>
+  <div id="winner-banner"><h1 id="winner-text"></h1><p id="winner-sub"></p></div>
+  <svg id="race" viewBox="0 0 1200 500" preserveAspectRatio="xMidYMid slice">
+    <defs>
+      <!-- Mars sky gradient -->
+      <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#1a0500"/>
+        <stop offset="40%" stop-color="#4a1500"/>
+        <stop offset="70%" stop-color="#8a3000"/>
+        <stop offset="100%" stop-color="#c45a10"/>
+      </linearGradient>
+      <!-- Ground gradient -->
+      <linearGradient id="groundGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#c45a10"/>
+        <stop offset="30%" stop-color="#a04008"/>
+        <stop offset="100%" stop-color="#702800"/>
+      </linearGradient>
+      <!-- Road gradient -->
+      <linearGradient id="roadGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#555"/>
+        <stop offset="50%" stop-color="#666"/>
+        <stop offset="100%" stop-color="#444"/>
+      </linearGradient>
+      <!-- Sun glow -->
+      <radialGradient id="sunGlow" cx="0.5" cy="0.5" r="0.5">
+        <stop offset="0%" stop-color="#ffee88"/>
+        <stop offset="60%" stop-color="#ffaa44"/>
+        <stop offset="100%" stop-color="#ff6600" stop-opacity="0"/>
+      </radialGradient>
+      <!-- Dust particles filter -->
+      <filter id="dust">
+        <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" result="n"/>
+        <feColorMatrix in="n" type="saturate" values="0" result="m"/>
+        <feBlend in="SourceGraphic" in2="m" mode="overlay"/>
+      </filter>
+    </defs>
+
+    <!-- Sky -->
+    <rect x="0" y="0" width="1200" height="320" fill="url(#skyGrad)"/>
+
+    <!-- Sun -->
+    <circle cx="950" cy="80" r="60" fill="url(#sunGlow)" opacity="0.8"/>
+    <circle cx="950" cy="80" r="25" fill="#ffe888" opacity="0.95"/>
+
+    <!-- Stars (small dots) -->
+    <g id="stars" opacity="0.6">
+      <circle cx="100" cy="30" r="1" fill="#ffe8cc"/><circle cx="250" cy="55" r="0.8" fill="#ffd8aa"/>
+      <circle cx="400" cy="20" r="1.2" fill="#ffe8cc"/><circle cx="550" cy="45" r="0.7" fill="#ffd8aa"/>
+      <circle cx="700" cy="15" r="1" fill="#ffe8cc"/><circle cx="150" cy="70" r="0.6" fill="#ffd8aa"/>
+      <circle cx="850" cy="50" r="0.9" fill="#ffe8cc"/><circle cx="1050" cy="35" r="1.1" fill="#ffd8aa"/>
+      <circle cx="1100" cy="65" r="0.8" fill="#ffe8cc"/><circle cx="320" cy="80" r="0.5" fill="#ffd8aa"/>
+    </g>
+
+    <!-- Distant mountains/craters -->
+    <g id="distant">
+      <polygon points="0,320 60,220 120,260 200,210 280,240 340,200 420,230 500,190 560,220 640,205 720,225 800,210 880,235 960,200 1040,220 1120,215 1200,230 1200,320" fill="#8a3010" opacity="0.7"/>
+      <ellipse cx="750" cy="270" rx="80" ry="25" fill="#6a2008" opacity="0.5"/>
+      <ellipse cx="300" cy="290" rx="50" ry="15" fill="#6a2008" opacity="0.4"/>
+    </g>
+
+    <!-- Martian ground -->
+    <rect x="0" y="320" width="1200" height="180" fill="url(#groundGrad)"/>
+
+    <!-- Craters on ground -->
+    <g id="craters" opacity="0.3">
+      <ellipse cx="180" cy="400" rx="30" ry="8" fill="#702800"/>
+      <ellipse cx="600" cy="440" rx="20" ry="6" fill="#702800"/>
+      <ellipse cx="950" cy="380" rx="25" ry="7" fill="#702800"/>
+      <ellipse cx="400" cy="460" rx="15" ry="4" fill="#702800"/>
+    </g>
+
+    <!-- Track background (3 lanes) -->
+    <rect x="0" y="345" width="1200" height="110" rx="6" fill="url(#roadGrad)" opacity="0.9"/>
+    <!-- Lane lines -->
+    <line x1="0" y1="380" x2="1200" y2="380" stroke="#888" stroke-width="1.5" stroke-dasharray="20,12" opacity="0.5"/>
+    <line x1="0" y1="418" x2="1200" y2="418" stroke="#888" stroke-width="1.5" stroke-dasharray="20,12" opacity="0.5"/>
+    <!-- Road edges -->
+    <line x1="0" y1="345" x2="1200" y2="345" stroke="#999" stroke-width="2" opacity="0.6"/>
+    <line x1="0" y1="455" x2="1200" y2="455" stroke="#999" stroke-width="2" opacity="0.6"/>
+
+    <!-- Track surface detail - Mars dust -->
+    <rect x="0" y="345" width="1200" height="110" rx="6" fill="#cc5522" opacity="0.08"/>
+
+    <!-- Start line -->
+    <rect x="100" y="343" width="4" height="114" fill="#fff" opacity="0.8"/>
+    <text x="102" y="338" fill="#fff" font-size="11" text-anchor="middle" font-weight="bold" opacity="0.8">START</text>
+    <!-- Finish line -->
+    <g id="finish-flag">
+      <rect x="1090" y="343" width="4" height="114" fill="#fff" opacity="0.8"/>
+      <rect x="1094" y="343" width="20" height="12" fill="#fff"/>
+      <rect x="1094" y="343" width="5" height="6" fill="#000"/>
+      <rect x="1099" y="349" width="5" height="6" fill="#000"/>
+      <rect x="1104" y="343" width="5" height="6" fill="#000"/>
+      <rect x="1109" y="349" width="5" height="6" fill="#000"/>
+      <text x="1104" y="338" fill="#ffcc44" font-size="11" text-anchor="middle" font-weight="bold">FINISH</text>
+    </g>
+
+    <!-- Distance markers -->
+    <g id="markers" fill="#999" font-size="9" text-anchor="middle" opacity="0.5">
+      <text x="200" y="468">100m</text><text x="300" y="468">200m</text>
+      <text x="400" y="468">300m</text><text x="500" y="468">400m</text>
+      <text x="600" y="468">500m</text><text x="700" y="468">600m</text>
+      <text x="800" y="468">700m</text><text x="900" y="468">800m</text>
+      <text x="1000" y="468">900m</text>
+    </g>
+
+    <!-- Dust cloud layer (behind racers) -->
+    <g id="dust-clouds" opacity="0.3"></g>
+
+    <!-- ===== RACERS ===== -->
+    <!-- Lane 1 (top): Rabbit on bicycle — y center ~365 -->
+    <!-- Lane 2 (mid): Turtle on motorcycle — y center ~400 -->
+    <!-- Lane 3 (bot): Bald eagle on tricycle — y center ~438 -->
+
+    <g id="racer-rabbit" transform="translate(60, 348)">
+      <!-- Dust trail -->
+      <g class="dust-trail" opacity="0.35">
+        <circle cx="-8" cy="18" r="4" fill="#c49060"/>
+        <circle cx="-16" cy="16" r="3" fill="#b08050"/>
+        <circle cx="-24" cy="19" r="3.5" fill="#c49060"/>
+        <circle cx="-32" cy="15" r="2.5" fill="#b08050"/>
+      </g>
+
+      <!-- BICYCLE -->
+      <g class="bike" id="bike-r">
+        <!-- Rear wheel -->
+        <g id="rw-r" transform="translate(12, 26)">
+          <circle cx="0" cy="0" r="9" fill="none" stroke="#bbb" stroke-width="1.5"/>
+          <circle cx="0" cy="0" r="1.5" fill="#888"/>
+          <line x1="0" y1="-9" x2="0" y2="9" stroke="#999" stroke-width="0.7"/>
+          <line x1="-9" y1="0" x2="9" y2="0" stroke="#999" stroke-width="0.7"/>
+          <line x1="-6" y1="-6" x2="6" y2="6" stroke="#999" stroke-width="0.5"/>
+          <line x1="6" y1="-6" x2="-6" y2="6" stroke="#999" stroke-width="0.5"/>
+        </g>
+        <!-- Front wheel -->
+        <g id="fw-r" transform="translate(42, 26)">
+          <circle cx="0" cy="0" r="9" fill="none" stroke="#bbb" stroke-width="1.5"/>
+          <circle cx="0" cy="0" r="1.5" fill="#888"/>
+          <line x1="0" y1="-9" x2="0" y2="9" stroke="#999" stroke-width="0.7"/>
+          <line x1="-9" y1="0" x2="9" y2="0" stroke="#999" stroke-width="0.7"/>
+          <line x1="-6" y1="-6" x2="6" y2="6" stroke="#999" stroke-width="0.5"/>
+          <line x1="6" y1="-6" x2="-6" y2="6" stroke="#999" stroke-width="0.5"/>
+        </g>
+        <!-- Frame -->
+        <polygon points="12,26 27,14 42,26 27,14" fill="none" stroke="#dd4444" stroke-width="2"/>
+        <line x1="12" y1="26" x2="27" y2="26" stroke="#dd4444" stroke-width="2"/>
+        <line x1="27" y1="26" x2="42" y2="26" stroke="#dd4444" stroke-width="2"/>
+        <line x1="27" y1="14" x2="27" y2="26" stroke="#dd4444" stroke-width="2"/>
+        <!-- Seat -->
+        <line x1="18" y1="12" x2="30" y2="12" stroke="#884422" stroke-width="2.5" stroke-linecap="round"/>
+        <!-- Handlebars -->
+        <line x1="38" y1="12" x2="44" y2="10" stroke="#888" stroke-width="1.5"/>
+        <line x1="40" y1="9" x2="44" y2="11" stroke="#888" stroke-width="1.5"/>
+        <!-- Pedal cranks (will rotate) -->
+        <g id="pedals-r" transform="translate(27, 26)">
+          <line x1="0" y1="0" x2="4" y2="-5" stroke="#666" stroke-width="1.5"/>
+          <line x1="0" y1="0" x2="-4" y2="5" stroke="#666" stroke-width="1.5"/>
+          <rect x="3" y="-6.5" width="3" height="2" rx="0.5" fill="#555"/>
+          <rect x="-6" y="5.5" width="3" height="2" rx="0.5" fill="#555"/>
+        </g>
+        <!-- Chain hint -->
+        <ellipse cx="27" cy="26" rx="3" ry="3" fill="none" stroke="#666" stroke-width="0.7"/>
+      </g>
+
+      <!-- RABBIT character -->
+      <g class="char" transform="translate(22, 0)">
+        <!-- Body -->
+        <ellipse cx="4" cy="12" rx="7" ry="5" fill="#d4a06a"/>
+        <!-- Head -->
+        <circle cx="8" cy="4" r="5" fill="#e0b878"/>
+        <!-- Ears -->
+        <ellipse cx="5" cy="-7" rx="2" ry="7" fill="#e0b878" stroke="#c49060" stroke-width="0.5"/>
+        <ellipse cx="5" cy="-7" rx="1" ry="5" fill="#f0d0a0"/>
+        <ellipse cx="10" cy="-7" rx="2" ry="7" fill="#e0b878" stroke="#c49060" stroke-width="0.5"/>
+        <ellipse cx="10" cy="-7" rx="1" ry="5" fill="#f0d0a0"/>
+        <!-- Eye -->
+        <circle cx="11" cy="3" r="1.2" fill="#222"/>
+        <circle cx="11.4" cy="2.6" r="0.4" fill="#fff"/>
+        <!-- Nose -->
+        <circle cx="13" cy="4.5" r="0.8" fill="#cc7788"/>
+        <!-- Mouth -->
+        <path d="M12,6 Q13.5,7.5 12,7" fill="none" stroke="#996644" stroke-width="0.5"/>
+        <!-- Whiskers -->
+        <line x1="13" y1="3.5" x2="18" y2="2.5" stroke="#c49060" stroke-width="0.3"/>
+        <line x1="13" y1="4.5" x2="18" y2="4.5" stroke="#c49060" stroke-width="0.3"/>
+        <line x1="13" y1="5.5" x2="18" y2="6.5" stroke="#c49060" stroke-width="0.3"/>
+        <!-- Arm reaching to handlebar -->
+        <line x1="8" y1="10" x2="18" y2="8" stroke="#d4a06a" stroke-width="2" stroke-linecap="round"/>
+        <!-- Front paw on handlebar -->
+        <circle cx="18" cy="8" r="1.5" fill="#e0b878"/>
+        <!-- Leg on pedal -->
+        <line x1="2" y1="15" x2="1" y2="22" stroke="#d4a06a" stroke-width="2"/>
+        <circle cx="1" cy="22" r="1.2" fill="#e0b878"/>
+        <!-- Tail (fluffy) -->
+        <circle cx="-4" cy="12" r="3" fill="#f0d8b0"/>
+      </g>
+    </g>
+
+    <g id="racer-turtle" transform="translate(60, 382)">
+      <!-- Dust trail -->
+      <g class="dust-trail" opacity="0.25">
+        <circle cx="-10" cy="20" r="5" fill="#c49060"/>
+        <circle cx="-20" cy="18" r="4" fill="#b08050"/>
+        <circle cx="-30" cy="21" r="4.5" fill="#c49060"/>
+        <circle cx="-40" cy="17" r="3" fill="#b08050"/>
+        <circle cx="-50" cy="20" r="3.5" fill="#c49060"/>
+      </g>
+
+      <!-- MOTORCYCLE -->
+      <g class="moto" id="moto-t">
+        <!-- Exhaust pipe -->
+        <rect x="-4" y="18" width="12" height="2.5" rx="1" fill="#777"/>
+        <!-- Exhaust smoke puffs -->
+        <circle class="exhaust" cx="-8" cy="18" r="2" fill="#999" opacity="0.4"/>
+        <circle class="exhaust" cx="-14" cy="16" r="1.5" fill="#aaa" opacity="0.3"/>
+        <circle class="exhaust" cx="-20" cy="15" r="1" fill="#bbb" opacity="0.2"/>
+
+        <!-- Rear wheel -->
+        <g id="rw-t" transform="translate(8, 28)">
+          <circle cx="0" cy="0" r="11" fill="none" stroke="#555" stroke-width="3"/>
+          <circle cx="0" cy="0" r="10" fill="#222"/>
+          <circle cx="0" cy="0" r="3" fill="#666"/>
+          <circle cx="0" cy="0" r="1.5" fill="#888"/>
+          <!-- Spokes -->
+          <g stroke="#777" stroke-width="0.6">
+            <line x1="0" y1="-10" x2="0" y2="10"/><line x1="-10" y1="0" x2="10" y2="0"/>
+            <line x1="-7" y1="-7" x2="7" y2="7"/><line x1="7" y1="-7" x2="-7" y2="7"/>
+          </g>
+        </g>
+        <!-- Front wheel -->
+        <g id="fw-t" transform="translate(50, 28)">
+          <circle cx="0" cy="0" r="11" fill="none" stroke="#555" stroke-width="3"/>
+          <circle cx="0" cy="0" r="10" fill="#222"/>
+          <circle cx="0" cy="0" r="3" fill="#666"/>
+          <circle cx="0" cy="0" r="1.5" fill="#888"/>
+          <g stroke="#777" stroke-width="0.6">
+            <line x1="0" y1="-10" x2="0" y2="10"/><line x1="-10" y1="0" x2="10" y2="0"/>
+            <line x1="-7" y1="-7" x2="7" y2="7"/><line x1="7" y1="-7" x2="-7" y2="7"/>
+          </g>
+        </g>
+
+        <!-- Body frame -->
+        <rect x="4" y="12" width="44" height="12" rx="4" fill="#3344cc" stroke="#2233aa" stroke-width="1"/>
+        <!-- Fuel tank -->
+        <ellipse cx="28" cy="12" rx="10" ry="4" fill="#2244cc" stroke="#1a33aa" stroke-width="0.8"/>
+        <ellipse cx="28" cy="11" rx="7" ry="2" fill="#3355ee" opacity="0.4"/>
+        <!-- Seat -->
+        <rect x="10" y="10" width="14" height="4" rx="2" fill="#333"/>
+        <!-- Headlight -->
+        <circle cx="52" cy="16" r="3" fill="#ffee88"/>
+        <circle cx="52" cy="16" r="1.5" fill="#ffffcc"/>
+        <!-- Headlight beam -->
+        <polygon points="54,14 68,10 68,22 54,18" fill="#ffee88" opacity="0.08"/>
+        <!-- Handlebar -->
+        <line x1="44" y1="8" x2="50" y2="6" stroke="#888" stroke-width="2"/>
+        <line x1="48" y1="4" x2="52" y2="8" stroke="#888" stroke-width="1.5"/>
+        <!-- Muffler -->
+        <rect x="0" y="20" width="16" height="3" rx="1.5" fill="#666"/>
+        <!-- Rear fender -->
+        <path d="M-2,16 Q8,10 18,16" fill="none" stroke="#3344cc" stroke-width="2"/>
+        <!-- Front fork -->
+        <line x1="46" y1="14" x2="50" y2="28" stroke="#888" stroke-width="2"/>
+      </g>
+
+      <!-- TURTLE character -->
+      <g class="char" transform="translate(16, -2)">
+        <!-- Shell -->
+        <ellipse cx="8" cy="10" rx="12" ry="9" fill="#2a8844"/>
+        <ellipse cx="8" cy="10" rx="10" ry="7" fill="#339955"/>
+        <!-- Shell pattern (hexagonal) -->
+        <path d="M4,6 L8,3 L12,6 L12,11 L8,14 L4,11 Z" fill="none" stroke="#228844" stroke-width="1"/>
+        <path d="M8,3 L12,6" fill="none" stroke="#228844" stroke-width="0.7"/>
+        <path d="M8,3 L4,6" fill="none" stroke="#228844" stroke-width="0.7"/>
+        <path d="M12,6 L14,10" fill="none" stroke="#228844" stroke-width="0.7"/>
+        <path d="M4,6 L2,10" fill="none" stroke="#228844" stroke-width="0.7"/>
+        <!-- Head -->
+        <ellipse cx="20" cy="6" rx="5" ry="4" fill="#66aa55"/>
+        <!-- Eye -->
+        <circle cx="23" cy="5" r="1.5" fill="#fff"/>
+        <circle cx="23.8" cy="4.8" r="0.8" fill="#222"/>
+        <circle cx="24" cy="4.5" r="0.3" fill="#fff"/>
+        <!-- Mouth -->
+        <path d="M24,7.5 Q25.5,8.5 24,8.5" fill="none" stroke="#448833" stroke-width="0.5"/>
+        <!-- Nostril -->
+        <circle cx="24.5" cy="6.2" r="0.4" fill="#448833"/>
+        <!-- Arm holding handlebar -->
+        <line x1="16" y1="6" x2="28" y2="4" stroke="#66aa55" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="28" cy="4" r="1.3" fill="#77bb66"/>
+        <!-- Legs -->
+        <line x1="0" y1="14" x2="-2" y2="24" stroke="#66aa55" stroke-width="2"/>
+        <ellipse cx="-3" cy="24" rx="2" ry="1" fill="#77bb66"/>
+        <line x1="16" y1="14" x2="18" y2="24" stroke="#66aa55" stroke-width="2"/>
+        <ellipse cx="19" cy="24" rx="2" ry="1" fill="#77bb66"/>
+        <!-- Tail -->
+        <path d="M-4,12 Q-8,11 -9,13" fill="none" stroke="#66aa55" stroke-width="1.5" stroke-linecap="round"/>
+      </g>
+    </g>
+
+    <g id="racer-eagle" transform="translate(60, 422)">
+      <!-- Dust trail -->
+      <g class="dust-trail" opacity="0.2">
+        <circle cx="-12" cy="16" r="4" fill="#c49060"/>
+        <circle cx="-22" cy="14" r="3" fill="#b08050"/>
+        <circle cx="-32" cy="17" r="3.5" fill="#c49060"/>
+      </g>
+
+      <!-- TRICYCLE (human-pedaled) -->
+      <g class="tri" id="tri-e">
+        <!-- Rear left wheel -->
+        <g id="rw-e1" transform="translate(5, 26)">
+          <circle cx="0" cy="0" r="9" fill="none" stroke="#c90" stroke-width="1.5"/>
+          <circle cx="0" cy="0" r="1.5" fill="#a80"/>
+          <line x1="0" y1="-9" x2="0" y2="9" stroke="#b80" stroke-width="0.7"/>
+          <line x1="-9" y1="0" x2="9" y2="0" stroke="#b80" stroke-width="0.7"/>
+        </g>
+        <!-- Rear right wheel (slightly behind for perspective) -->
+        <g id="rw-e2" transform="translate(5, 30)">
+          <circle cx="0" cy="0" r="8" fill="none" stroke="#a80" stroke-width="1"/>
+          <circle cx="0" cy="0" r="1" fill="#880"/>
+        </g>
+        <!-- Front wheel -->
+        <g id="fw-e" transform="translate(48, 26)">
+          <circle cx="0" cy="0" r="9" fill="none" stroke="#c90" stroke-width="1.5"/>
+          <circle cx="0" cy="0" r="1.5" fill="#a80"/>
+          <line x1="0" y1="-9" x2="0" y2="9" stroke="#b80" stroke-width="0.7"/>
+          <line x1="-9" y1="0" x2="9" y2="0" stroke="#b80" stroke-width="0.7"/>
+        </g>
+        <!-- Frame -->
+        <line x1="5" y1="26" x2="27" y2="12" stroke="#cc8800" stroke-width="2"/>
+        <line x1="27" y1="12" x2="48" y2="26" stroke="#cc8800" stroke-width="2"/>
+        <line x1="5" y1="26" x2="27" y2="26" stroke="#cc8800" stroke-width="2"/>
+        <line x1="27" y1="26" x2="48" y2="26" stroke="#cc8800" stroke-width="2"/>
+        <line x1="27" y1="12" x2="27" y2="26" stroke="#cc8800" stroke-width="2"/>
+        <!-- Basket on front -->
+        <rect x="42" y="14" width="10" height="6" rx="1" fill="none" stroke="#a80" stroke-width="1"/>
+        <!-- Seat -->
+        <rect x="20" y="10" width="10" height="3" rx="1.5" fill="#553300"/>
+        <!-- Handlebar -->
+        <line x1="44" y1="10" x2="50" y2="8" stroke="#999" stroke-width="2"/>
+        <line x1="48" y1="7" x2="50" y2="9" stroke="#999" stroke-width="1.5"/>
+        <!-- Pedal cranks (will rotate) -->
+        <g id="pedals-e" transform="translate(27, 26)">
+          <line x1="0" y1="0" x2="4" y2="-5" stroke="#888" stroke-width="1.5"/>
+          <line x1="0" y1="0" x2="-4" y2="5" stroke="#888" stroke-width="1.5"/>
+          <rect x="3" y="-6.5" width="3" height="2" rx="0.5" fill="#777"/>
+          <rect x="-6" y="5.5" width="3" height="2" rx="0.5" fill="#777"/>
+        </g>
+      </g>
+
+      <!-- HUMAN (pedaler) -->
+      <g class="char" transform="translate(22, -6)">
+        <!-- Body -->
+        <rect x="-2" y="6" width="10" height="12" rx="3" fill="#dd6644"/>
+        <!-- Head -->
+        <circle cx="3" cy="0" r="5.5" fill="#eebb99"/>
+        <!-- Hair -->
+        <path d="M-2.5,-2 Q3,-7 8.5,-2" fill="#332211"/>
+        <!-- Eyes -->
+        <circle cx="1" cy="0" r="0.8" fill="#222"/>
+        <circle cx="5" cy="0" r="0.8" fill="#222"/>
+        <!-- Mouth (determined) -->
+        <line x1="1" y1="2.5" x2="5" y2="2.5" stroke="#996644" stroke-width="0.7"/>
+        <!-- Arms to handlebar -->
+        <line x1="6" y1="9" x2="18" y2="3" stroke="#eebb99" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="18" cy="3" r="1.3" fill="#eebb99"/>
+        <!-- Legs pedaling (will animate) -->
+        <line class="leg-l" x1="0" y1="17" x2="0" y2="26" stroke="#553388" stroke-width="2"/>
+        <line class="leg-r" x1="6" y1="17" x2="6" y2="26" stroke="#553388" stroke-width="2"/>
+        <!-- Shoes -->
+        <rect x="-1.5" y="25" width="3" height="1.5" rx="0.5" fill="#442211"/>
+        <rect x="4.5" y="25" width="3" height="1.5" rx="0.5" fill="#442211"/>
+      </g>
+
+      <!-- BALD EAGLE (passenger) -->
+      <g class="char" transform="translate(34, -8)">
+        <!-- Tail feathers -->
+        <path d="M-4,4 Q-10,2 -12,6" fill="#333" stroke="#222" stroke-width="0.5"/>
+        <path d="M-4,5 Q-10,4 -11,8" fill="#444" stroke="#222" stroke-width="0.5"/>
+        <!-- Body -->
+        <ellipse cx="2" cy="3" rx="6" ry="5" fill="#3a2211"/>
+        <!-- White head -->
+        <circle cx="7" cy="-3" r="4.5" fill="#f8f4f0"/>
+        <!-- Yellow beak -->
+        <polygon points="11,-3 16,-2 11,-1" fill="#eebb22"/>
+        <line x1="11" y1="-2" x2="14" y2="-2" stroke="#cc9911" stroke-width="0.5"/>
+        <!-- Eye -->
+        <circle cx="10" cy="-4" r="1.2" fill="#fff"/>
+        <circle cx="10.5" cy="-4" r="0.7" fill="#222"/>
+        <circle cx="10.7" cy="-4.2" r="0.25" fill="#fff"/>
+        <!-- Brow ridge (fierce look) -->
+        <line x1="8" y1="-5.5" x2="11" y2="-5" stroke="#222" stroke-width="0.8"/>
+        <!-- Wing detail -->
+        <path d="M-2,0 Q-6,-2 -4,5" fill="#4a3322" stroke="#3a2211" stroke-width="0.5"/>
+        <!-- Talons on handlebar -->
+        <line x1="6" y1="6" x2="10" y2="2" stroke="#eebb22" stroke-width="1"/>
+        <line x1="10" y1="2" x2="9" y2="0" stroke="#eebb22" stroke-width="0.7"/>
+        <line x1="10" y1="2" x2="11" y2="0" stroke="#eebb22" stroke-width="0.7"/>
+        <line x1="10" y1="2" x2="10.5" y2="1" stroke="#eebb22" stroke-width="0.7"/>
+      </g>
+    </g>
+
+    <!-- Foreground rocks -->
+    <g opacity="0.4">
+      <polygon points="50,470 60,455 70,470" fill="#6a3008"/>
+      <polygon points="350,480 358,465 366,480" fill="#5a2808"/>
+      <polygon points="780,475 790,460 800,475" fill="#6a3008"/>
+      <polygon points="1150,470 1160,458 1170,470" fill="#5a2808"/>
+    </g>
+  </svg>
+</div>
+
+<script>
+(function() {
+  "use strict";
+
+  const RACE_DIST = 1030; // pixels from start to finish
+  const START_X = 102;
+  const FINISH_X = 1090;
+  const TRACK_LEN = FINISH_X - START_X;
+
+  // Racer configs
+  const racers = [
+    {
+      id: "rabbit", name: "Hopper", emoji: "🐇",
+      color: "#ffcc44",
+      // Speed: rabbits are fast, erratic
+      baseSpeed: 3.8,
+      variance: 0.6,
+      acceleration: 0.04,
+      maxSpeed: 6.2,
+      fatigue: 0.003,
+      burstChance: 0.02,
+      burstBoost: 2.0,
+      burstDuration: 40,
+      lane: 0
+    },
+    {
+      id: "turtle", name: "Shellby", emoji: "🐢",
+      color: "#44cc66",
+      // Speed: turtle is slow but steady, motorcycle helps
+      baseSpeed: 3.2,
+      variance: 0.15,
+      acceleration: 0.05,
+      maxSpeed: 5.0,
+      fatigue: 0.001,
+      burstChance: 0.005,
+      burstBoost: 1.2,
+      burstDuration: 60,
+      lane: 1
+    },
+    {
+      id: "eagle", name: "Swoop", emoji: "🦅",
+      color: "#4488ff",
+      // Speed: eagle on tricycle — inconsistent, bursts of energy
+      baseSpeed: 3.5,
+      variance: 0.45,
+      acceleration: 0.035,
+      maxSpeed: 5.8,
+      fatigue: 0.004,
+      burstChance: 0.015,
+      burstBoost: 2.5,
+      burstDuration: 30,
+      lane: 2
+    }
+  ];
+
+  // State
+  let raceStarted = false;
+  let raceFinished = false;
+  let raceTime = 0;
+  let countdownVal = 3;
+  let animId = null;
+
+  racers.forEach(r => {
+    r.x = 0;           // distance from start (0..TRACK_LEN)
+    r.speed = 0;
+    r.finished = false;
+    r.finishTime = 0;
+    r.finishOrder = 0;
+    r.burstTimer = 0;
+    r.currentSpeed = r.baseSpeed;
+    r.wobble = 0;
+    r.pedalAngle = 0;
+  });
+
+  const rankings = () => {
+    const sorted = [...racers].sort((a, b) => {
+      if (a.finished && b.finished) return a.finishTime - b.finishTime;
+      if (a.finished) return -1;
+      if (b.finished) return 1;
+      return b.x - a.x;
+    });
+    return sorted;
+  };
+
+  // DOM refs
+  const svgEl = document.getElementById("race");
+  const lbRows = document.getElementById("lb-rows");
+  const countdownEl = document.getElementById("countdown");
+  const winnerBanner = document.getElementById("winner-banner");
+  const winnerText = document.getElementById("winner-text");
+  const winnerSub = document.getElementById("winner-sub");
+
+  const elRabbit = document.getElementById("racer-rabbit");
+  const elTurtle = document.getElementById("racer-turtle");
+  const elEagle = document.getElementById("racer-eagle");
+
+  const els = [elRabbit, elTurtle, elEagle];
+  const yOffsets = [348, 382, 422];
+
+  // Wheel rotation refs
+  const wheelGroups = {
+    rabbit: { rw: document.getElementById("rw-r"), fw: document.getElementById("fw-r"), pedals: document.getElementById("pedals-r") },
+    turtle: { rw: document.getElementById("rw-t"), fw: document.getElementById("fw-t") },
+    eagle: { rw1: document.getElementById("rw-e1"), rw2: document.getElementById("rw-e2"), fw: document.getElementById("fw-e"), pedals: document.getElementById("pedals-e") }
+  };
+
+  // Exhaust puffs
+  const exhausts = document.querySelectorAll(".exhaust");
+
+  function updateLeaderboard() {
+    const sorted = rankings();
+    let html = "";
+    sorted.forEach((r, i) => {
+      const pos = i + 1;
+      const dist = Math.round(r.x);
+      const posColor = pos === 1 ? "#ffcc44" : pos === 2 ? "#cccccc" : pos === 3 ? "#cc8844" : "#999";
+      html += `<div class="lb-row">
+        <span class="lb-pos" style="color:${posColor}">${pos}</span>
+        <span class="lb-emoji">${r.emoji}</span>
+        <span class="lb-name" style="color:${r.color}">${r.name}</span>
+        <span class="lb-dist">${r.finished ? "✅ " + r.finishTime.toFixed(1) + "s" : dist + "m"}</span>
+      </div>`;
+    });
+    lbRows.innerHTML = html;
+  }
+
+  function updatePositions() {
+    const sorted = rankings();
+    sorted.forEach((r, i) => {
+      const idx = racers.indexOf(r);
+      const pixelX = START_X + r.x;
+      els[idx].setAttribute("transform", `translate(${pixelX}, ${yOffsets[idx]})`);
+    });
+  }
+
+  function rotateWheels(r, delta) {
+    const rot = (r.currentSpeed || r.baseSpeed) * delta * 15;
+    r.wobble = (r.wobble || 0) + rot;
+
+    if (r.id === "rabbit") {
+      const w = wheelGroups.rabbit;
+      if (w.rw) w.rw.setAttribute("transform", `translate(12, 26) rotate(${r.wobble})`);
+      if (w.fw) w.fw.setAttribute("transform", `translate(42, 26) rotate(${r.wobble})`);
+      if (w.pedals) w.pedals.setAttribute("transform", `translate(27, 26) rotate(${r.wobble * 2})`);
+    } else if (r.id === "turtle") {
+      const w = wheelGroups.turtle;
+      if (w.rw) w.rw.setAttribute("transform", `translate(8, 28) rotate(${r.wobble})`);
+      if (w.fw) w.fw.setAttribute("transform", `translate(50, 28) rotate(${r.wobble})`);
+    } else if (r.id === "eagle") {
+      const w = wheelGroups.eagle;
+      if (w.rw1) w.rw1.setAttribute("transform", `translate(5, 26) rotate(${r.wobble})`);
+      if (w.rw2) w.rw2.setAttribute("transform", `translate(5, 30) rotate(${r.wobble})`);
+      if (w.fw) w.fw.setAttribute("transform", `translate(48, 26) rotate(${r.wobble})`);
+      if (w.pedals) w.pedals.setAttribute("transform", `translate(27, 26) rotate(${r.wobble * 2})`);
+    }
+  }
+
+  function animateBodies(r, time) {
+    // Subtle bounce for natural movement
+    const idx = racers.indexOf(r);
+    const el = els[idx];
+    const baseY = yOffsets[idx];
+    const bounce = Math.sin(time * 0.008 * (r.currentSpeed || 3)) * 1.5;
+    const lean = Math.sin(time * 0.003) * 0.5;
+    const pixelX = START_X + r.x;
+    el.setAttribute("transform", `translate(${pixelX}, ${baseY + bounce}) rotate(${lean}, 30, 15)`);
+
+    // Animate legs for eagle's human pedaler
+    if (r.id === "eagle") {
+      const pedaler = el.querySelector(".leg-l");
+      const pedaler2 = el.querySelector(".leg-r");
+      if (pedaler && pedaler2) {
+        const legSwing = Math.sin(r.wobble * 0.3) * 4;
+        pedaler.setAttribute("x2", String(legSwing));
+        pedaler2.setAttribute("x2", String(-legSwing));
+      }
+    }
+
+    // Animate ears for rabbit
+    if (r.id === "rabbit") {
+      const ears = el.querySelectorAll("ellipse[fill='#f0d0a0']");
+      ears.forEach((ear, i) => {
+        const flap = Math.sin(time * 0.01 + i) * 2;
+        ear.setAttribute("transform", `translate(${flap}, 0)`);
+      });
+    }
+  }
+
+  function updateExhaust(time) {
+    exhausts.forEach((e, i) => {
+      const offset = Math.sin(time * 0.005 + i * 2) * 2;
+      const opacity = 0.2 + Math.abs(Math.sin(time * 0.003 + i)) * 0.3;
+      e.setAttribute("cx", String(-8 - i * 6 + offset));
+      e.setAttribute("opacity", String(opacity));
+    });
+  }
+
+  function simulateRacer(r, dt) {
+    if (r.finished) return;
+
+    // Random speed variation
+    r.currentSpeed = r.baseSpeed + (Math.random() - 0.5) * r.variance;
+
+    // Acceleration over time
+    r.baseSpeed = Math.min(r.maxSpeed, r.baseSpeed + r.acceleration * dt);
+
+    // Fatigue (slight slowdown over long races)
+    r.baseSpeed = Math.max(r.baseSpeed * 0.998, r.baseSpeed - r.fatigue * dt);
+
+    // Burst speed
+    if (r.burstTimer > 0) {
+      r.burstTimer -= dt;
+      r.currentSpeed += r.burstBoost;
+    } else if (Math.random() < r.burstChance) {
+      r.burstTimer = r.burstDuration;
+    }
+
+    // Elastic slowdown when others pass
+    const sorted = rankings();
+    const myIdx = sorted.indexOf(r);
+
+    r.x += r.currentSpeed * dt * 0.1;
+
+    // Finish check
+    if (r.x >= TRACK_LEN) {
+      r.x = TRACK_LEN;
+      r.finished = true;
+      r.finishTime = raceTime;
+      r.finishOrder = racers.filter(x => x.finished).length;
+    }
+  }
+
+  function showCountdown(cb) {
+    countdownVal = 3;
+    countdownEl.classList.add("show");
+    function tick() {
+      if (countdownVal > 0) {
+        countdownEl.textContent = countdownVal;
+        countdownVal--;
+        setTimeout(tick, 800);
+      } else {
+        countdownEl.textContent = "GO!";
+        setTimeout(() => {
+          countdownEl.classList.remove("show");
+          cb();
+        }, 500);
+      }
+    }
+    tick();
+  }
+
+  let lastTime = 0;
+  function gameLoop(timestamp) {
+    if (!lastTime) lastTime = timestamp;
+    const dt = Math.min((timestamp - lastTime) / 16.67, 3); // normalize to ~60fps
+    lastTime = timestamp;
+
+    if (raceStarted && !raceFinished) {
+      raceTime += dt * (1 / 60);
+
+      racers.forEach(r => {
+        simulateRacer(r, dt);
+        rotateWheels(r, dt);
+        animateBodies(r, timestamp);
+      });
+
+      updateExhaust(timestamp);
+      updatePositions();
+      updateLeaderboard();
+
+      // Check if all finished
+      if (racers.every(r => r.finished)) {
+        raceFinished = true;
+        const winner = rankings()[0];
+        winnerBanner.style.display = "block";
+        winnerText.textContent = `🏆 ${winner.emoji} ${winner.name} Wins!`;
+        winnerSub.textContent = `Finished in ${winner.finishTime.toFixed(1)}s`;
+      }
+    }
+
+    animId = requestAnimationFrame(gameLoop);
+  }
+
+  // Add some ambient dust particles
+  function createDustParticles() {
+    const dustGroup = document.getElementById("dust-clouds");
+    for (let i = 0; i < 15; i++) {
+      const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      c.setAttribute("cx", String(Math.random() * 1200));
+      c.setAttribute("cy", String(340 + Math.random() * 120));
+      c.setAttribute("r", String(1 + Math.random() * 2));
+      c.setAttribute("fill", "#c49060");
+      c.setAttribute("opacity", String(0.1 + Math.random() * 0.2));
+      dustGroup.appendChild(c);
+      // Animate drifting
+      const animX = document.createElementNS("http://www.w3.org/2000/svg", "animate");
+      animX.setAttribute("attributeName", "cx");
+      animX.setAttribute("values", `${Math.random()*1200};${Math.random()*1200 + 100};${Math.random()*1200}`);
+      animX.setAttribute("dur", String(4 + Math.random() * 6) + "s");
+      animX.setAttribute("repeatCount", "indefinite");
+      c.appendChild(animX);
+    }
+  }
+
+  // Occasional Mars wind gust (visual)
+  let windTimer = 0;
+  function checkWind(timestamp) {
+    windTimer++;
+    if (windTimer > 300 && Math.random() < 0.003) {
+      windTimer = 0;
+      const windLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      const y = 330 + Math.random() * 100;
+      windLine.setAttribute("x1", "-20");
+      windLine.setAttribute("y1", String(y));
+      windLine.setAttribute("x2", "0");
+      windLine.setAttribute("y2", String(y + (Math.random() - 0.5) * 10));
+      windLine.setAttribute("stroke", "#c49060");
+      windLine.setAttribute("stroke-width", "1");
+      windLine.setAttribute("opacity", "0.3");
+      svgEl.appendChild(windLine);
+
+      const anim = document.createElementNS("http://www.w3.org/2000/svg", "animate");
+      anim.setAttribute("attributeName", "x1");
+      anim.setAttribute("from", "-20");
+      anim.setAttribute("to", "1220");
+      anim.setAttribute("dur", "1.5s");
+      anim.setAttribute("fill", "freeze");
+      windLine.appendChild(anim);
+      const anim2 = document.createElementNS("http://www.w3.org/2000/svg", "animate");
+      anim2.setAttribute("attributeName", "x2");
+      anim2.setAttribute("from", "0");
+      anim2.setAttribute("to", "1240");
+      anim2.setAttribute("dur", "1.5s");
+      anim2.setAttribute("fill", "freeze");
+      anim2.setAttribute("begin", "0s");
+      windLine.appendChild(anim2);
+      anim2.beginElement();
+      anim.beginElement();
+      setTimeout(() => { if (windLine.parentNode) windLine.parentNode.removeChild(windLine); }, 1600);
+    }
+  }
+
+  // Extended game loop with wind
+  function masterLoop(timestamp) {
+    gameLoop(timestamp);
+    checkWind(timestamp);
+  }
+
+  // Init
+  function init() {
+    createDustParticles();
+    updateLeaderboard();
+    updatePositions();
+
+    // Initial wheel positions
+    racers.forEach(r => {
+      r.wobble = Math.random() * 360;
+      rotateWheels(r, 0);
+    });
+
+    showCountdown(() => {
+      raceStarted = true;
+      lastTime = 0;
+      animId = requestAnimationFrame(masterLoop);
+    });
+  }
+
+  // Start on load
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
+</script>
+</body>
+</html>

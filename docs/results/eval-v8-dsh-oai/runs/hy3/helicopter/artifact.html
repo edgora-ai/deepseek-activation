@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Interactive 3D Helicopter — artifact-hy3</title>
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: #0a0e14; overflow: hidden; }
+  #scene { display: block; width: 100vw; height: 100vh; }
+  .overlay {
+    position: fixed; pointer-events: none; font-family: "Consolas", "Menlo", monospace;
+    color: #6effa6; text-shadow: 0 0 4px rgba(0,0,0,0.9), 0 0 2px #000; user-select: none;
+  }
+  #hud {
+    top: 12px; left: 12px; padding: 10px 14px; line-height: 1.5; font-size: 14px;
+    background: rgba(8,16,12,0.45); border: 1px solid rgba(110,255,166,0.35);
+    border-radius: 6px; min-width: 200px;
+  }
+  #hud .k { color: #9fd9ff; }
+  #hud .v { color: #ffe27a; }
+  #hud h2 { margin: 0 0 6px 0; font-size: 13px; letter-spacing: 1px; color: #6effa6; }
+  #help {
+    bottom: 12px; left: 12px; padding: 10px 14px; font-size: 12.5px; line-height: 1.55;
+    background: rgba(8,16,12,0.45); border: 1px solid rgba(110,255,166,0.35); border-radius: 6px;
+    max-width: 360px;
+  }
+  #help b { color: #ffe27a; }
+  #note { bottom: 12px; right: 12px; font-size: 11px; color: #5a7a66; text-align: right; }
+  #boot {
+    top: 50%; left: 50%; transform: translate(-50%,-50%); color: #6effa6;
+    font-size: 16px; letter-spacing: 1px;
+  }
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+<div id="hud" class="overlay">
+  <h2>FLIGHT TELEMETRY</h2>
+  <div><span class="k">ALT </span> <span class="v" id="hAlt">0.0</span> m</div>
+  <div><span class="k">SPD </span> <span class="v" id="hSpd">0.0</span> m/s</div>
+  <div><span class="k">RPM </span> <span class="v" id="hRpm">0</span></div>
+  <div><span class="k">THR </span> <span class="v" id="hThr">0</span> %</div>
+  <div><span class="k">HDG </span> <span class="v" id="hHdg">0</span>&deg;</div>
+</div>
+<div id="help" class="overlay">
+  <b>W / S</b> pitch (fwd / aft) &nbsp; <b>A / D</b> roll (left / right)<br/>
+  <b>Q / E</b> yaw (left / right) &nbsp; <b>Space</b> collective (climb)<br/>
+  <b>C</b> collective down (descend) &nbsp; <b>Arrow keys</b> orbit camera<br/>
+  <b>R</b> reset &nbsp; <b>+ / -</b> zoom
+</div>
+<div id="note" class="overlay">self-contained · inline 3D engine (no external libs)</div>
+<div id="boot" class="overlay">INITIALIZING SCENE…</div>
+
+<script>
+"use strict";
+/* ===========================================================================
+   Self-contained 3D helicopter.
+   No external assets or libraries: a tiny inline 3D engine (matrix math,
+   perspective projection, painter's-algorithm rasterization with Lambert
+   shading) drives an articulated helicopter model with flight physics,
+   an interactive HUD, and a terrain grid.
+   =========================================================================== */
+
+/* ----------------------------- Math helpers ----------------------------- */
+function sub(a, b) { return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; }
+function add(a, b) { return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]; }
+function scale(a, s) { return [a[0] * s, a[1] * s, a[2] * s]; }
+function dot(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+function cross(a, b) {
+  return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+}
+function len(a) { return Math.hypot(a[0], a[1], a[2]); }
+function norm(a) { const l = len(a) || 1; return [a[0] / l, a[1] / l, a[2] / l]; }
+function clamp(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); }
+
+/* 4x4 row-major matrix multiply (a * b). */
+function mul(a, b) {
+  const r = new Array(16);
+  for (let i = 0; i < 4; i++) {
+    for (let j = 0; j < 4; j++) {
+      let s = 0;
+      for (let k = 0; k < 4; k++) s += a[i * 4 + k] * b[k * 4 + j];
+      r[i * 4 + j] = s;
+    }
+  }
+  return r;
+}
+
+/* Compose a TRS matrix from yaw(Y), pitch(X), roll(Z) euler angles and a translation. */
+function compose(yaw, pitch, roll, pos) {
+  const cy = Math.cos(yaw), sy = Math.sin(yaw);
+  const cx = Math.cos(pitch), sx = Math.sin(pitch);
+  const cz = Math.cos(roll), sz = Math.sin(roll);
+  const Ry = [cy, 0, sy, 0,  0, 1, 0, 0,  -sy, 0, cy, 0,  0, 0, 0, 1];
+  const Rx = [1, 0, 0, 0,  0, cx, -sx, 0,  0, sx, cx, 0,  0, 0, 0, 1];
+  const Rz = [cz, -sz, 0, 0,  sz, cz, 0, 0,  0, 0, 1, 0,  0, 0, 0, 1];
+  const R = mul(mul(Rz, Rx), Ry);
+  R[3] = pos[0]; R[7] = pos[1]; R[11] = pos[2];
+  return R;
+}
+function xfPoint(M, p) {
+  return [
+    M[0] * p[0] + M[1] * p[1] + M[2] * p[2] + M[3],
+    M[4] * p[0] + M[5] * p[1] + M[6] * p[2] + M[7],
+    M[8] * p[0] + M[9] * p[1] + M[10] * p[2] + M[11]
+  ];
+}
+function xfDir(M, p) {
+  return [
+    M[0] * p[0] + M[1] * p[1] + M[2] * p[2],
+    M[4] * p[0] + M[5] * p[1] + M[6] * p[2],
+    M[8] * p[0] + M[9] * p[1] + M[10] * p[2]
+  ];
+}
+
+/* ----------------------------- Mesh builder ----------------------------- */
+/* A mesh is { verts: [[x,y,z]...], faces: [{idx:[...], color:[r,g,b], n:[nx,ny,nz]}] }.
+   All primitives are built centred on their own origin so outward normals can be
+   derived reliably (flip normal if it points toward the local origin). */
+function newMesh() { return { verts: [], faces: [] }; }
+
+function pushFace(mesh, idx, color) {
+  // compute planar normal, flip to point away from local origin
+  const a = mesh.verts[idx[0]], b = mesh.verts[idx[1]], c = mesh.verts[idx[2]];
+  let n = norm(cross(sub(b, a), sub(c, a)));
+  let cen = [0, 0, 0];
+  for (const i of idx) { cen[0] += mesh.verts[i][0]; cen[1] += mesh.verts[i][1]; cen[2] += mesh.verts[i][2]; }
+  cen = scale(cen, 1 / idx.length);
+  if (dot(n, cen) < 0) n = [-n[0], -n[1], -n[2]];
+  mesh.faces.push({ idx: idx.slice(), color: color, n: n });
+}
+
+function addBox(mesh, sx, sy, sz, M, color) {
+  const hx = sx / 2, hy = sy / 2, hz = sz / 2;
+  const local = [
+    [-hx, -hy, -hz], [hx, -hy, -hz], [hx, hy, -hz], [-hx, hy, -hz],
+    [-hx, -hy, hz], [hx, -hy, hz], [hx, hy, hz], [-hx, hy, hz]
+  ];
+  const base = mesh.verts.length;
+  for (const v of local) mesh.verts.push(xfPoint(M, v));
+  const f = [
+    [0, 1, 2, 3], // -z
+    [4, 5, 6, 7], // +z
+    [0, 3, 7, 4], // -x
+    [1, 5, 6, 2], // +x
+    [0, 4, 5, 1], // -y
+    [3, 2, 6, 7]  // +y
+  ];
+  for (const q of f) pushFace(mesh, [base + q[0], base + q[1], base + q[2], base + q[3]], color);
+}
+
+function addCylinder(mesh, r, h, seg, M, color, caps) {
+  const base = mesh.verts.length;
+  const top = [], bot = [];
+  for (let i = 0; i < seg; i++) {
+    const t = (i / seg) * Math.PI * 2;
+    const x = Math.cos(t) * r, z = Math.sin(t) * r;
+    top.push(mesh.verts.length); mesh.verts.push(xfPoint(M, [x, h / 2, z]));
+    bot.push(mesh.verts.length); mesh.verts.push(xfPoint(M, [x, -h / 2, z]));
+  }
+  const cTop = mesh.verts.length; mesh.verts.push(xfPoint(M, [0, h / 2, 0]));
+  const cBot = mesh.verts.length; mesh.verts.push(xfPoint(M, [0, -h / 2, 0]));
+  for (let i = 0; i < seg; i++) {
+    const j = (i + 1) % seg;
+    pushFace(mesh, [top[i], top[j], bot[j], bot[i]], color);
+    if (caps) {
+      pushFace(mesh, [cTop, top[j], top[i]], color);
+      pushFace(mesh, [cBot, bot[i], bot[j]], color);
+    }
+  }
+}
+
+function addSphere(mesh, rx, ry, rz, lat, lon, M, color) {
+  const base = mesh.verts.length;
+  const grid = [];
+  for (let i = 0; i <= lat; i++) {
+    const phi = (i / lat) * Math.PI;
+    const row = [];
+    for (let j = 0; j <= lon; j++) {
+      const th = (j / lon) * Math.PI * 2;
+      const v = [
+        Math.sin(phi) * Math.cos(th) * rx,
+        Math.cos(phi) * ry,
+        Math.sin(phi) * Math.sin(th) * rz
+      ];
+      row.push(mesh.verts.length);
+      mesh.verts.push(xfPoint(M, v));
+    }
+    grid.push(row);
+  }
+  for (let i = 0; i < lat; i++) {
+    for (let j = 0; j < lon; j++) {
+      const a = grid[i][j], b = grid[i + 1][j], c = grid[i + 1][j + 1], d = grid[i][j + 1];
+      pushFace(mesh, [a, b, c], color);
+      pushFace(mesh, [a, c, d], color);
+    }
+  }
+}
+
+/* Build the static helicopter body (fuselage, tail boom, fin, cockpit, skids, mast). */
+function buildBody() {
+  const m = newMesh();
+  const C_BODY = [72, 96, 128];
+  const C_NOSE = [60, 82, 112];
+  const C_TAIL = [84, 104, 134];
+  const C_FIN  = [70, 92, 122];
+  const C_GLASS = [130, 190, 225];
+  const C_SKID = [38, 40, 46];
+  const C_MAST = [54, 56, 62];
+
+  // Fuselage (main body). Forward is +Z.
+  addBox(m, 2.4, 2.2, 4.2, compose(0, 0, 0, [0, 0, 0]), C_BODY);
+  // Nose cone (cylinder along Z) at front
+  addCylinder(m, 1.1, 1.8, 16, compose(0, Math.PI / 2, 0, [0, -0.1, 2.6]), C_NOSE, true);
+  // Cabin / cockpit glass bubble (front upper)
+  addSphere(m, 1.15, 0.95, 1.5, 12, 16, compose(0, 0, 0, [0, 0.55, 1.0]), C_GLASS);
+  // Engine hump on top
+  addBox(m, 1.6, 0.7, 1.8, compose(0, 0, 0, [0, 1.2, -0.4]), C_BODY);
+  // Tail boom (cylinder along Z, extending back to -Z)
+  addCylinder(m, 0.34, 5.6, 14, compose(0, Math.PI / 2, 0, [0, 0.2, -4.4]), C_TAIL, true);
+  // Tail fin (vertical)
+  addBox(m, 0.18, 1.6, 1.2, compose(0, 0, 0, [0, 0.9, -7.0]), C_FIN);
+  // Horizontal stabiliser
+  addBox(m, 2.4, 0.14, 0.7, compose(0, 0, 0, [0, 0.2, -6.9]), C_FIN);
+  // Mast (rotor shaft) rising from top
+  addCylinder(m, 0.22, 1.4, 12, compose(0, 0, 0, [0, 2.0, 0]), C_MAST, true);
+
+  // Skids: two longitudinal tubes + cross struts
+  for (const sx of [-1.1, 1.1]) {
+    addCylinder(m, 0.16, 4.2, 10, compose(0, Math.PI / 2, 0, [sx, -1.7, 0.2]), C_SKID, true);
+    // vertical struts
+    addCylinder(m, 0.12, 1.2, 8, compose(0, 0, 0, [sx, -1.1, 1.0]), C_SKID, true);
+    addCylinder(m, 0.12, 1.2, 8, compose(0, 0, 0, [sx, -1.1, -0.8]), C_SKID, true);
+  }
+  return m;
+}
+
+/* Build the main rotor: hub + 4 blades, spins about Y. */
+function buildMainRotor() {
+  const m = newMesh();
+  const C_HUB = [50, 52, 58];
+  const C_BLADE = [30, 32, 38];
+  addCylinder(m, 0.35, 0.3, 12, compose(0, 0, 0, [0, 0, 0]), C_HUB, true);
+  for (let k = 0; k < 4; k++) {
+    const ry = k * Math.PI / 2;
+    // blade: long thin box, centred at radius 3.2 along its own X, rotated about Y
+    const M = compose(ry, 0, 0, [0, 0, 0]);
+    const blade = newMesh();
+    addBox(blade, 6.4, 0.12, 0.5, compose(0, 0, 0, [3.4, 0, 0]), C_BLADE);
+    // bake blade into rotor mesh with rotation
+    const off = m.verts.length;
+    for (const v of blade.verts) m.verts.push(xfPoint(M, v));
+    for (const fc of blade.faces) m.faces.push({ idx: fc.idx.map(i => i + off), color: fc.color, n: xfDir(M, fc.n) });
+  }
+  return m;
+}
+
+/* Build the tail rotor: hub + 2 blades. Spun as a vertical disc about a sideways
+   axis (local Z, later mapped to world X by the part transform). */
+function buildTailRotor() {
+  const m = newMesh();
+  const C_HUB = [60, 62, 68];
+  const C_BLADE = [40, 42, 48];
+  // hub axis along local Z
+  addCylinder(m, 0.18, 0.25, 10, compose(0, Math.PI / 2, 0, [0, 0, 0]), C_HUB, true);
+  for (let k = 0; k < 2; k++) {
+    const rz = k * Math.PI;
+    const M = compose(0, 0, rz, [0, 0, 0]); // blades in the X-Y plane, rotated about Z
+    const blade = newMesh();
+    addBox(blade, 0.12, 2.2, 0.32, compose(0, 0, 0, [0, 1.2, 0]), C_BLADE);
+    const off = m.verts.length;
+    for (const v of blade.verts) m.verts.push(xfPoint(M, v));
+    for (const fc of blade.faces) m.faces.push({ idx: fc.idx.map(i => i + off), color: fc.color, n: xfDir(M, fc.n) });
+  }
+  return m;
+}
+
+/* ----------------------------- Scene state ------------------------------ */
+const bodyMesh = buildBody();
+const mainRotorMesh = buildMainRotor();
+const tailRotorMesh = buildTailRotor();
+
+// parts reference their mesh and a static transform; rotor parts also spin.
+const parts = [
+  { mesh: bodyMesh, rot: [0, 0, 0], pos: [0, 0, 0], spin: null },
+  { mesh: mainRotorMesh, rot: [0, 0, 0], pos: [0, 2.7, 0], spin: { axis: 'y', speed: 1 } },
+  { mesh: tailRotorMesh, rot: [0, Math.PI / 2, 0], pos: [0.45, 1.4, -7.0], spin: { axis: 'x', speed: 4 } }
+];
+
+/* Flight dynamics state. */
+const G = 12.0;            // gravity (world units / s^2)
+let heli = null;
+function resetHeli() {
+  heli = {
+    pos: [0, 12, 0],
+    vel: [0, 0, 0],
+    yaw: 0, pitch: 0, roll: 0,
+    yawRate: 0,
+    collective: 1.0,
+    rpm: 0
+  };
+}
+resetHeli();
+
+let mainAngle = 0, tailAngle = 0;
+
+/* Input */
+const keys = {};
+const codeMap = {
+  KeyW: 'w', KeyS: 's', KeyA: 'a', KeyD: 'd', KeyQ: 'q', KeyE: 'e',
+  Space: 'space', KeyC: 'c', KeyR: 'r',
+  ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down',
+  Equal: 'plus', Minus: 'minus', NumpadAdd: 'plus', NumpadSubtract: 'minus'
+};
+addEventListener('keydown', (e) => {
+  const k = codeMap[e.code];
+  if (k) { keys[k] = true; if (['space', 'left', 'right', 'up', 'down'].includes(k)) e.preventDefault(); }
+});
+addEventListener('keyup', (e) => {
+  const k = codeMap[e.code];
+  if (k) { keys[k] = false; if (['space', 'left', 'right', 'up', 'down'].includes(k)) e.preventDefault(); }
+});
+
+/* Camera */
+let camOrbit = 0;      // additional yaw around heli
+let camHeight = 7;
+let camDist = 20;
+let camPos = [0, 18, -20];
+const lightDir = norm([0.45, 1.0, 0.35]);
+
+/* ----------------------------- Projection ------------------------------- */
+let focal = 600, camForward = [0, 0, 1], camRight = [1, 0, 0], camUp = [0, 1, 0];
+const FOV = 62 * Math.PI / 180;
+const canvas = document.getElementById('scene');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0;
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+function updateCamera(target) {
+  const camYaw = heli.yaw + camOrbit;
+  const dir = [Math.sin(camYaw), 0, Math.cos(camYaw)];
+  camPos = [
+    target[0] - dir[0] * camDist,
+    Math.max(1.5, target[1] + camHeight),
+    target[2] - dir[2] * camDist
+  ];
+  camForward = norm(sub(target, camPos));
+  camRight = norm(cross(camForward, [0, 1, 0]));
+  camUp = cross(camRight, camForward);
+  focal = (H * 0.5) / Math.tan(FOV * 0.5);
+}
+function project(p) {
+  const d = sub(p, camPos);
+  const cz = dot(d, camForward);
+  if (cz <= 0.2) return null;
+  const cx = dot(d, camRight);
+  const cy = dot(d, camUp);
+  return { x: W / 2 + (cx / cz) * focal, y: H / 2 - (cy / cz) * focal, z: cz };
+}
+
+/* ----------------------------- Physics ---------------------------------- */
+const MAX_TILT = 0.45;
+const YAW_RATE = 1.4;
+let lastT = performance.now();
+
+function stepPhysics(dt) {
+  // control targets
+  const pitchTarget = ((keys.w ? 1 : 0) - (keys.s ? 1 : 0)) * MAX_TILT;
+  const rollTarget  = ((keys.a ? 1 : 0) - (keys.d ? 1 : 0)) * MAX_TILT;
+  const yawInput = (keys.q ? 1 : 0) - (keys.e ? 1 : 0);
+
+  // smooth tilt toward target (banking)
+  heli.pitch += (pitchTarget - heli.pitch) * Math.min(1, 6 * dt);
+  heli.roll  += (rollTarget  - heli.roll)  * Math.min(1, 6 * dt);
+
+  // yaw with rotor torque counteraction: rotor torque biases yaw; pilot (Q/E) and
+  // the tail rotor trim against it. Net yaw integrates pilot input + residual torque.
+  const torqueBias = -0.12 * (heli.rpm / 26); // main rotor spins -> body wants to yaw opposite
+  const yawAccel = yawInput * YAW_RATE * 2 - heli.yawRate * 2.2 + torqueBias;
+  heli.yawRate += yawAccel * dt;
+  heli.yaw += heli.yawRate * dt;
+
+  // collective (climb / descend)
+  if (keys.space) heli.collective = clamp(heli.collective + 0.7 * dt, 0.2, 1.7);
+  else if (keys.c) heli.collective = clamp(heli.collective - 0.7 * dt, 0.2, 1.7);
+  else heli.collective += (1.0 - heli.collective) * Math.min(1, 0.8 * dt); // auto-trim to hover
+
+  // rotor RPM tracks collective
+  const targetRpm = 14 + heli.collective * 12;
+  heli.rpm += (targetRpm - heli.rpm) * Math.min(1, 2.5 * dt);
+
+  // orientation -> local up vector; thrust acts along it
+  const ori = compose(heli.yaw, heli.pitch, heli.roll, [0, 0, 0]);
+  const up = norm(xfDir(ori, [0, 1, 0]));
+  const lift = heli.collective * G;
+  const accel = [
+    up[0] * lift,
+    up[1] * lift - G,
+    up[2] * lift
+  ];
+  for (let i = 0; i < 3; i++) heli.vel[i] += accel[i] * dt;
+  // drag
+  const drag = Math.max(0, 1 - 0.6 * dt);
+  heli.vel[0] *= drag; heli.vel[2] *= drag;
+  heli.vel[1] *= Math.max(0, 1 - 0.25 * dt);
+
+  for (let i = 0; i < 3; i++) heli.pos[i] += heli.vel[i] * dt;
+
+  // ground collision
+  if (heli.pos[1] < 0.6) {
+    heli.pos[1] = 0.6;
+    if (heli.vel[1] < 0) heli.vel[1] = 0;
+  }
+
+  // rotor spin
+  mainAngle += heli.rpm * dt;
+  tailAngle += heli.rpm * 4 * dt;
+
+  // reset
+  if (keys.r) resetHeli();
+}
+
+/* ----------------------------- Rendering -------------------------------- */
+// Collect all visible triangles of all parts into a draw list.
+function collectTriangles(drawPos) {
+  const tris = [];
+  const heliMat = compose(heli.yaw, heli.pitch, heli.roll, drawPos);
+
+  for (const part of parts) {
+    let M = mul(heliMat, compose(part.rot[1], part.rot[0], part.rot[2], part.pos));
+    if (part.spin) {
+      let sm;
+      if (part.spin.axis === 'y') sm = compose(mainAngle, 0, 0, [0, 0, 0]);
+      else sm = compose(0, 0, tailAngle, [0, 0, 0]); // tail rotor local X after part rot
+      M = mul(M, sm);
+    }
+    const mesh = part.mesh;
+    // pre-transform verts
+    const wv = mesh.verts.map(v => xfPoint(M, v));
+    for (const fc of mesh.faces) {
+      // world normal
+      const n = norm(xfDir(M, fc.n));
+      // face centroid (world)
+      let cx = 0, cy = 0, cz = 0;
+      for (const i of fc.idx) { cx += wv[i][0]; cy += wv[i][1]; cz += wv[i][2]; }
+      const nV = fc.idx.length;
+      const cen = [cx / nV, cy / nV, cz / nV];
+      // backface cull (outward normal must face the camera)
+      const toCam = sub(camPos, cen);
+      if (dot(n, toCam) <= 0) continue;
+      // triangulate quad/tri
+      const idxs = fc.idx.length === 4 ? [fc.idx[0], fc.idx[1], fc.idx[2], fc.idx[0], fc.idx[2], fc.idx[3]] : fc.idx;
+      const proj = [];
+      let avgZ = 0, ok = true;
+      for (const i of idxs) {
+        const pr = project(wv[i]);
+        if (!pr) { ok = false; break; }
+        proj.push(pr); avgZ += pr.z;
+      }
+      if (!ok) continue;
+      avgZ /= idxs.length;
+      // Lambert shading
+      const diff = Math.max(0, dot(n, lightDir));
+      const inten = 0.32 + 0.72 * diff;
+      const col = [
+        clamp(fc.color[0] * inten, 0, 255) | 0,
+        clamp(fc.color[1] * inten, 0, 255) | 0,
+        clamp(fc.color[2] * inten, 0, 255) | 0
+      ];
+      tris.push({ proj, z: avgZ, col });
+    }
+  }
+  return tris;
+}
+
+function drawGround() {
+  // sky
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#1a2740');
+  g.addColorStop(0.55, '#33506f');
+  g.addColorStop(1, '#6f93a8');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  // ground plane quad
+  const S = 220;
+  const corners = [[-S, 0, -S], [S, 0, -S], [S, 0, S], [-S, 0, S]];
+  const pc = corners.map(project);
+  if (pc.every(p => p)) {
+    ctx.beginPath();
+    ctx.moveTo(pc[0].x, pc[0].y);
+    for (let i = 1; i < 4; i++) ctx.lineTo(pc[i].x, pc[i].y);
+    ctx.closePath();
+    ctx.fillStyle = '#2f6b34';
+    ctx.fill();
+  }
+
+  // grid lines
+  ctx.lineWidth = 1;
+  const step = 10;
+  for (let i = -S; i <= S; i += step) {
+    drawLine([-S, 0, i], [S, 0, i]);
+    drawLine([i, 0, -S], [i, 0, S]);
+  }
+}
+function drawLine(a, b) {
+  const pa = project(a), pb = project(b);
+  if (!pa || !pb) return;
+  const avgZ = (pa.z + pb.z) / 2;
+  const fade = clamp(1 - avgZ / 260, 0.05, 0.6);
+  ctx.strokeStyle = `rgba(150,210,160,${fade.toFixed(3)})`;
+  ctx.beginPath();
+  ctx.moveTo(pa.x, pa.y);
+  ctx.lineTo(pb.x, pb.y);
+  ctx.stroke();
+}
+
+function render() {
+  drawGround();
+  // hover bobbing: gentle vertical oscillation while near-hover
+  const horiz = Math.hypot(heli.vel[0], heli.vel[2]);
+  const bob = (Math.abs(heli.collective - 1.0) < 0.12 && horiz < 2.0)
+    ? Math.sin(performance.now() * 0.0022) * 0.28 : 0;
+  const drawPos = [heli.pos[0], heli.pos[1] + bob, heli.pos[2]];
+
+  updateCamera(drawPos);
+  const tris = collectTriangles(drawPos);
+  tris.sort((a, b) => b.z - a.z); // far first
+
+  for (const t of tris) {
+    ctx.beginPath();
+    ctx.moveTo(t.proj[0].x, t.proj[0].y);
+    for (let i = 1; i < t.proj.length; i++) ctx.lineTo(t.proj[i].x, t.proj[i].y);
+    ctx.closePath();
+    ctx.fillStyle = `rgb(${t.col[0]},${t.col[1]},${t.col[2]})`;
+    ctx.fill();
+  }
+}
+
+/* ----------------------------- HUD -------------------------------------- */
+const hAlt = document.getElementById('hAlt');
+const hSpd = document.getElementById('hSpd');
+const hRpm = document.getElementById('hRpm');
+const hThr = document.getElementById('hThr');
+const hHdg = document.getElementById('hHdg');
+function updateHUD() {
+  const spd = Math.hypot(heli.vel[0], heli.vel[2]);
+  const rpmDisp = Math.round(heli.rpm * 60 / (2 * Math.PI));
+  const thrPct = Math.round((heli.collective / 1.7) * 100);
+  let hdg = (heli.yaw * 180 / Math.PI) % 360;
+  if (hdg < 0) hdg += 360;
+  hAlt.textContent = heli.pos[1].toFixed(1);
+  hSpd.textContent = spd.toFixed(1);
+  hRpm.textContent = rpmDisp;
+  hThr.textContent = thrPct;
+  hHdg.textContent = Math.round(hdg);
+}
+
+/* ----------------------------- Main loop -------------------------------- */
+function loop(now) {
+  let dt = (now - lastT) / 1000;
+  lastT = now;
+  dt = clamp(dt, 0, 0.05); // avoid huge steps
+
+  // camera orbit / zoom from arrow keys & +/-
+  if (keys.left) camOrbit -= 1.2 * dt;
+  if (keys.right) camOrbit += 1.2 * dt;
+  if (keys.up) camHeight = clamp(camHeight + 8 * dt, 2, 30);
+  if (keys.down) camHeight = clamp(camHeight - 8 * dt, 2, 30);
+  if (keys.plus) camDist = clamp(camDist - 18 * dt, 8, 60);
+  if (keys.minus) camDist = clamp(camDist + 18 * dt, 8, 60);
+
+  stepPhysics(dt);
+  render();
+  updateHUD();
+
+  const boot = document.getElementById('boot');
+  if (boot) boot.remove();
+  requestAnimationFrame(loop);
+}
+
+// Render immediately, then start the animation loop.
+document.getElementById('boot').textContent = 'SCENE READY';
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

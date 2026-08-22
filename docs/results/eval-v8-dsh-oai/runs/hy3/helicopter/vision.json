@@ -1,0 +1,7 @@
+{
+  "status": "ok",
+  "valid": true,
+  "summary": "可见完整的直升机模型、旋翼、起落滑橇、网格地形与飞行HUD，画面正常无黑屏或布局崩溃。",
+  "model": "gpt-5.6-terra",
+  "durationMs": 3666
+}

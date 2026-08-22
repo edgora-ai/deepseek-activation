@@ -1,0 +1,3 @@
+Create artifact-hy3.html in the current working directory as one self-contained HTML file with no external assets or libraries (all JavaScript and CSS inline). Do not modify any files outside artifact-hy3.html.
+
+Build an interactive 3D helicopter with Three.js: accurate model (fuselage, tail boom, tail rotor, 4-blade main rotor, skids, cockpit), physics (RPM, torque counteraction, hover bobbing, banking), controls (W/S pitch, A/D roll, Q/E yaw, Space collective, arrow keys), a HUD (altitude, speed, RPM, throttle), and a terrain/ground. The scene must render immediately. Write the file with your write tool to the exact relative path artifact-hy3.html, verify it loads without errors, fix any failed requirement, and stop.

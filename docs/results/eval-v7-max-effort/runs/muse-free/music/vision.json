@@ -1,0 +1,7 @@
+{
+  "status": "ok",
+  "valid": true,
+  "summary": "画面成功渲染了居中的环形音频可视化图案及界面控件，并非黑屏、纯色或损坏布局。",
+  "model": "gpt-5.6-terra",
+  "durationMs": 4244
+}

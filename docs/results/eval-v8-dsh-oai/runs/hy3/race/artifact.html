@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mars Ring Road Grand Prix</title>
+<style>
+  :root {
+    --mars-rust: #c1502a;
+    --mars-deep: #7a2e10;
+    --panel: rgba(24, 14, 28, 0.72);
+    --accent: #ffce4a;
+    --leader: #ffe27a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body {
+    background: #160a12;
+    font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+    color: #fff;
+    overflow: hidden;
+  }
+  #stage {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+  }
+  #scene {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  .title {
+    position: absolute;
+    top: 14px;
+    left: 22px;
+    pointer-events: none;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.6);
+  }
+  .title h1 {
+    margin: 0;
+    font-size: clamp(18px, 3.2vw, 34px);
+    letter-spacing: 1px;
+    color: #ffd98a;
+    font-weight: 800;
+  }
+  .title p {
+    margin: 2px 0 0;
+    font-size: clamp(11px, 1.4vw, 15px);
+    color: #ffb877;
+    opacity: 0.9;
+  }
+  .timer {
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--panel);
+    border: 1px solid rgba(255,206,74,0.4);
+    border-radius: 12px;
+    padding: 6px 16px;
+    font-variant-numeric: tabular-nums;
+    font-size: clamp(14px, 2vw, 20px);
+    font-weight: 700;
+    color: var(--accent);
+    pointer-events: none;
+  }
+  #board {
+    position: absolute;
+    top: 14px;
+    right: 16px;
+    width: min(290px, 38vw);
+    background: var(--panel);
+    border: 1px solid rgba(255,206,74,0.45);
+    border-radius: 14px;
+    padding: 10px 12px 12px;
+    backdrop-filter: blur(4px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.45);
+  }
+  #board h2 {
+    margin: 0 0 8px;
+    font-size: 15px;
+    letter-spacing: 1px;
+    color: var(--accent);
+    text-align: center;
+    text-transform: uppercase;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 26px 1fr auto;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 6px;
+    border-radius: 10px;
+    margin-bottom: 6px;
+    background: rgba(255,255,255,0.05);
+    transition: background 0.25s ease;
+  }
+  .row.lead { background: rgba(255,206,74,0.22); box-shadow: inset 0 0 0 1px rgba(255,206,74,0.5); }
+  .row .pos {
+    font-weight: 800;
+    font-size: 18px;
+    text-align: center;
+    color: #fff;
+  }
+  .row .meta { min-width: 0; }
+  .row .name {
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .row .name small { font-weight: 400; opacity: 0.75; }
+  .bar {
+    margin-top: 4px;
+    height: 7px;
+    border-radius: 6px;
+    background: rgba(0,0,0,0.4);
+    overflow: hidden;
+  }
+  .fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 6px;
+    transition: width 0.12s linear;
+  }
+  .row .stat {
+    font-size: 11px;
+    text-align: right;
+    color: #ffd98a;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .row .stat b { color: #fff; }
+  #winner {
+    position: absolute;
+    left: 50%;
+    top: 38%;
+    transform: translate(-50%, -50%) scale(0.8);
+    background: linear-gradient(180deg, #ffce4a, #e8842b);
+    color: #3a1500;
+    padding: 18px 34px;
+    border-radius: 18px;
+    font-weight: 900;
+    font-size: clamp(20px, 4vw, 40px);
+    text-align: center;
+    box-shadow: 0 14px 50px rgba(0,0,0,0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease, transform 0.5s ease;
+  }
+  #winner.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  #winner small { display:block; font-size: 0.5em; font-weight: 700; }
+  #replay {
+    position: absolute;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--accent);
+    color: #3a1500;
+    border: none;
+    border-radius: 999px;
+    padding: 10px 26px;
+    font-size: 15px;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+  }
+  #replay:hover { filter: brightness(1.08); }
+  .hint {
+    position: absolute;
+    bottom: 18px;
+    right: 18px;
+    font-size: 11px;
+    color: rgba(255,255,255,0.55);
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <svg id="scene" viewBox="0 0 1200 720" preserveAspectRatio="xMidYMid slice" aria-label="Martian ring road race animation"></svg>
+
+  <div class="title">
+    <h1>MARS RING ROAD GRAND PRIX</h1>
+    <p>Rabbit · Turtle · Bald Eagle &mdash; 2 laps around the crater circuit</p>
+  </div>
+
+  <div class="timer" id="timer">0.0s</div>
+
+  <div id="board">
+    <h2>Leaderboard</h2>
+    <div class="row" id="row-rabbit">
+      <div class="pos">1</div>
+      <div class="meta">
+        <div class="name">🐰 Rabbit <small>· bicycle</small></div>
+        <div class="bar"><div class="fill" style="background:#ff7b7b"></div></div>
+      </div>
+      <div class="stat"><b>0%</b><br><span class="spd">0.00</span></div>
+    </div>
+    <div class="row" id="row-turtle">
+      <div class="pos">2</div>
+      <div class="meta">
+        <div class="name">🐢 Turtle <small>· motorcycle</small></div>
+        <div class="bar"><div class="fill" style="background:#7be0a0"></div></div>
+      </div>
+      <div class="stat"><b>0%</b><br><span class="spd">0.00</span></div>
+    </div>
+    <div class="row" id="row-eagle">
+      <div class="pos">3</div>
+      <div class="meta">
+        <div class="name">🦅 Eagle <small>· trike (human-pedaled)</small></div>
+        <div class="bar"><div class="fill" style="background:#ffd27b"></div></div>
+      </div>
+      <div class="stat"><b>0%</b><br><span class="spd">0.00</span></div>
+    </div>
+  </div>
+
+  <div id="winner"></div>
+  <button id="replay">↻ Replay Race</button>
+  <div class="hint">Self-contained SVG animation · runs on load</div>
+</div>
+
+<script>
+"use strict";
+(function () {
+  const SVGNS = "http://www.w3.org/2000/svg";
+  function E(tag, attrs, kids) {
+    const e = document.createElementNS(SVGNS, tag);
+    if (attrs) for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (kids != null) {
+      const arr = Array.isArray(kids) ? null : [kids];
+      const list = Array.isArray(kids) ? kids : (kids == null ? [] : [kids]);
+      for (const c of list) if (c) e.appendChild(c);
+    }
+    return e;
+  }
+  function rnd(a, b) { return a + Math.random() * (b - a); }
+
+  const scene = document.getElementById("scene");
+
+  /* ---------- defs (gradients & filters) ---------- */
+  const defs = E("defs");
+  defs.innerHTML =
+    '<linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0" stop-color="#2a163f"/>' +
+      '<stop offset="0.45" stop-color="#7a3b53"/>' +
+      '<stop offset="0.78" stop-color="#c75b39"/>' +
+      '<stop offset="1" stop-color="#e8965a"/>' +
+    '</linearGradient>' +
+    '<linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0" stop-color="#d2602f"/>' +
+      '<stop offset="0.5" stop-color="#a8431c"/>' +
+      '<stop offset="1" stop-color="#5e230c"/>' +
+    '</linearGradient>' +
+    '<radialGradient id="moonA" cx="0.35" cy="0.35" r="0.75">' +
+      '<stop offset="0" stop-color="#e9d9c2"/><stop offset="1" stop-color="#9c8666"/>' +
+    '</radialGradient>' +
+    '<radialGradient id="moonB" cx="0.4" cy="0.4" r="0.8">' +
+      '<stop offset="0" stop-color="#c9b89a"/><stop offset="1" stop-color="#6f5d44"/>' +
+    '</radialGradient>' +
+    '<linearGradient id="road" x1="0" y1="0" x2="1" y2="0">' +
+      '<stop offset="0" stop-color="#41414c"/>' +
+      '<stop offset="0.5" stop-color="#565663"/>' +
+      '<stop offset="1" stop-color="#41414c"/>' +
+    '</linearGradient>' +
+    '<filter id="soft" x="-50%" y="-50%" width="200%" height="200%">' +
+      '<feGaussianBlur stdDeviation="3"/>' +
+    '</filter>' +
+    '<filter id="glow" x="-60%" y="-60%" width="220%" height="220%">' +
+      '<feGaussianBlur stdDeviation="2.4" result="b"/>' +
+      '<feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>' +
+    '</filter>';
+  scene.appendChild(defs);
+
+  /* ---------- sky & celestial bodies ---------- */
+  scene.appendChild(E("rect", { x: 0, y: 0, width: 1200, height: 720, fill: "url(#sky)" }));
+
+  // stars
+  const stars = E("g");
+  for (let i = 0; i < 90; i++) {
+    const x = rnd(0, 1200), y = rnd(0, 300), r = rnd(0.4, 1.6);
+    const s = E("circle", { cx: x, cy: y, r: r, fill: "#fff", opacity: rnd(0.3, 0.95) });
+    s.style.animation = "tw " + rnd(2, 5).toFixed(2) + "s ease-in-out " + rnd(0, 4).toFixed(2) + "s infinite alternate";
+    stars.appendChild(s);
+  }
+  scene.appendChild(stars);
+
+  // Phobos & Deimos
+  scene.appendChild(E("circle", { cx: 170, cy: 95, r: 34, fill: "url(#moonA)" }));
+  scene.appendChild(E("circle", { cx: 158, cy: 88, r: 7, fill: "#7c6a4d", opacity: 0.5 }));
+  scene.appendChild(E("circle", { cx: 182, cy: 104, r: 5, fill: "#7c6a4d", opacity: 0.4 }));
+  scene.appendChild(E("circle", { cx: 980, cy: 70, r: 18, fill: "url(#moonB)" }));
+  scene.appendChild(E("circle", { cx: 974, cy: 66, r: 4, fill: "#5b4c38", opacity: 0.5 }));
+
+  // distant hills
+  scene.appendChild(E("path", {
+    d: "M0 340 Q 180 280 360 330 T 720 320 T 1080 335 T 1200 330 L1200 360 L0 360 Z",
+    fill: "#8a3a22", opacity: 0.7
+  }));
+  scene.appendChild(E("path", {
+    d: "M0 370 Q 250 320 520 360 T 980 355 T 1200 365 L1200 400 L0 400 Z",
+    fill: "#7a2e18", opacity: 0.85
+  }));
+
+  /* ---------- Martian ground ---------- */
+  scene.appendChild(E("rect", { x: 0, y: 355, width: 1200, height: 365, fill: "url(#ground)" }));
+
+  // craters
+  const craterG = E("g");
+  const craters = [
+    [120, 470, 70, 26], [320, 600, 95, 34], [560, 520, 60, 22],
+    [820, 470, 80, 30], [1010, 600, 90, 32], [210, 560, 50, 18],
+    [700, 650, 110, 38], [980, 520, 55, 20]
+  ];
+  for (const [cx, cy, rx, ry] of craters) {
+    craterG.appendChild(E("ellipse", { cx, cy, rx, ry, fill: "#3f1a0a", opacity: 0.45 }));
+    craterG.appendChild(E("ellipse", { cx, cy: cy - 3, rx: rx * 0.7, ry: ry * 0.7, fill: "#9c4724", opacity: 0.35 }));
+  }
+  // scattered rocks
+  for (let i = 0; i < 26; i++) {
+    const x = rnd(20, 1180), y = rnd(380, 700), s = rnd(3, 9);
+    craterG.appendChild(E("path", {
+      d: "M" + (x - s) + " " + y + " l" + (s * 0.7) + " " + (-s) + " l" + (s * 0.8) + " " + (-s * 0.2) + " l" + (s * 0.5) + " " + (s * 0.9) + " z",
+      fill: "#5e230c", opacity: rnd(0.4, 0.8)
+    }));
+  }
+  scene.appendChild(craterG);
+
+  /* ---------- Ring road (the Martian circuit) ---------- */
+  const track = { cx: 600, cy: 392, rx: 470, ry: 176, roadW: 50, startA: 0, laps: 2 };
+  const ring = E("g");
+  // outer & inner curb bands
+  ring.appendChild(E("ellipse", { cx: track.cx, cy: track.cy, rx: track.rx + track.roadW / 2, ry: track.ry + track.roadW / 2, fill: "#caa883" }));
+  ring.appendChild(E("ellipse", { cx: track.cx, cy: track.cy, rx: track.rx + track.roadW / 2 - 6, ry: track.ry + track.roadW / 2 - 6, fill: "url(#road)" }));
+  ring.appendChild(E("ellipse", { cx: track.cx, cy: track.cy, rx: track.rx - track.roadW / 2 + 6, ry: track.ry - track.roadW / 2 + 6, fill: "#caa883" }));
+  ring.appendChild(E("ellipse", { cx: track.cx, cy: track.cy, rx: track.rx - track.roadW / 2, ry: track.ry - track.roadW / 2, fill: "url(#ground)" }));
+  // road surface
+  ring.appendChild(E("ellipse", { cx: track.cx, cy: track.cy, rx: track.rx, ry: track.ry, fill: "url(#road)" }));
+  // dashed centre line
+  ring.appendChild(E("ellipse", {
+    cx: track.cx, cy: track.cy, rx: track.rx, ry: track.ry, fill: "none",
+    stroke: "#f4d35e", "stroke-width": 3, "stroke-dasharray": "14 16", opacity: 0.8
+  }));
+  scene.appendChild(ring);
+
+  /* ---------- start / finish line (rightmost point, a = 0) ---------- */
+  const fx = track.cx + track.rx;
+  const fy = track.cy;
+  const finish = E("g");
+  const fw = 16, fh = track.roadW;
+  for (let r = 0; r < 4; r++) {
+    for (let c = 0; c < 3; c++) {
+      const dark = (r + c) % 2 === 0;
+      finish.appendChild(E("rect", {
+        x: fx - fw / 2 + c * (fw / 3),
+        y: fy - fh / 2 + r * (fh / 4),
+        width: fw / 3, height: fh / 4,
+        fill: dark ? "#1c1c22" : "#f3f3f3"
+      }));
+    }
+  }
+  finish.appendChild(E("rect", { x: fx - fw / 2 - 2, y: fy - fh / 2, width: fw + 4, height: fh, fill: "none", stroke: "#fff", "stroke-width": 2, opacity: 0.7 }));
+  scene.appendChild(finish);
+  // "FINISH" gantry
+  scene.appendChild(E("text", { x: fx, y: fy - fh / 2 - 12, "text-anchor": "middle", fill: "#fff", "font-size": 14, "font-weight": "800", "font-family": "Trebuchet MS", opacity: 0.9 }, document.createTextNode("FINISH")));
+
+  /* ---------- racer building blocks ---------- */
+  function wheel(cx, cy, r, opts) {
+    opts = opts || {};
+    const g = E("g");
+    g.appendChild(E("circle", { cx, cy, r, fill: "none", stroke: opts.tire || "#1d1d22", "stroke-width": r * 0.24 }));
+    g.appendChild(E("circle", { cx, cy, r: r * 0.8, fill: "none", stroke: opts.rim || "#c9c9d2", "stroke-width": 2 }));
+    const sp = E("g");
+    const n = opts.spokes || 12;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      sp.appendChild(E("line", {
+        x1: cx, y1: cy, x2: cx + Math.cos(a) * r * 0.78, y2: cy + Math.sin(a) * r * 0.78,
+        stroke: opts.spoke || "#e6e6ee", "stroke-width": 1.4, "stroke-linecap": "round"
+      }));
+    }
+    g.appendChild(sp);
+    g.appendChild(E("circle", { cx, cy, r: r * 0.18, fill: opts.hub || "#f4c542" }));
+    return { node: g, cx, cy };
+  }
+
+  function legGroup(hipX, hipY, color, len) {
+    // a simple two-segment leg drawn so rotating around the hip looks like pedalling
+    const g = E("g");
+    const kneeX = hipX + 4, kneeY = hipY + len * 0.55;
+    const footX = hipX - 2, footY = hipY + len;
+    g.appendChild(E("path", {
+      d: "M" + hipX + " " + hipY + " L" + kneeX + " " + kneeY + " L" + footX + " " + footY,
+      stroke: color, "stroke-width": 8, fill: "none", "stroke-linecap": "round", "stroke-linejoin": "round"
+    }));
+    g.appendChild(E("ellipse", { cx: footX, cy: footY + 2, rx: 8, ry: 4, fill: color }));
+    return { node: g, hipX, hipY };
+  }
+
+  /* ----- Rabbit on a bicycle ----- */
+  function buildRabbit() {
+    const g = E("g");
+    // shadow
+    g.appendChild(E("ellipse", { cx: 0, cy: 2, rx: 56, ry: 9, fill: "#000", opacity: 0.22, filter: "url(#soft)" }));
+    // bicycle
+    const bike = E("g");
+    const rear = wheel(-46, -22, 22, { tire: "#222", rim: "#ddd", hub: "#e63946" });
+    const front = wheel(46, -22, 22, { tire: "#222", rim: "#ddd", hub: "#e63946" });
+    bike.appendChild(rear.node);
+    bike.appendChild(front.node);
+    // frame
+    bike.appendChild(E("path", { d: "M-46 -22 L0 -22 L4 -60 L46 -22 M4 -60 L40 -52 M40 -52 L46 -22", stroke: "#e63946", "stroke-width": 5, fill: "none", "stroke-linecap": "round", "stroke-linejoin": "round" }));
+    bike.appendChild(E("line", { x1: 0, y1: -22, x2: 0, y2: -58, stroke: "#e63946", "stroke-width": 5 }));
+    // seat
+    bike.appendChild(E("path", { d: "M-6 -60 Q4 -66 14 -60 L10 -56 L-4 -56 Z", fill: "#3a2418" }));
+    // handlebar
+    bike.appendChild(E("line", { x1: 40, y1: -52, x2: 50, y2: -58, stroke: "#222", "stroke-width": 4, "stroke-linecap": "round" }));
+    bike.appendChild(E("circle", { cx: 50, cy: -58, r: 3, fill: "#222" }));
+    // crank + pedals
+    bike.appendChild(E("circle", { cx: 0, cy: -22, r: 4, fill: "#888" }));
+    bike.appendChild(E("line", { x1: 0, y1: -22, x2: -10, y2: -14, stroke: "#666", "stroke-width": 3 }));
+    bike.appendChild(E("rect", { x: -16, y: -16, width: 10, height: 4, rx: 1, fill: "#222" }));
+    g.appendChild(bike);
+
+    // rabbit rider
+    const rider = E("g");
+    // tail
+    rider.appendChild(E("circle", { cx: -24, cy: -62, r: 9, fill: "#f5f0e6" }));
+    rider.appendChild(E("circle", { cx: -27, cy: -66, r: 6, fill: "#fff" }));
+    // haunch / body
+    rider.appendChild(E("ellipse", { cx: -6, cy: -70, rx: 19, ry: 16, fill: "#f5f0e6" }));
+    rider.appendChild(E("path", { d: "M-18 -72 Q-2 -54 16 -74 Q4 -92 -18 -82 Z", fill: "#fbf7ee" }));
+    // leg (pedalling)
+    const leg = legGroup(-4, -64, "#f0e9da", 40);
+    rider.appendChild(leg.node);
+    // arm to handlebar
+    rider.appendChild(E("path", { d: "M12 -80 Q30 -70 46 -56", stroke: "#f0e9da", "stroke-width": 8, fill: "none", "stroke-linecap": "round" }));
+    rider.appendChild(E("circle", { cx: 47, cy: -55, r: 5, fill: "#f7b8c4" }));
+    // head
+    rider.appendChild(E("circle", { cx: 22, cy: -94, r: 14, fill: "#f5f0e6" }));
+    rider.appendChild(E("circle", { cx: 27, cy: -96, r: 3, fill: "#222" }));
+    rider.appendChild(E("circle", { cx: 31, cy: -92, r: 2.4, fill: "#e36b8a" }));
+    // ears (animated group)
+    const ear = E("g");
+    ear.appendChild(E("path", { d: "M16 -104 Q10 -138 4 -150 Q14 -150 20 -118 Z", fill: "#f5f0e6", stroke: "#e7ddca", "stroke-width": 1 }));
+    ear.appendChild(E("path", { d: "M22 -106 Q22 -140 18 -152 Q28 -148 30 -116 Z", fill: "#f5f0e6", stroke: "#e7ddca", "stroke-width": 1 }));
+    ear.appendChild(E("path", { d: "M15 -108 Q12 -134 9 -144 Q15 -142 19 -120 Z", fill: "#f7b8c4" }));
+    ear.appendChild(E("path", { d: "M22 -108 Q23 -136 21 -146 Q27 -142 28 -118 Z", fill: "#f7b8c4" }));
+    rider.appendChild(ear);
+    // scarf
+    rider.appendChild(E("path", { d: "M10 -84 Q-6 -80 -22 -86 Q-10 -76 8 -78 Z", fill: "#e63946" }));
+    g.appendChild(rider);
+
+    return { node: g, wheels: [rear, front], legs: [leg], ears: ear, type: "rabbit" };
+  }
+
+  /* ----- Turtle on a motorcycle ----- */
+  function buildTurtle() {
+    const g = E("g");
+    g.appendChild(E("ellipse", { cx: 0, cy: 2, rx: 62, ry: 10, fill: "#000", opacity: 0.22, filter: "url(#soft)" }));
+    const bike = E("g");
+    const rear = wheel(-52, -26, 26, { tire: "#111", rim: "#9a9aa5", hub: "#444" });
+    const front = wheel(56, -26, 26, { tire: "#111", rim: "#9a9aa5", hub: "#444" });
+    bike.appendChild(rear.node);
+    bike.appendChild(front.node);
+    // frame / engine
+    bike.appendChild(E("path", { d: "M-52 -26 L-6 -26 L20 -52 L56 -26", stroke: "#2b2b30", "stroke-width": 6, fill: "none", "stroke-linecap": "round", "stroke-linejoin": "round" }));
+    bike.appendChild(E("rect", { x: -30, y: -40, width: 44, height: 18, rx: 5, fill: "#3a3a42" }));
+    bike.appendChild(E("rect", { x: -26, y: -36, width: 10, height: 10, rx: 2, fill: "#5a5a66" }));
+    // fuel tank / seat
+    bike.appendChild(E("path", { d: "M-8 -52 Q4 -58 18 -52 L12 -44 L-10 -44 Z", fill: "#b5302a" }));
+    bike.appendChild(E("rect", { x: -14, y: -56, width: 18, height: 6, rx: 3, fill: "#222" }));
+    // handlebar
+    bike.appendChild(E("line", { x1: 20, y1: -52, x2: 30, y2: -60, stroke: "#222", "stroke-width": 4, "stroke-linecap": "round" }));
+    bike.appendChild(E("circle", { cx: 30, cy: -60, r: 3, fill: "#444" }));
+    // headlight
+    bike.appendChild(E("circle", { cx: 56, cy: -40, r: 7, fill: "#ffe48a", filter: "url(#glow)" }));
+    // exhaust + puff anchors
+    bike.appendChild(E("path", { d: "M-30 -30 L-66 -34", stroke: "#888", "stroke-width": 6, "stroke-linecap": "round" }));
+    const puffs = [];
+    for (let i = 0; i < 3; i++) {
+      const p = E("circle", { cx: -70, cy: -34, r: 5 + i * 2, fill: "#cfc6bd", opacity: 0 });
+      puffs.push(p); bike.appendChild(p);
+    }
+    g.appendChild(bike);
+
+    // turtle rider
+    const rider = E("g");
+    // shell
+    const shell = E("g");
+    shell.appendChild(E("path", { d: "M-30 -58 Q-6 -88 22 -58 Z", fill: "#3a7d44" }));
+    shell.appendChild(E("path", { d: "M-30 -58 Q-6 -88 22 -58 Z", fill: "none", stroke: "#2c5e34", "stroke-width": 2 }));
+    // shell plates
+    shell.appendChild(E("path", { d: "M-18 -60 L-12 -76 L-2 -60 Z", fill: "#2f6b3a" }));
+    shell.appendChild(E("path", { d: "M-2 -60 L4 -80 L14 -60 Z", fill: "#2f6b3a" }));
+    shell.appendChild(E("path", { d: "M-30 -58 L-22 -70 L-14 -58 Z", fill: "#356f40" }));
+    shell.appendChild(E("path", { d: "M22 -58 L14 -72 L6 -58 Z", fill: "#356f40" }));
+    rider.appendChild(shell);
+    // back legs / arms to bars
+    rider.appendChild(E("path", { d: "M14 -58 Q28 -58 30 -60", stroke: "#2f6b3a", "stroke-width": 8, fill: "none", "stroke-linecap": "round" }));
+    rider.appendChild(E("path", { d: "M16 -56 Q26 -56 30 -58", stroke: "#8bd3a0", "stroke-width": 7, fill: "none", "stroke-linecap": "round" }));
+    // neck + head
+    rider.appendChild(E("path", { d: "M18 -60 Q28 -66 30 -78", stroke: "#8bd3a0", "stroke-width": 11, fill: "none", "stroke-linecap": "round" }));
+    rider.appendChild(E("circle", { cx: 32, cy: -82, r: 11, fill: "#8bd3a0" }));
+    rider.appendChild(E("circle", { cx: 37, cy: -84, r: 3, fill: "#222" }));
+    rider.appendChild(E("path", { d: "M40 -80 q6 0 8 4", stroke: "#222", "stroke-width": 2, fill: "none" }));
+    // leg to peg
+    const leg = legGroup(2, -52, "#2f6b3a", 30);
+    rider.appendChild(leg.node);
+    g.appendChild(rider);
+
+    return { node: g, wheels: [rear, front], legs: [leg], puffs, type: "turtle" };
+  }
+
+  /* ----- Bald eagle on a human-pedalled tricycle ----- */
+  function buildEagle() {
+    const g = E("g");
+    g.appendChild(E("ellipse", { cx: 0, cy: 2, rx: 64, ry: 11, fill: "#000", opacity: 0.22, filter: "url(#soft)" }));
+    const trike = E("g");
+    const front = wheel(52, -30, 28, { tire: "#222", rim: "#bbb", hub: "#ffce3a", spokes: 14 });
+    const rearA = wheel(-54, -22, 15, { tire: "#222", rim: "#bbb", hub: "#ffce3a" });
+    const rearB = wheel(-54, -10, 15, { tire: "#222", rim: "#bbb", hub: "#ffce3a" });
+    trike.appendChild(rearA.node);
+    trike.appendChild(rearB.node);
+    trike.appendChild(front.node);
+    // frame
+    trike.appendChild(E("path", { d: "M-54 -16 L-6 -16 L-6 -64 L52 -30 M-6 -64 L40 -58", stroke: "#5a5a66", "stroke-width": 5, fill: "none", "stroke-linecap": "round", "stroke-linejoin": "round" }));
+    trike.appendChild(E("line", { x1: -6, y1: -16, x2: -6, y2: -60, stroke: "#5a5a66", "stroke-width": 5 }));
+    // seat
+    trike.appendChild(E("path", { d: "M-12 -62 Q-2 -68 8 -62 L4 -58 L-10 -58 Z", fill: "#3a2418" }));
+    // handlebar
+    trike.appendChild(E("line", { x1: 40, y1: -58, x2: 50, y2: -66, stroke: "#444", "stroke-width": 4, "stroke-linecap": "round" }));
+    // pedal crank at front hub
+    trike.appendChild(E("circle", { cx: 52, cy: -30, r: 4, fill: "#888" }));
+    trike.appendChild(E("line", { x1: 52, y1: -30, x2: 44, y2: -22, stroke: "#666", "stroke-width": 3 }));
+    trike.appendChild(E("rect", { x: 38, y: -24, width: 10, height: 4, rx: 1, fill: "#222" }));
+    g.appendChild(trike);
+
+    // human pedaller (behind the eagle)
+    const human = E("g");
+    const hhipX = -22, hhipY = -40;
+    const hLegL = legGroup(hhipX - 4, hhipY, "#c98e6b", 30);
+    const hLegR = legGroup(hhipX + 4, hhipY, "#b87d5c", 30);
+    human.appendChild(hLegR.node);
+    human.appendChild(hLegL.node);
+    // torso
+    human.appendChild(E("path", { d: "M-30 -52 Q-20 -64 -10 -52 L-14 -38 L-28 -38 Z", fill: "#3a8fd6" }));
+    // head
+    human.appendChild(E("circle", { cx: -20, cy: -70, r: 9, fill: "#e0a87e" }));
+    human.appendChild(E("path", { d: "M-29 -72 Q-20 -82 -11 -72", stroke: "#5a3a22", "stroke-width": 3, fill: "none" }));
+    // arm reaching to handlebar
+    human.appendChild(E("path", { d: "M-14 -52 Q14 -58 40 -58", stroke: "#3a8fd6", "stroke-width": 6, fill: "none", "stroke-linecap": "round" }));
+    human.appendChild(E("circle", { cx: 41, cy: -58, r: 4, fill: "#e0a87e" }));
+    g.appendChild(human);
+
+    // eagle rider (perched in front)
+    const eagle = E("g");
+    // tail
+    eagle.appendChild(E("path", { d: "M-18 -58 L-40 -50 L-38 -44 L-16 -54 Z", fill: "#6b4f3a" }));
+    // body
+    eagle.appendChild(E("ellipse", { cx: 0, cy: -66, rx: 18, ry: 15, fill: "#6b4f3a" }));
+    eagle.appendChild(E("path", { d: "M-14 -66 Q0 -52 16 -66 Q4 -84 -14 -74 Z", fill: "#7d5e44" }));
+    // wing (animated flap)
+    const wing = E("g");
+    wing.appendChild(E("path", { d: "M2 -70 Q30 -78 36 -56 Q18 -58 4 -62 Z", fill: "#5a4129" }));
+    wing.appendChild(E("path", { d: "M6 -70 Q26 -74 32 -60 Q16 -62 8 -64 Z", fill: "#8a6a4a" }));
+    eagle.appendChild(wing);
+    // neck + white head (bald eagle)
+    eagle.appendChild(E("path", { d: "M12 -74 Q18 -84 18 -92", stroke: "#6b4f3a", "stroke-width": 9, fill: "none", "stroke-linecap": "round" }));
+    eagle.appendChild(E("circle", { cx: 20, cy: -96, r: 11, fill: "#f2efe9" }));
+    eagle.appendChild(E("circle", { cx: 24, cy: -98, r: 3, fill: "#222" }));
+    // beak
+    eagle.appendChild(E("path", { d: "M30 -96 L42 -92 L30 -88 Z", fill: "#ffce3a" }));
+    eagle.appendChild(E("path", { d: "M30 -92 L42 -92 L30 -90 Z", fill: "#e0a800" }));
+    // talon on handlebar
+    eagle.appendChild(E("path", { d: "M14 -56 Q30 -56 40 -58", stroke: "#6b4f3a", "stroke-width": 7, fill: "none", "stroke-linecap": "round" }));
+    g.appendChild(eagle);
+
+    return { node: g, wheels: [front, rearA, rearB], legs: [hLegL, hLegR], wing, type: "eagle" };
+  }
+
+  /* ---------- create racers ---------- */
+  const racersLayer = E("g");
+  scene.appendChild(racersLayer);
+
+  const racers = [
+    { key: "rabbit", type: "rabbit", name: "Rabbit", build: buildRabbit, lane: -18, phase: rnd(0, 6.28), color: "#ff7b7b" },
+    { key: "turtle", type: "turtle", name: "Turtle", build: buildTurtle, lane: 0, phase: rnd(0, 6.28), color: "#7be0a0" },
+    { key: "eagle", type: "eagle", name: "Eagle", build: buildEagle, lane: 18, phase: rnd(0, 6.28), color: "#ffd27b" }
+  ];
+
+  function resetRace() {
+    racers.forEach(r => {
+      if (r.obj) racersLayer.removeChild(r.obj.node);
+      const obj = r.build();
+      r.obj = obj;
+      r.dist = 0;
+      r.finished = false;
+      r.finishTime = null;
+      r.wheelAng = 0;
+      r.pedalPh = rnd(0, 6.28);
+      r.boostT = 0; r.surgeT = 0;
+      r.boostTimer = rnd(2, 5); r.surgeTimer = rnd(2, 5);
+      r.lastSpeed = 0;
+      racersLayer.appendChild(obj.node);
+      obj.node.setAttribute("transform", "translate(0,-9999)");
+    });
+    state.start = null; state.finishCount = 0; state.winner = null;
+    document.getElementById("winner").classList.remove("show");
+  }
+
+  /* ---------- speed model (laps per second) ---------- */
+  function speedOf(r, t, dt) {
+    if (r.type === "rabbit") {
+      const cyc = (t % 9) / 9;
+      if (cyc > 0.74 && cyc < 0.90) return 0.012; // classic nap
+      return 0.205 + 0.05 * Math.sin(t * 1.6 + r.phase);
+    }
+    if (r.type === "turtle") {
+      let s = 0.172 + 0.018 * Math.sin(t * 0.5 + r.phase);
+      r.boostTimer -= dt;
+      if (r.boostT > 0) { s += 0.05; r.boostT -= dt; }
+      else if (r.boostTimer <= 0) { r.boostT = 0.7; r.boostTimer = rnd(3, 6); }
+      return s;
+    }
+    if (r.type === "eagle") {
+      let s = 0.165 + 0.04 * Math.sin(t * 0.9 + r.phase);
+      r.surgeTimer -= dt;
+      if (r.surgeT > 0) { s += 0.10; r.surgeT -= dt; }
+      else if (r.surgeTimer <= 0) { r.surgeT = 0.6; r.surgeTimer = rnd(2.5, 5.5); }
+      return s;
+    }
+    return 0.15;
+  }
+
+  /* ---------- animation loop ---------- */
+  const state = { start: null, last: 0, finishCount: 0, winner: null };
+
+  function posFor(dist, lane) {
+    const a = track.startA + dist * Math.PI * 2;
+    const x = track.cx + (track.rx + lane) * Math.cos(a);
+    const y = track.cy + (track.ry + lane) * Math.sin(a);
+    const va = Math.atan2(track.ry * Math.cos(a), -track.rx * Math.sin(a)); // travel direction
+    const depth = 0.85 + 0.32 * ((y - (track.cy - track.ry)) / (2 * track.ry));
+    return { x, y, ang: va * 180 / Math.PI, depth };
+  }
+
+  function frame(now) {
+    if (state.start == null) { state.start = now; state.last = now; }
+    let dt = (now - state.last) / 1000;
+    if (dt > 0.05) dt = 0.05; // clamp big gaps
+    state.last = now;
+    const t = (now - state.start) / 1000;
+
+    // advance + place racers
+    for (const r of racers) {
+      const sp = speedOf(r, t, dt);
+      r.lastSpeed = sp;
+      if (!r.finished) {
+        r.dist += sp * dt;
+        if (r.dist >= track.laps) {
+          r.dist = track.laps;
+          r.finished = true;
+          r.finishTime = t;
+          state.finishCount++;
+          if (state.finishCount === 1) { state.winner = r.key; showWinner(r); }
+        }
+      }
+      const p = posFor(r.dist, r.lane);
+      r.obj.node.setAttribute("transform",
+        "translate(" + p.x.toFixed(2) + "," + p.y.toFixed(2) + ") rotate(" + p.ang.toFixed(2) + ") scale(" + p.depth.toFixed(3) + ")");
+
+      // wheels spin (faster with speed)
+      r.wheelAng += sp * 1400 * dt;
+      for (const w of r.obj.wheels) w.node.setAttribute("transform", "rotate(" + r.wheelAng.toFixed(1) + " " + w.cx + " " + w.cy + ")");
+
+      // pedalling / legs
+      r.pedalPh += sp * 22 * dt;
+      r.obj.legs.forEach((lg, i) => {
+        const a = Math.sin(r.pedalPh + i * Math.PI) * 26;
+        lg.node.setAttribute("transform", "rotate(" + a.toFixed(1) + " " + lg.hipX + " " + lg.hipY + ")");
+      });
+
+      // per-type flourishes
+      if (r.type === "rabbit") {
+        const ea = Math.sin(t * 6) * 6 + 4;
+        r.obj.ears.setAttribute("transform", "rotate(" + ea.toFixed(1) + " 19 -104)");
+      } else if (r.type === "eagle") {
+        const fa = Math.sin(t * 9) * 22 - 6;
+        r.obj.wing.setAttribute("transform", "rotate(" + fa.toFixed(1) + " 2 -70)");
+      } else if (r.type === "turtle") {
+        r.obj.puffs.forEach((puff, i) => {
+          const ph = (t * 1.2 + i * 0.33) % 1;
+          const op = Math.max(0, 0.5 - ph * 0.5);
+          puff.setAttribute("cx", (-70 - ph * 26).toFixed(1));
+          puff.setAttribute("cy", (-34 - ph * 10).toFixed(1));
+          puff.setAttribute("r", (5 + ph * 9).toFixed(1));
+          puff.setAttribute("opacity", op.toFixed(2));
+        });
+      }
+    }
+
+    // depth sorting (draw nearer racers on top)
+    racers.slice().sort((a, b) => {
+      const ya = posFor(a.dist, a.lane).y, yb = posFor(b.dist, b.lane).y;
+      return ya - yb;
+    }).forEach(r => racersLayer.appendChild(r.obj.node));
+
+    updateBoard(t);
+    requestAnimationFrame(frame);
+  }
+
+  /* ---------- leaderboard / ranking ---------- */
+  function ranking() {
+    return racers.slice().sort((a, b) => {
+      if (a.finished && b.finished) return a.finishTime - b.finishTime;
+      if (a.finished) return -1;
+      if (b.finished) return 1;
+      return b.dist - a.dist;
+    });
+  }
+
+  function updateBoard(t) {
+    document.getElementById("timer").textContent = t.toFixed(1) + "s";
+    const ranked = ranking();
+    ranked.forEach((r, i) => {
+      const row = document.getElementById("row-" + r.key);
+      row.querySelector(".pos").textContent = (i + 1);
+      const pct = Math.min(100, (r.dist / track.laps) * 100);
+      row.querySelector(".fill").style.width = pct.toFixed(1) + "%";
+      const stat = row.querySelector(".stat");
+      stat.querySelector("b").textContent = Math.round(pct) + "%";
+      stat.querySelector(".spd").textContent = r.lastSpeed.toFixed(2) + " l/s";
+      row.classList.toggle("lead", i === 0);
+    });
+  }
+
+  function showWinner(r) {
+    const w = document.getElementById("winner");
+    const place = { rabbit: "🐰 Rabbit", turtle: "🐢 Turtle", eagle: "🦅 Eagle" }[r.key];
+    w.innerHTML = "🏁 " + place + " wins!<small>Martian Ring Road Champion</small>";
+    w.classList.add("show");
+  }
+
+  /* ---------- stars twinkle keyframes (injected) ---------- */
+  const styleEl = document.createElement("style");
+  styleEl.textContent = "@keyframes tw{from{opacity:.25}to{opacity:1}}";
+  document.head.appendChild(styleEl);
+
+  /* ---------- start immediately ---------- */
+  resetRace();
+  requestAnimationFrame(frame);
+
+  document.getElementById("replay").addEventListener("click", function () {
+    resetRace();
+  });
+})();
+</script>
+</body>
+</html>

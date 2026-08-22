@@ -1,0 +1,3 @@
+Create artifact-opencode-free.html in the current working directory as one self-contained HTML file with no external assets or libraries (all JavaScript and CSS inline). Do not modify any files outside artifact-opencode-free.html.
+
+Build a browser music visualizer using WebAudio: an analyser with at least 60 frequency bins, at least three visual modes (e.g. bars, rings, particles) switchable by buttons, support for a file input and microphone, playback controls, and smooth animated rendering. The canvas must draw visible animation immediately. Write the file with your write tool to the exact relative path artifact-opencode-free.html, verify it loads without errors, fix any failed requirement, and stop.

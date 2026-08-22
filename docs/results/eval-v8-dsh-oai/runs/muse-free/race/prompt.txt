@@ -1,0 +1,3 @@
+Create artifact-muse-free.html in the current working directory as one self-contained HTML file with no external assets or libraries (all JavaScript and CSS inline). Do not modify any files outside artifact-muse-free.html.
+
+Build a lively SVG animation race on a Martian ring road: a rabbit riding a bicycle, a turtle riding a motorcycle, and a bald eagle riding a human-pedaled tricycle, racing from a start line to a finish line. Characters and vehicles must be detailed, movement must look natural, and a leaderboard or ranking must update. The animation must run immediately on load. Write the file with your write tool to the exact relative path artifact-muse-free.html, verify it loads without errors, fix any failed requirement, and stop.

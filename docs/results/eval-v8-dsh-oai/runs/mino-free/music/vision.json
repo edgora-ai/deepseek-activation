@@ -1,0 +1,7 @@
+{
+  "status": "ok",
+  "valid": true,
+  "summary": "A neon multi-ring audio visualization is clearly rendered on the canvas, not a blank or solid panel.",
+  "model": "gpt-5.6-terra",
+  "durationMs": 3180
+}

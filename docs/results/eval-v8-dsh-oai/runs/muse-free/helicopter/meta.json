@@ -1,0 +1,43 @@
+{
+  "runId": "dsh-standard-muse-free-helicopter",
+  "model": "muse-free",
+  "task": "helicopter",
+  "rules": "dsh-standard",
+  "protocol": "openai-completions",
+  "startedAt": "2026-08-22T01:24:29.513Z",
+  "finishedAt": "2026-08-22T01:28:07.130Z",
+  "durationMs": 217611,
+  "exitCode": 1,
+  "signal": null,
+  "timedOut": false,
+  "artifact": null,
+  "evaluation": {
+    "methodVersion": 6,
+    "generated": false,
+    "artifactHash": null,
+    "bytes": 0,
+    "syntaxPass": false,
+    "syntaxFailures": [],
+    "runtimePass": false,
+    "runtimeErrors": [],
+    "browserFailure": "target artifact was not generated",
+    "contractPassed": 0,
+    "contractTotal": 0,
+    "contractChecks": [],
+    "interactionPass": false,
+    "interaction": null,
+    "visualSanity": false,
+    "screenshot": null,
+    "screenshotBytes": 0,
+    "externalResources": [],
+    "placeholderCount": 0,
+    "runtimeSnapshot": null,
+    "visualStats": null,
+    "fullPass": false
+  },
+  "vision": null,
+  "usage": {
+    "status": "unavailable",
+    "reason": "dsh does not expose a run-attribution source"
+  }
+}

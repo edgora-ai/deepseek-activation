@@ -51,6 +51,19 @@
 | opencode-free | 4/6 | 2/6 | 高强度下计划过大被 `-p` 单轮截断 |
 | muse-free | 6/6 | 0/6 | **Write 工具调用发出空参数**（会话 JSONL 取证 `Write [] {}`） |
 
-结论：hroze 免费模型一律保持默认 effort；muse-free 只在默认强度下可用。gateway 免费池持续轮换（deepseek-free、nv3 先后下线，muse-free 间歇 400），对比结论有时效性。
+结论：hro
+## 附2：DSH 标准模式重测（协议修复后，high 强度）
+
+根因：hroze gateway 的 anthropic-messages 流式对带 tools 的响应丢 tool_use/终止块 → DSH 换 openai-completions 协议后工具链路恢复；opencode-free 强制思考需 anthropic 协议 + effort≥low（实测 high）。
+
+| 模型 | DSH Full (high) | Claude Code 对照 | 说明 |
+|---|---:|---:|---|
+| mino-free | 4/6 全勤 | 2/6 | DSH 标准模式首选 |
+| hy3 | 3/6 全勤 | 4/6 | low 时曾达 5/6；强度敏感 |
+| opencode-free | 1/6 | 4/6 | 流式 agentic 不稳定，4 任务假完成 |
+| muse-free | 0/6 | 6/6 | gateway 对 muse 上游丢 finish_reason（子代理实验证实，流式/非流式同时缺失），能力看 CC 轮 |
+
+数据：docs/results/eval-v8-dsh-oai/（v8-final-summary.*、report-v8-high.html、runs/）。
+e 免费模型一律保持默认 effort；muse-free 只在默认强度下可用。gateway 免费池持续轮换（deepseek-free、nv3 先后下线，muse-free 间歇 400），对比结论有时效性。
 
 数据：`docs/results/eval-v7-max-effort/models-summary-maxeffort.{json,md}`

@@ -1,0 +1,7 @@
+{
+  "status": "ok",
+  "valid": true,
+  "summary": "仪表盘布局完整可见，包含筛选控件、KPI指标卡和多张图表，未见明显布局破损。",
+  "model": "gpt-5.6-terra",
+  "durationMs": 3636
+}
